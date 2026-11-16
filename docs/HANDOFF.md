@@ -254,6 +254,13 @@ Colour roles used in the sketches and their Kirigami equivalents:
 
 The sketches in `docs/sketches/` show the earlier card look; the screenshots in `docs/screenshots/` show the current one.
 
+**News, simplified (after the redesign).** Fable and I reviewed whether the news feed was worth keeping, after the user asked whether a button would do:
+
+- **Arch, CachyOS, EndeavourOS** (ID or ID_LIKE `arch`): kyu-check fetches Arch's news feed only. Arch's news is the "manual intervention" channel, rare and the one warning pacman cannot give.
+- **Manjaro:** nothing is fetched. It posts an announcement per update batch, so a count would always say "1 new", and Arch's news is mistimed for its delayed branches. The panel shows a link to the branch's update announcements instead (`https://forum.manjaro.org/c/announcements/<branch>-updates`). **That URL is not verified**: the development environment could not reach the forum. Check it in a browser.
+- **Other distributions:** no news.
+- **The panel:** shows one row above the list only when pacman updates are pending and there is something to show. It reads "Arch Linux news · N since your last upgrade" above the newest title, which gets the full width because it is often the warning itself. Clicking opens that post, or the news page if there are several. A failed fetch is one muted line ("Arch Linux news not checked: …"). The bordered box, the per-distro feed table and the title list are gone. A plain "open news" button was rejected because it states no fact: someone who never clicks it learns nothing.
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").

@@ -127,9 +127,12 @@ int main(int argc, char **argv)
                 source.name = QStringLiteral("News");
             }
         }
-        newsResult = Kyu::fetchNews(source, Kyu::lastFullUpgrade(parser.value(pacmanLog)));
-        if (!newsResult->ok) {
-            err << "kyu-check: news: " << newsResult->error << Qt::endl;
+        // No known news for this distribution: nothing to do.
+        if (!source.name.isEmpty()) {
+            newsResult = Kyu::fetchNews(source, Kyu::lastFullUpgrade(parser.value(pacmanLog)));
+            if (!newsResult->ok) {
+                err << "kyu-check: news: " << newsResult->error << Qt::endl;
+            }
         }
     }
 

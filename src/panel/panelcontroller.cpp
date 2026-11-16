@@ -258,42 +258,58 @@ QString PanelController::flatpakNote() const
     return QStringLiteral("Update all runs pacman -Syu, then updates the Flatpaks.");
 }
 
-QString PanelController::newsTitle() const
+QString PanelController::newsText() const
 {
     // News matters before a system upgrade: shown only with pacman updates.
-    if (m_updates.pacmanCount() == 0 || (m_state.news.items.isEmpty() && newsError().isEmpty())) {
+    if (m_updates.pacmanCount() == 0 || m_state.news.source.isEmpty()) {
         return {};
     }
-    if (m_state.news.items.isEmpty()) {
-        return m_state.news.source;
+    const auto &items = m_state.news.items;
+    if (!items.isEmpty()) {
+        return QStringLiteral("%1 since your last upgrade: %2 · %3").arg(m_state.news.source).arg(items.size()).arg(items.first().title);
     }
-    const QString since = m_state.news.since.isValid() ? QLocale().toString(m_state.news.since.toLocalTime().date(), QLocale::ShortFormat)
-                                                        : QString();
-    return since.isEmpty() ? m_state.news.source : QStringLiteral("%1 since your last update (%2)").arg(m_state.news.source, since);
+    if (m_state.news.url.isEmpty() && !m_state.news.page.isEmpty()) {
+        return m_state.news.source; // a link-only source (Manjaro)
+    }
+    return {};
 }
 
-QVariantList PanelController::newsItems() const
+QString PanelController::newsSource() const
 {
-    QVariantList items;
-    if (m_updates.pacmanCount() == 0) {
-        return items;
+    if (newsText().isEmpty()) {
+        return {};
     }
-    for (const auto &item : m_state.news.items) {
-        items.append(QVariantMap{
-            {QStringLiteral("title"), item.title},
-            {QStringLiteral("link"), item.link},
-            {QStringLiteral("date"), QLocale().toString(item.published.toLocalTime().date(), QLocale::ShortFormat)},
-        });
+    const auto &items = m_state.news.items;
+    if (items.isEmpty()) {
+        return QStringLiteral("Update notes, opens in the browser");
     }
-    return items;
+    return QStringLiteral("%1 · %2 since your last upgrade").arg(m_state.news.source).arg(items.size());
+}
+
+QString PanelController::newsHeadline() const
+{
+    if (newsText().isEmpty()) {
+        return {};
+    }
+    const auto &items = m_state.news.items;
+    return items.isEmpty() ? m_state.news.source : items.first().title;
+}
+
+QString PanelController::newsUrl() const
+{
+    const auto &items = m_state.news.items;
+    if (items.size() == 1 && !items.first().link.isEmpty()) {
+        return items.first().link;
+    }
+    return m_state.news.page;
 }
 
 QString PanelController::newsError() const
 {
-    if (!m_state.news.checked || m_state.news.ok || m_state.news.url.isEmpty()) {
+    if (m_updates.pacmanCount() == 0 || !m_state.news.checked || m_state.news.ok || m_state.news.url.isEmpty()) {
         return {};
     }
-    return QStringLiteral("Could not fetch the news: %1").arg(m_state.news.error);
+    return QStringLiteral("%1 not checked: %2").arg(m_state.news.source, m_state.news.error);
 }
 
 void PanelController::openLink(const QString &url)

@@ -69,57 +69,62 @@ ColumnLayout {
         }
     }
 
-    // The distro's news since the last full upgrade, before updating.
-    Rectangle {
-        visible: Panel.newsTitle.length > 0
-        color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.2)
-        radius: Kirigami.Units.smallSpacing
+    // One line, only when there is something: Arch news since the last full
+    // upgrade (count and newest title, which is often the warning itself),
+    // or Manjaro's update announcements as a link. A failed fetch says so.
+    Hairline { visible: newsLine.visible }
+    QQC2.ItemDelegate {
+        id: newsLine
+        visible: Panel.newsText.length > 0
+        Layout.fillWidth: true
+        leftPadding: Kirigami.Units.gridUnit
+        rightPadding: Kirigami.Units.gridUnit
+        topPadding: Kirigami.Units.smallSpacing * 1.5
+        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+        onClicked: Panel.openLink(Panel.newsUrl)
+        Accessible.name: Panel.newsText
+        QQC2.ToolTip.visible: hovered && headline.truncated
+        QQC2.ToolTip.text: Panel.newsHeadline
+        background: Rectangle {
+            color: newsLine.hovered || newsLine.visualFocus ? Kirigami.Theme.alternateBackgroundColor : "transparent"
+        }
+        contentItem: RowLayout {
+            spacing: Kirigami.Units.largeSpacing
+            ColumnLayout {
+                spacing: 0
+                Layout.fillWidth: true
+                QQC2.Label {
+                    text: Panel.newsSource
+                    font: Kirigami.Theme.smallFont
+                    color: Kirigami.Theme.disabledTextColor
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+                QQC2.Label {
+                    id: headline
+                    text: Panel.newsHeadline
+                    color: Kirigami.Theme.linkColor
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
+            Kirigami.Icon {
+                source: "go-next"
+                Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                Layout.preferredHeight: Kirigami.Units.iconSizes.small
+            }
+        }
+    }
+    QQC2.Label {
+        visible: text.length > 0
+        text: Panel.newsError
+        font: Kirigami.Theme.smallFont
+        color: Kirigami.Theme.disabledTextColor
+        elide: Text.ElideRight
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
-        Layout.bottomMargin: Kirigami.Units.largeSpacing
-        implicitHeight: newsColumn.implicitHeight + Kirigami.Units.largeSpacing * 2
-        ColumnLayout {
-            id: newsColumn
-            anchors.fill: parent
-            anchors.margins: Kirigami.Units.largeSpacing
-            spacing: Kirigami.Units.smallSpacing / 2
-            QQC2.Label {
-                text: Panel.newsTitle
-                font: Kirigami.Theme.smallFont
-                color: Kirigami.Theme.disabledTextColor
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-            Repeater {
-                model: Panel.newsItems.slice(0, 3)
-                delegate: QQC2.Label {
-                    required property var modelData
-                    text: "<a href=\"" + modelData.link + "\">" + modelData.title + "</a> · " + modelData.date
-                    textFormat: Text.StyledText
-                    linkColor: Kirigami.Theme.linkColor
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                    onLinkActivated: link => Panel.openLink(link)
-                }
-            }
-            QQC2.Label {
-                visible: Panel.newsItems.length > 3
-                text: (Panel.newsItems.length - 3) + " more"
-                font: Kirigami.Theme.smallFont
-                color: Kirigami.Theme.disabledTextColor
-            }
-            QQC2.Label {
-                visible: text.length > 0
-                text: Panel.newsError
-                font: Kirigami.Theme.smallFont
-                color: Kirigami.Theme.disabledTextColor
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-        }
+        Layout.bottomMargin: Kirigami.Units.smallSpacing
     }
 
     Hairline {}

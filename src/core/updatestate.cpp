@@ -146,6 +146,7 @@ QJsonObject UpdateState::toJson() const
     QJsonObject newsObject = statusToJson({news.checked, news.ok, news.error, news.checkedAt, {}});
     newsObject.insert(QStringLiteral("source"), news.source);
     newsObject.insert(QStringLiteral("url"), news.url);
+    newsObject.insert(QStringLiteral("page"), news.page);
     newsObject.insert(QStringLiteral("since"), dateToString(news.since));
     newsObject.insert(QStringLiteral("items"), newsItems);
     return QJsonObject{
@@ -196,6 +197,7 @@ UpdateState UpdateState::fromJson(const QJsonObject &object)
     state.news.checkedAt = ns.checkedAt;
     state.news.source = n.value(QStringLiteral("source")).toString();
     state.news.url = n.value(QStringLiteral("url")).toString();
+    state.news.page = n.value(QStringLiteral("page")).toString();
     state.news.since = dateFromJson(n.value(QStringLiteral("since")));
     for (const auto &value : n.value(QStringLiteral("items")).toArray()) {
         const auto o = value.toObject();
@@ -283,6 +285,7 @@ UpdateState UpdateState::merge(const UpdateState &previous,
         state.news.checkedAt = now;
         state.news.source = news->source.name;
         state.news.url = news->source.url;
+        state.news.page = news->source.page;
         if (news->ok) {
             state.news.error.clear();
             state.news.since = news->since;

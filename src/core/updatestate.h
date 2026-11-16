@@ -68,6 +68,7 @@ struct NewsState {
     QDateTime checkedAt;
     QString source;
     QString url;
+    QString page;
     QDateTime since;
     QList<NewsItem> items;
 

@@ -410,21 +410,38 @@ private Q_SLOTS:
         QCOMPARE(c.updates()->index(1).data(UpdatesModel::NameRole).toString(), QStringLiteral("linux618"));
         QVERIFY(c.updates()->index(1).data(UpdatesModel::RestartRole).toBool());
         QVERIFY(!c.updates()->index(0).data(UpdatesModel::RestartRole).toBool());
-        QVERIFY(c.newsTitle().startsWith(QStringLiteral("Arch Linux news since your last update")));
-        QCOMPARE(c.newsItems().size(), 1);
+        QCOMPARE(c.newsText(), QStringLiteral("Arch Linux news since your last upgrade: 1 · Manual intervention for foo"));
+        QCOMPARE(c.newsUrl(), QStringLiteral("https://archlinux.org/news/foo/")); // one item: that post
+        QCOMPARE(c.newsSource(), QStringLiteral("Arch Linux news · 1 since your last upgrade"));
+        QCOMPARE(c.newsHeadline(), QStringLiteral("Manual intervention for foo"));
 
         // Only before a system upgrade: not with Flatpak updates alone.
         s.packages.clear();
         c.setUpdateState(s);
-        QVERIFY(c.newsTitle().isEmpty());
-        QVERIFY(c.newsItems().isEmpty());
+        QVERIFY(c.newsText().isEmpty());
+
+        // Manjaro: a link only, nothing fetched.
+        s = sample();
+        s.news = {true, true, {}, {}, QStringLiteral("Manjaro stable update announcements"), QString(),
+                  QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"), {}, {}};
+        c.setUpdateState(s);
+        QCOMPARE(c.newsText(), QStringLiteral("Manjaro stable update announcements"));
+        QCOMPARE(c.newsUrl(), QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"));
+
+        // Nothing new: no line at all.
+        s = sample();
+        s.news = {true, true, {}, {}, QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/"),
+                  QStringLiteral("https://archlinux.org/news/"), {}, {}};
+        c.setUpdateState(s);
+        QVERIFY(c.newsText().isEmpty());
+        QVERIFY(c.newsError().isEmpty());
 
         // A failed fetch is shown as such.
         s = sample();
         s.news = {true, false, QStringLiteral("https://archlinux.org/feeds/news/: Host not found"), {}, QStringLiteral("Arch Linux news"),
-                  QStringLiteral("https://archlinux.org/feeds/news/"), {}, {}};
+                  QStringLiteral("https://archlinux.org/feeds/news/"), QStringLiteral("https://archlinux.org/news/"), {}, {}};
         c.setUpdateState(s);
-        QVERIFY(c.newsError().contains(QStringLiteral("Host not found")));
+        QCOMPARE(c.newsError(), QStringLiteral("Arch Linux news not checked: https://archlinux.org/feeds/news/: Host not found"));
     }
 
     void finishedWithRestartAndSettingsFiles()

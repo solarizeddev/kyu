@@ -35,10 +35,12 @@ class PanelController : public QObject
     Q_PROPERTY(QString flatpakNote READ flatpakNote NOTIFY changed)
     Q_PROPERTY(QString commandPreview READ commandPreview NOTIFY changed)
     Q_PROPERTY(bool canUpdate READ canUpdate NOTIFY changed)
-    Q_PROPERTY(QString newsTitle READ newsTitle NOTIFY changed)
+    Q_PROPERTY(QString newsText READ newsText NOTIFY changed)
+    Q_PROPERTY(QString newsUrl READ newsUrl NOTIFY changed)
+    Q_PROPERTY(QString newsSource READ newsSource NOTIFY changed)
+    Q_PROPERTY(QString newsHeadline READ newsHeadline NOTIFY changed)
     Q_PROPERTY(QString interruptedText READ interruptedText NOTIFY changed)
     Q_PROPERTY(bool canRemoveLock READ canRemoveLock NOTIFY changed)
-    Q_PROPERTY(QVariantList newsItems READ newsItems NOTIFY changed)
     Q_PROPERTY(QString newsError READ newsError NOTIFY changed)
     Q_PROPERTY(bool starting READ starting NOTIFY changed)
     Q_PROPERTY(QString message READ message NOTIFY changed)
@@ -108,12 +110,18 @@ public:
     // What "Update all" runs, as text (HANDOFF.md rule 3).
     QString commandPreview() const;
     bool canUpdate() const;
-    QString newsTitle() const;
+    // One line, only with pending pacman updates: Arch news since the last
+    // full upgrade (count and newest title), or Manjaro's announcements link.
+    QString newsText() const;
+    QString newsUrl() const;
+    // newsText in two parts: what and how many ("Arch Linux news · 2 since
+    // your last upgrade"), and the newest title, which gets the full width.
+    QString newsSource() const;
+    QString newsHeadline() const;
     QString interruptedText() const;
     bool canRemoveLock() const;
     // GetState's "previous" and "lock" (tests set them directly).
     void setHelperState(const QJsonObject &state);
-    QVariantList newsItems() const;
     QString newsError() const;
     bool starting() const { return m_starting; }
     QString message() const { return m_message; }

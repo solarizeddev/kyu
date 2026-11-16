@@ -60,10 +60,15 @@ private Q_SLOTS:
         QCOMPARE(newsSourceFor(write(dir, "eos", "ID=endeavouros\nID_LIKE=arch\n")).name, QStringLiteral("Arch Linux news"));
         QCOMPARE(newsSourceFor(write(dir, "cachy", "ID=cachyos\nID_LIKE=\"arch\"\n")).name, QStringLiteral("Arch Linux news"));
         const QString manjaro = write(dir, "manjaro", "ID=manjaro\nID_LIKE=arch\n");
-        QCOMPARE(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))).url,
-                 QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates.rss"));
-        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors", "# comment\nBranch = testing\n")).url,
-                 QStringLiteral("https://forum.manjaro.org/c/announcements/testing-updates.rss"));
+        // Manjaro: a link to the branch's announcements, no feed to fetch.
+        QVERIFY(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))).url.isEmpty());
+        QCOMPARE(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))).page,
+                 QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"));
+        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors", "# comment\nBranch = testing\n")).page,
+                 QStringLiteral("https://forum.manjaro.org/c/announcements/testing-updates"));
+        const auto linkOnly = fetchNews(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))), {});
+        QVERIFY(linkOnly.ok);
+        QVERIFY(linkOnly.items.isEmpty());
         QVERIFY(newsSourceFor(write(dir, "ubuntu", "ID=ubuntu\nID_LIKE=debian\n")).url.isEmpty());
     }
 

@@ -57,11 +57,12 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
         if (branch != QLatin1String("testing") && branch != QLatin1String("unstable")) {
             branch = QStringLiteral("stable");
         }
-        return {QStringLiteral("Manjaro %1 update announcements").arg(branch),
-                QStringLiteral("https://forum.manjaro.org/c/announcements/%1-updates.rss").arg(branch)};
+        // Not verified from the development environment: check in a browser.
+        return {QStringLiteral("Manjaro %1 update announcements").arg(branch), QString(),
+                QStringLiteral("https://forum.manjaro.org/c/announcements/%1-updates").arg(branch)};
     }
     if (id == QLatin1String("arch") || os.value(QStringLiteral("ID_LIKE")).split(QLatin1Char(' ')).contains(QLatin1String("arch"))) {
-        return {QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/")};
+        return {QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/"), QStringLiteral("https://archlinux.org/news/")};
     }
     return {};
 }
@@ -156,7 +157,7 @@ NewsResult fetchNews(const NewsSource &source, const QDateTime &since, int timeo
     result.source = source;
     result.since = since.isValid() ? since : QDateTime::currentDateTimeUtc().addDays(-30);
     if (source.url.isEmpty()) {
-        result.error = QStringLiteral("no news feed known for this distribution");
+        result.ok = true; // a link-only source: nothing to fetch
         return result;
     }
 
