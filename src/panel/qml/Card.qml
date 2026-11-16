@@ -1,11 +1,19 @@
-// A content surface: the View colour set's background (the sketches' "tile").
+// A content area. Flat: no fill or rounded corners, a divider above and below.
 import QtQuick
 import org.kde.kirigami as Kirigami
 
-Rectangle {
-    Kirigami.Theme.colorSet: Kirigami.Theme.View
-    Kirigami.Theme.inherit: false
-    color: Kirigami.Theme.backgroundColor
-    radius: Kirigami.Units.largeSpacing
+Item {
     clip: true
+    Kirigami.Separator {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        z: 1
+    }
+    Kirigami.Separator {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        z: 1
+    }
 }

@@ -82,6 +82,10 @@ private Q_SLOTS:
         QCOMPARE(c.title(), QStringLiteral("5 updates"));
         QVERIFY2(c.details().startsWith(QStringLiteral("165.0 MiB · checked ")), qPrintable(c.details()));
         QVERIFY(!c.flatpakNote().isEmpty());
+        QVERIFY(c.commandPreview().startsWith(QStringLiteral("$ pacman -Syu")));
+        QVERIFY(c.commandPreview().contains(QStringLiteral("then Flatpak updates")));
+        QCOMPARE(m->index(1).data(UpdatesModel::SizeTextRole).toString(), QStringLiteral("150 MiB"));
+        QCOMPARE(m->index(3).data(UpdatesModel::SizeTextRole).toString(), QString()); // mesa: size unknown
         QVERIFY(c.canUpdate());
         QCOMPARE(c.screen(), QStringLiteral("list"));
     }
@@ -107,6 +111,8 @@ private Q_SLOTS:
         QCOMPARE(status(m, QStringLiteral("kwin")), QStringLiteral("waiting"));
         QCOMPARE(status(m, QStringLiteral("org.mozilla.firefox")), QStringLiteral("pending"));
         QCOMPARE(c.output()->rowCount(), 1); // "$ /usr/bin/pacman -Syu"
+        QCOMPARE(c.output()->tail(5).size(), 1);
+        QCOMPARE(c.output()->tail(5)[0].toMap().value(QStringLiteral("line")).toString(), QStringLiteral("$ /usr/bin/pacman -Syu"));
         QVERIFY(c.processLine().contains(QStringLiteral("pacman pid 4127")));
 
         c.handleRecord(rec("stage", {{QStringLiteral("stage"), QStringLiteral("sync")}}));

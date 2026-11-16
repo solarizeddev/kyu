@@ -1,5 +1,7 @@
 #include "updatesmodel.h"
 
+#include <QLocale>
+
 #include <algorithm>
 
 UpdatesModel::UpdatesModel(QObject *parent)
@@ -43,6 +45,8 @@ QVariant UpdatesModel::data(const QModelIndex &index, int role) const
         return r.action;
     case RestartRole:
         return r.restart;
+    case SizeTextRole:
+        return r.size > 0 ? QLocale().formattedDataSize(r.size, 0, QLocale::DataSizeIecFormat) : QString();
     }
     return {};
 }
@@ -59,6 +63,7 @@ QHash<int, QByteArray> UpdatesModel::roleNames() const
         {StatusRole, "status"},
         {ActionRole, "action"},
         {RestartRole, "restart"},
+        {SizeTextRole, "sizeText"},
     };
 }
 

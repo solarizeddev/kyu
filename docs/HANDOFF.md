@@ -243,6 +243,17 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - **Noted: `CMAKE_INSTALL_LIBEXECDIR`** defaults to `/usr/libexec`; an Arch package should set it (README).
 - **Not verifiable here:** the exact pacman 7 wording of the conflict question, and whether the provider list was ever stuck behind the question; both are covered by the changes above, but need a run against real pacman.
 
+**Terminal-style redesign (after milestone 7).** The user asked for a "more modern, terminal, Omarchy-like" look. Fable and I both judged a full Omarchy skin wrong for a KDE app (its own palette breaks rule 6, all-monospace hurts prose and translations), but the direction worth taking. The panel now uses one layout, with no theme setting:
+
+- **Flat, dense layout:** flat sections with 1px dividers instead of rounded cards. Rows are about 1.6 grid units high, with name, versions or status, and size in fixed-width columns.
+- **Headings and explanations** stay in the normal font. Status always carries a mark or a word, never colour alone. There is no box-drawing or ASCII decoration.
+- **Command preview:** the exact command "Update all" runs is shown as text above the button (rule 3).
+- **Updating screen:** a live 5-line tail of the output under the list; the full output is one key away.
+- **Keyboard:** shortcuts and one hint line per screen. Enter, 1–9, c, l, s, p, w, y and Esc. No key restarts or cancels.
+- **Colours:** from Kirigami.Theme roles only. With a Tokyo Night or Catppuccin colour scheme and a monospace system font it reads like Omarchy; with Breeze it reads like a KDE utility.
+
+The sketches in `docs/sketches/` show the earlier card look; the screenshots in `docs/screenshots/` show the current one.
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").

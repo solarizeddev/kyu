@@ -1,4 +1,5 @@
-// A transaction is running: percentage, thin bar, the list ticking off.
+// A transaction is running: percentage, thin bar, the list ticking off, the
+// last lines of the output.
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
@@ -6,67 +7,69 @@ import org.kde.kirigami as Kirigami
 
 ColumnLayout {
     signal showOutput()
-    spacing: Kirigami.Units.largeSpacing * 2
+    spacing: 0
 
     ColumnLayout {
         Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.gridUnit
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
-        spacing: Kirigami.Units.largeSpacing
-        RowLayout {
+        Layout.margins: Kirigami.Units.gridUnit
+        spacing: Kirigami.Units.smallSpacing
+        Kirigami.Heading {
+            level: 1
+            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.6
+            font.weight: Font.DemiBold
+            text: "Updating · " + Panel.percent + "%"
             Layout.fillWidth: true
-            Kirigami.Heading {
-                level: 1
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 2.6
-                font.weight: Font.DemiBold
-                text: Panel.percent + " %"
-            }
-            Item { Layout.fillWidth: true }
-            QQC2.Label {
-                text: Panel.progressText
-                font.family: Kirigami.Theme.fixedWidthFont.family
-                font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: Kirigami.Theme.disabledTextColor
-                Layout.alignment: Qt.AlignBottom
-            }
         }
-        ThinBar { value: Panel.percent / 100 }
+        QQC2.Label {
+            text: Panel.progressText
+            font.family: Kirigami.Theme.fixedWidthFont.family
+            font.pointSize: Kirigami.Theme.smallFont.pointSize
+            color: Kirigami.Theme.disabledTextColor
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+        }
+        ThinBar {
+            value: Panel.percent / 100
+            Layout.topMargin: Kirigami.Units.smallSpacing
+        }
     }
 
     Message {
         text: Panel.question.length > 0
-              ? "pacman asked: “" + Panel.question + "”. Kyu cannot answer questions yet, so it stopped pacman before any package changed."
+              ? "pacman asked: “" + Panel.question + "”. Kyu does not recognise this question, so it stopped pacman before any package changed."
               : ""
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
+        Layout.bottomMargin: Kirigami.Units.largeSpacing
     }
 
+    Hairline {}
     PackageList {
         tracking: true
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
     }
+    Hairline {}
+    LogTail { lines: 5 }
+    Hairline {}
 
-    QQC2.Label {
-        text: "Keep working. Closing this panel will not stop the update."
-        wrapMode: Text.Wrap
-        color: Kirigami.Theme.disabledTextColor
+    ColumnLayout {
         Layout.fillWidth: true
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
-    }
-
-    QQC2.Button {
-        text: "Show technical details"
-        icon.name: "utilities-terminal"
-        onClicked: showOutput()
-        Layout.fillWidth: true
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 2.25
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
-        Layout.bottomMargin: Kirigami.Units.gridUnit
+        Layout.margins: Kirigami.Units.gridUnit
+        Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
+        spacing: Kirigami.Units.largeSpacing
+        QQC2.Label {
+            text: "Closing this window does not stop the update."
+            wrapMode: Text.Wrap
+            color: Kirigami.Theme.disabledTextColor
+            Layout.fillWidth: true
+        }
+        QQC2.Button {
+            text: "Full output"
+            icon.name: "utilities-terminal"
+            onClicked: showOutput()
+            Layout.fillWidth: true
+        }
+        KeyHints { text: "l output · esc close (the update keeps running)" }
     }
 }

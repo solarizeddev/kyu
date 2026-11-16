@@ -24,6 +24,7 @@ public:
         StatusRole, // pending, waiting, working, done, failed, unchanged
         ActionRole, // pacman's verb while working/done: upgrading, installing, ...
         RestartRole, // the running kernel's package
+        SizeTextRole, // package size, formatted ("150 MiB"), or empty
     };
     Q_ENUM(Role)
 

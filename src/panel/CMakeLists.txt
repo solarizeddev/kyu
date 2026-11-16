@@ -22,7 +22,10 @@ qt_add_resources(kyu panel_qml PREFIX "/" FILES
     qml/OutputPage.qml
     qml/FinishedScreen.qml
     qml/ChangesPage.qml
-    qml/LinkCard.qml
+    qml/LinkRow.qml
+    qml/Hairline.qml
+    qml/KeyHints.qml
+    qml/LogTail.qml
     qml/PageHeader.qml
     qml/ConfigsPage.qml
     qml/DiffPage.qml

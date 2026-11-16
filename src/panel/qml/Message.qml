@@ -11,7 +11,7 @@ Rectangle {
 
     visible: text.length > 0
     color: Kirigami.Theme.neutralBackgroundColor
-    radius: Kirigami.Units.largeSpacing
+    radius: Kirigami.Units.smallSpacing
     implicitHeight: row.implicitHeight + Kirigami.Units.largeSpacing * 2
     Layout.fillWidth: true
 

@@ -47,6 +47,15 @@ void OutputModel::clear()
     Q_EMIT countChanged();
 }
 
+QVariantList OutputModel::tail(int count) const
+{
+    QVariantList lines;
+    for (qsizetype i = qMax<qsizetype>(0, m_lines.size() - count); i < m_lines.size(); ++i) {
+        lines.append(QVariantMap{{QStringLiteral("line"), m_lines[i].first}, {QStringLiteral("stream"), m_lines[i].second}});
+    }
+    return lines;
+}
+
 QString OutputModel::text() const
 {
     QStringList lines;

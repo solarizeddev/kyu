@@ -310,6 +310,22 @@ void PanelController::copyText(const QString &text)
     QGuiApplication::clipboard()->setText(text);
 }
 
+QString PanelController::commandPreview() const
+{
+    const bool pacman = m_updates.pacmanCount() > 0;
+    const bool flatpak = m_updates.flatpakCount() > 0;
+    if (pacman && flatpak) {
+        return QStringLiteral("$ pacman -Syu  as root, via kyu-helper\nthen Flatpak updates through libflatpak");
+    }
+    if (pacman) {
+        return QStringLiteral("$ pacman -Syu  as root, via kyu-helper");
+    }
+    if (flatpak) {
+        return QStringLiteral("Flatpak updates through libflatpak");
+    }
+    return {};
+}
+
 bool PanelController::canUpdate() const
 {
     if (m_screen != QLatin1String("list") || m_starting) {

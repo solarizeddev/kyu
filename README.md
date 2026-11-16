@@ -10,6 +10,10 @@ Current state: milestone 7. The tray icon shows pending repo and Flatpak updates
 
 The news items in the screenshots are sample data.
 
+The panel is dense and keyboard-driven: flat sections with dividers, data in the fixed-width font, the exact command above "Update all", a live tail of the output while it runs, and a line of key hints on every screen. Colours come only from your colour scheme, so it looks like a terminal tool with a terminal-like scheme (Tokyo Night, Catppuccin) and like a KDE utility with Breeze.
+
+Keys: Enter updates all (list) or continues (question); 1–9 pick an answer; c checks again; l shows the output; s, p and w open the settings files, programs and changes after an update; y copies the log; Esc goes back, closes the window or (on the result) is Done. No key restarts the computer or cancels an update: those are buttons only, and closing the window never stops an update or answers a question.
+
 The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stand-in for Kirigami (Breeze colours, Fusion controls). On Plasma the panel uses the real Kirigami, your colour scheme and Plasma's control style.
 
 ## Components

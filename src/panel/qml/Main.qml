@@ -17,20 +17,83 @@ QQC2.ApplicationWindow {
     title: "Updates"
     color: Kirigami.Theme.backgroundColor
 
+    // The page on top of the current screen ("" when none): keys depend on it.
+    property string page: ""
+    function push(component, name, properties) {
+        stack.push(component, properties || {})
+        page = name
+    }
+    function back() {
+        stack.pop()
+        page = stack.depth > 1 ? page : ""
+    }
     function showOutput() {
-        stack.push(outputPage)
+        push(outputPage, "output")
     }
     function showChanges() {
-        stack.push(changesPage)
+        push(changesPage, "changes")
     }
     function showConfigs() {
-        stack.push(configsPage)
+        push(configsPage, "configs")
     }
     function showDiff(path, saved) {
-        stack.push(diffPage, { path: path, saved: saved })
+        push(diffPage, "diff", { path: path, saved: saved })
     }
     function showProcesses() {
-        stack.push(processesPage)
+        push(processesPage, "processes")
+    }
+
+    // Keyboard. Every key here is named in the screen's hint line. Nothing
+    // here restarts the computer or cancels an update: those stay buttons.
+    readonly property bool onScreen: stack.depth === 1
+    Shortcut {
+        sequences: ["Return", "Enter"]
+        enabled: root.onScreen && Panel.screen === "list" && Panel.canUpdate
+        onActivated: Panel.updateAll()
+    }
+    Shortcut {
+        sequence: "C"
+        enabled: root.onScreen && Panel.screen === "list" && !Panel.checking
+        onActivated: Panel.checkAgain()
+    }
+    Shortcut {
+        sequence: "L"
+        enabled: root.onScreen && Panel.screen !== "list"
+        onActivated: root.showOutput()
+    }
+    Shortcut {
+        sequence: "S"
+        enabled: root.onScreen && Panel.screen === "finished" && Panel.configs.length > 0
+        onActivated: root.showConfigs()
+    }
+    Shortcut {
+        sequence: "P"
+        enabled: root.onScreen && Panel.screen === "finished" && Panel.processCount > 0
+        onActivated: root.showProcesses()
+    }
+    Shortcut {
+        sequence: "W"
+        enabled: root.onScreen && Panel.screen === "finished" && Panel.changes.length > 0
+        onActivated: root.showChanges()
+    }
+    Shortcut {
+        sequence: "Y"
+        enabled: root.page === "output"
+        onActivated: Panel.copyLog()
+    }
+    Shortcut {
+        // Back from a page; "done" on the result; otherwise close the window.
+        // Closing never stops an update or answers a question.
+        sequence: "Escape"
+        onActivated: {
+            if (stack.depth > 1) {
+                root.back()
+            } else if (Panel.screen === "finished") {
+                Panel.done()
+            } else {
+                root.close()
+            }
+        }
     }
 
     Connections {
@@ -68,15 +131,15 @@ QQC2.ApplicationWindow {
             onShowProcesses: root.showProcesses()
         }
     }
-    Component { id: outputPage; OutputPage { onBack: stack.pop() } }
-    Component { id: changesPage; ChangesPage { onBack: stack.pop() } }
+    Component { id: outputPage; OutputPage { onBack: root.back() } }
+    Component { id: changesPage; ChangesPage { onBack: root.back() } }
     Component {
         id: configsPage
         ConfigsPage {
-            onBack: stack.pop()
+            onBack: root.back()
             onShowDiff: (path, saved) => root.showDiff(path, saved)
         }
     }
-    Component { id: diffPage; DiffPage { onBack: stack.pop() } }
-    Component { id: processesPage; ProcessesPage { onBack: stack.pop() } }
+    Component { id: diffPage; DiffPage { onBack: root.back() } }
+    Component { id: processesPage; ProcessesPage { onBack: root.back() } }
 }

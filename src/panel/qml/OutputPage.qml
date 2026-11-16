@@ -48,21 +48,20 @@ ColumnLayout {
         Layout.rightMargin: Kirigami.Units.gridUnit
     }
 
-    // A terminal-like surface: Kirigami's Complementary colour set.
+    // The output on the View colour set's background, edge to edge.
     Rectangle {
-        Kirigami.Theme.colorSet: Kirigami.Theme.Complementary
+        Kirigami.Theme.colorSet: Kirigami.Theme.View
         Kirigami.Theme.inherit: false
         color: Kirigami.Theme.backgroundColor
-        radius: Kirigami.Units.largeSpacing
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
 
         ListView {
             id: lines
             anchors.fill: parent
-            anchors.margins: Kirigami.Units.largeSpacing * 2
+            anchors.margins: Kirigami.Units.largeSpacing
+            anchors.leftMargin: Kirigami.Units.gridUnit
+            anchors.rightMargin: Kirigami.Units.gridUnit
             clip: true
             model: Panel.output
             boundsBehavior: Flickable.StopAtBounds
@@ -115,6 +114,11 @@ ColumnLayout {
         Layout.rightMargin: Kirigami.Units.gridUnit
     }
 
+    KeyHints {
+        text: "y copy log · esc back"
+        Layout.leftMargin: Kirigami.Units.gridUnit
+        Layout.rightMargin: Kirigami.Units.gridUnit
+    }
     QQC2.Label {
         text: "Exactly the commands shown run, nothing hidden." + (Panel.logPath.length > 0 ? " Full log: " + Panel.logPath : "")
         wrapMode: Text.WrapAnywhere

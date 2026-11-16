@@ -13,6 +13,8 @@
 #include <QQuickItem>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QTimer>
 #include <QUrlQuery>
 #include <QtQml/qqmlregistration.h>
@@ -215,12 +217,15 @@ QCommandLineOption page(QStringLiteral("page"),
                         QStringLiteral("Preview: open \"output\", \"changes\", \"configs\", \"diff\" (the first settings file) or \"processes\" after MS (--page-delay)."),
                         QStringLiteral("name"));
 QCommandLineOption answer(QStringLiteral("answer"), QStringLiteral("Preview: answer pacman's question with VALUE (\"cancel\" cancels)."), QStringLiteral("value"));
+QCommandLineOption press(QStringLiteral("press"),
+                         QStringLiteral("Preview: press KEY (Qt key name, e.g. Return, L, Escape) after MS: KEY@MS, repeatable."),
+                         QStringLiteral("key@ms"));
 QCommandLineOption pageDelay(QStringLiteral("page-delay"), QStringLiteral("Preview: delay for --page."), QStringLiteral("ms"), QStringLiteral("500"));
 }
 
 void addOptions(QCommandLineParser &parser)
 {
-    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer});
+    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer, press});
 }
 
 void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
@@ -293,6 +298,25 @@ void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelC
                     }
                 });
             }
+        });
+    }
+    for (const QString &spec : parser.values(press)) {
+        const QString keyName = spec.section(QLatin1Char('@'), 0, 0);
+        const int at = spec.section(QLatin1Char('@'), 1).toInt();
+        QTimer::singleShot(at, root, [root, keyName] {
+            auto *window = qobject_cast<QQuickWindow *>(root);
+            const QKeySequence sequence(keyName);
+            if (!window || sequence.isEmpty()) {
+                qWarning("preview: cannot press %s", qPrintable(keyName));
+                return;
+            }
+            window->requestActivate();
+            const int key = sequence[0].key();
+            const QString text = keyName.size() == 1 ? keyName.toLower() : QString();
+            QKeyEvent down(QEvent::KeyPress, key, Qt::NoModifier, text);
+            QKeyEvent up(QEvent::KeyRelease, key, Qt::NoModifier, text);
+            QCoreApplication::sendEvent(window, &down);
+            QCoreApplication::sendEvent(window, &up);
         });
     }
     if (parser.isSet(page)) {

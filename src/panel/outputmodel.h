@@ -25,6 +25,8 @@ public:
     void append(const QString &text, const QString &stream);
     void clear();
     Q_INVOKABLE QString text() const;
+    // The last `count` lines as {line, stream} (for the live tail).
+    Q_INVOKABLE QVariantList tail(int count) const;
 
 Q_SIGNALS:
     void countChanged();

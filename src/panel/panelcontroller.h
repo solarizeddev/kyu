@@ -33,6 +33,7 @@ class PanelController : public QObject
     Q_PROPERTY(bool checking READ checking NOTIFY changed)
     Q_PROPERTY(QStringList checkProblems READ checkProblems NOTIFY changed)
     Q_PROPERTY(QString flatpakNote READ flatpakNote NOTIFY changed)
+    Q_PROPERTY(QString commandPreview READ commandPreview NOTIFY changed)
     Q_PROPERTY(bool canUpdate READ canUpdate NOTIFY changed)
     Q_PROPERTY(QString newsTitle READ newsTitle NOTIFY changed)
     Q_PROPERTY(QString interruptedText READ interruptedText NOTIFY changed)
@@ -104,6 +105,8 @@ public:
     bool checking() const { return m_checking; }
     QStringList checkProblems() const;
     QString flatpakNote() const;
+    // What "Update all" runs, as text (HANDOFF.md rule 3).
+    QString commandPreview() const;
     bool canUpdate() const;
     QString newsTitle() const;
     QString interruptedText() const;
