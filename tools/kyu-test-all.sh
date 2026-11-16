@@ -85,7 +85,7 @@ echo "result: $status" >>"$out/system.txt"
 user=$(id -un)
 for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log; do
     [ -f "$f" ] || continue
-    awk -v src="$src" -v home="$HOME" -v user="$user" '
+    KYU_SRC="$src" KYU_HOME="$HOME" KYU_USER="$user" awk '
         function swap(s, from, to,   i, r) {
             if (from == "") return s
             r = ""
@@ -94,6 +94,7 @@ for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log; do
         }
         # The user name only as a path component ("/name/"): as a bare word
         # it could be "test" and garble the logs.
+        BEGIN { src = ENVIRON["KYU_SRC"]; home = ENVIRON["KYU_HOME"]; user = ENVIRON["KYU_USER"] }
         { $0 = swap($0, src, "<kyu>"); $0 = swap($0, home, "~"); print swap($0, "/" user "/", "/<user>/") }' "$f" >"$f.tmp" && mv "$f.tmp" "$f"
 done
 
@@ -104,4 +105,12 @@ if command -v bsdtar >/dev/null; then
     (cd "$stage" && bsdtar -a -cf "$zipfile" kyu-test)
 else
     (cd "$stage" && zip -qr "$zipfile" kyu-test)
-fi && echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
+fi
+if [ $? -eq 0 ]; then
+    echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
+else
+    # Keep the results rather than lose ten minutes of work.
+    trap - EXIT
+    echo "kyu-test-all: could not write $zipfile; the results are in $out" >&2
+    exit 1
+fi
