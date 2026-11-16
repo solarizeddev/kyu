@@ -12,14 +12,17 @@ After installing the dependencies and getting the branch (the first commands in 
 tools/kyu-test-all.sh
 ```
 
-It takes about 20 minutes:
+Turn on Do Not Disturb first (each Konsole window it opens can post a notification). It takes about 6 minutes:
 
 1. It builds Kyu and runs the automated tests.
-2. It screenshots every screen of the panel, in both looks (Plasma and terminal), through the simulated system of part 3, across colour schemes, window sizes, fonts and scale factors. Windows open and close by themselves meanwhile; leave the desktop alone.
-3. It notes the versions of the relevant packages.
-4. It writes everything to `~/kyu-test.zip`. Send that file back.
+2. It runs `kyu-update`, the program that updates in the terminal, against a fake system (fake `sudo`, `pacman` and `flatpak`) and keeps the text of every run.
+3. It opens real Konsole windows with `kyu-update` in them, types the answers itself and screenshots each outcome: done, restart needed, news to read first, downloading, keyring failure, answered no, failed midway, another language, stale lock, another package manager running, already running, Flatpak only, Flatpak failed, nothing new. Then in Konsole's colour schemes, and 60 and 160 columns wide. Leave the desktop alone meanwhile: a shot is taken only while that Konsole is the active window, and the run stops otherwise. If your Konsole cannot report the active window, the run stops at the first shot; `UNCHECKED=1 tools/kyu-test-all.sh` takes them anyway.
+4. It notes the versions of the relevant packages and what `kyu-update` reads about your system (the kernel's module folder, the boot image name, whether pamac runs, your shell).
+5. It writes everything to `~/kyu-test.zip`. Unzip it and look through `kyu-test/screens/` (every picture should be a Konsole window), then send it back.
 
-Nothing on your system changes and no root is needed. In the logs your home directory, user name and the checkout's path are replaced with `~`, `<user>` and `<kyu>`. The zip holds no hostname and no copy of your settings, only the colour scheme, font and icon theme names.
+Nothing on your system changes and no root is needed. In the text files your home directory, user name and the checkout's path are replaced with `~`, `<user>` and `<kyu>`. The zip holds no hostname and no copy of your settings, only the colour scheme, font and icon theme names.
+
+`PANEL=1 tools/kyu-test-all.sh` also screenshots the old update panel (15 minutes more); the panel is being replaced by the terminal and a small card (see [`TERMINAL-FIRST.md`](TERMINAL-FIRST.md)).
 
 Parts 1 to 3 below are the same steps one at a time. Part 4, a real install and a real update, is by hand.
 

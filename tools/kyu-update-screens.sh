@@ -14,6 +14,9 @@
 # Turn on Do Not Disturb first: each window can post Konsole notifications.
 # Look through the PNGs before you send them on.
 #
+# If Konsole cannot say whether it is the active window, the run stops at
+# the first shot; UNCHECKED=1 takes the shots anyway (then check every one).
+#
 # Environment: BUILD (default ./build), KONSOLE_SCHEMES (Konsole colour
 # schemes, default: those bundled with Konsole that are installed), ONLY (a
 # shot name prefix, to re-run a few).
@@ -51,6 +54,14 @@ checked_fakes=
 # The text Konsole shows, where this Konsole can say it (newer versions).
 screen_text() {
     busctl --user call "$service" /Sessions/1 org.kde.konsole.Session getAllDisplayedText b true 2>/dev/null
+}
+# The same as plain text, for the .txt next to each picture.
+screen_text_plain() {
+    if command -v jq >/dev/null; then
+        busctl --user --json=short call "$service" /Sessions/1 org.kde.konsole.Session getAllDisplayedText b true 2>/dev/null | jq -r '.data[0]'
+    else
+        screen_text
+    fi
 }
 # Konsole is the active window (so the screenshot is of it): "yes", "no",
 # or "unknown" where the window does not say.
@@ -146,7 +157,10 @@ shot() {
                     screen_text | grep -qF -- "$arg" && break
                     sleep 0.2
                 done
-                screen_text | grep -qF -- "$arg" || log "note $name: '$arg' did not appear"
+                if ! screen_text | grep -qF -- "$arg"; then
+                    log "FAILED $name: '$arg' did not appear"
+                    failed=$((failed + 1))
+                fi
                 sleep 0.3
             else
                 sleep 2
@@ -162,6 +176,12 @@ shot() {
             local file="$out/$label.png" state
             rm -f "$file"
             state=$(active)
+            if [ "$state" = unknown ] && [ -z "${UNCHECKED:-}" ]; then
+                log "FAILED $label: this Konsole does not say whether it is the active window, so the screenshot could be of another window; stopping. Run again with UNCHECKED=1 to take the shots anyway, then look at every picture."
+                failed=$((failed + 1))
+                close
+                exit 1
+            fi
             if [ "$state" = no ]; then
                 # Something else has the focus: no screenshot of it, and stop
                 # here rather than go on taking pictures of the wrong window.
@@ -178,7 +198,7 @@ shot() {
                 log "FAILED $label: no screenshot"
                 failed=$((failed + 1))
             fi
-            [ -n "$can_read" ] && screen_text >"$out/$label.txt"
+            [ -n "$can_read" ] && screen_text_plain >"$out/$label.txt"
             ;;
         *)
             log "FAILED $name: unknown step '$step'"

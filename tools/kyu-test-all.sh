@@ -14,7 +14,7 @@
 # screenshot is of the active window. Look through screens/ before you send
 # the zip. Your home directory, user name and the checkout's path are
 # replaced in the text files. Environment: BUILD (build directory, default
-# ./build), KONSOLE_SCHEMES (see tools/kyu-update-screens.sh), PANEL=1 (also
+# ./build), KONSOLE_SCHEMES and UNCHECKED (see tools/kyu-update-screens.sh), PANEL=1 (also
 # the old panel's screenshots, 15 minutes more; SCHEMES for those),
 # KYU_CMAKE_ARGS (configure options, default -DKYU_REQUIRE_KSNI=ON).
 set -u
@@ -105,7 +105,6 @@ if [ "$status" = ok ]; then
         [ "$status" = ok ] && status="screenshots failed" || status="$status, screenshots failed"
     fi
 
-    echo "Look through $out/screens before you send the zip: each picture should be a Konsole window."
     if [ -n "${PANEL:-}" ]; then
         step "Screenshots of the old panel (panel-screens/, about 15 minutes)"
         BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
@@ -142,6 +141,7 @@ else
 fi
 if [ $? -eq 0 ]; then
     echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
+    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Konsole window."
 else
     # Keep the results rather than lose ten minutes of work.
     trap - EXIT
