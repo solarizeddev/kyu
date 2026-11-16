@@ -99,9 +99,11 @@ public:
         // The part goes with this window's children: not a "finished" then.
         QObject::disconnect(m_partGone);
     }
-    void watch(KParts::ReadOnlyPart *part, TerminalInterface *terminal)
+    // The part, and kyu-update's process id (read once: the part cannot be
+    // asked while its session is ending).
+    void watch(KParts::ReadOnlyPart *part, qint64 pid)
     {
-        m_terminal = terminal;
+        m_pid = pid;
         m_partGone = QObject::connect(part, &QObject::destroyed, this, [this]() {
             finished();
         });
@@ -111,7 +113,6 @@ public:
     void finished()
     {
         m_finished = true;
-        m_terminal = nullptr;
         if (m_box) {
             m_box->reject();
         }
@@ -121,7 +122,7 @@ public:
 protected:
     void closeEvent(QCloseEvent *event) override
     {
-        if (!m_finished && m_terminal && updateRunning(m_terminal->terminalProcessId())) {
+        if (!m_finished && updateRunning(m_pid)) {
             QMessageBox box(this);
             m_box = &box;
             box.setIcon(QMessageBox::Warning);
@@ -159,7 +160,7 @@ protected:
 
 private:
     bool m_finished = false;
-    TerminalInterface *m_terminal = nullptr;
+    qint64 m_pid = 0;
     QPointer<QMessageBox> m_box;
     QMetaObject::Connection m_partGone;
 };
@@ -191,9 +192,6 @@ int main(int argc, char **argv)
     layout->addWidget(part->widget());
     window->setFocusProxy(part->widget());
 
-    // The part deletes itself when the program ends normally (after
-    // kyu-update's last key): the window goes with it.
-    window->watch(part.data(), terminal);
 
     // About 100 × 34 characters in the profile's font.
     QSize size(900, 620);
@@ -239,6 +237,9 @@ int main(int argc, char **argv)
     // Konsole drops the first element of the list (argv[0]) and, with an
     // empty list, starts a shell instead: the program is named twice.
     terminal->startProgram(program, QStringList{program} + args);
+    // The part deletes itself when the program ends normally (after
+    // kyu-update's last key): the window goes with it.
+    window->watch(part.data(), terminal->terminalProcessId());
     part->widget()->setFocus();
 
     return app.exec();

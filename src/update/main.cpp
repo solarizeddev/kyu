@@ -34,6 +34,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+#include <cerrno>
 #include <clocale>
 #include <csignal>
 #include <cstdio>
@@ -202,6 +203,8 @@ bool lightBackground()
         const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof buffer);
         if (n > 0) {
             reply.append(buffer, int(n));
+        } else if (n == 0 || (errno != EINTR && errno != EAGAIN)) {
+            break; // the terminal is gone
         }
     }
     ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &old);
