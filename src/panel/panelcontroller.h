@@ -48,6 +48,7 @@ class PanelController : public QObject
     // running
     Q_PROPERTY(int percent READ percent NOTIFY changed)
     Q_PROPERTY(QString progressText READ progressText NOTIFY changed)
+    Q_PROPERTY(QString transactionNote READ transactionNote NOTIFY changed)
     Q_PROPERTY(QString question READ question NOTIFY changed) // one Kyu does not recognise
 
     // question (pacman waits for an answer)
@@ -128,6 +129,9 @@ public:
 
     int percent() const;
     QString progressText() const;
+    // When pacman's real transaction ("Packages (N)") is not the list the
+    // check showed (new dependencies, or mirrors changed), says so.
+    QString transactionNote() const;
     QString question() const { return m_question; }
 
     QString questionType() const;
@@ -248,6 +252,8 @@ private:
     QString m_action;
     int m_current = 0;
     int m_total = 0;
+    int m_transactionSize = 0; // pacman's "Packages (N)"; 0 until known
+    int m_listedAtStart = 0; // pacman packages on the list when the update started
     QString m_question;
     QJsonObject m_pending; // the relayed question pacman waits on
     bool m_replying = false;

@@ -1,4 +1,4 @@
-# Sourced by the Flatpak tests and tools/preview-panel.sh. Builds a local
+# Sourced by the Flatpak tests and tools/kyu-demo.sh. Builds a local
 # Flatpak repository with flatpak's own tools and a throwaway installation.
 # Needs FLATPAK_USER_DIR and FLATPAK_SYSTEM_DIR set to scratch directories.
 #

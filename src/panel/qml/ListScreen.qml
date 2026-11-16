@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     spacing: 0
@@ -42,7 +43,7 @@ ColumnLayout {
             visible: text.length > 0
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
             wrapMode: Text.Wrap
         }
@@ -96,7 +97,7 @@ ColumnLayout {
                 QQC2.Label {
                     text: Panel.newsSource
                     font: Kirigami.Theme.smallFont
-                    color: Kirigami.Theme.disabledTextColor
+                    color: Style.muted(Kirigami.Theme.textColor)
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
@@ -119,7 +120,7 @@ ColumnLayout {
         visible: text.length > 0
         text: Panel.newsError
         font: Kirigami.Theme.smallFont
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         elide: Text.ElideRight
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
@@ -158,7 +159,7 @@ ColumnLayout {
             visible: text.length > 0
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }

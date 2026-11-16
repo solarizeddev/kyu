@@ -54,6 +54,13 @@ if(KYU_HELPER)
     endif()
     corrosion_import_crate(MANIFEST_PATH helper/Cargo.toml LOCKED)
     install(IMPORTED_RUNTIME_ARTIFACTS kyu-helper DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+    # dbus-daemon reads system bus policy only from /usr/share and /etc, and
+    # polkit its actions only from /usr/share: elsewhere the helper cannot
+    # own its name. Packages use -DCMAKE_INSTALL_PREFIX=/usr.
+    if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+        message(WARNING "CMAKE_INSTALL_PREFIX is ${CMAKE_INSTALL_PREFIX}: the helper's D-Bus policy and polkit action "
+                        "only work when installed under /usr. Configure with -DCMAKE_INSTALL_PREFIX=/usr.")
+    endif()
 endif()
 
 add_subdirectory(src)

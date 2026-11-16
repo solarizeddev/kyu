@@ -1,0 +1,28 @@
+{
+ "formatVersion": 1,
+ "checkedAt": "2026-11-16T10:30:00Z",
+ "pacman": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T10:30:00Z"
+ },
+ "flatpak": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T10:30:00Z"
+ },
+ "packages": [],
+ "flatpaks": [],
+ "news": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "source": "Arch Linux news",
+  "url": "https://archlinux.org/feeds/news/",
+  "since": "2026-11-10T19:30:00Z",
+  "items": [],
+  "page": "https://archlinux.org/news/"
+ }
+}

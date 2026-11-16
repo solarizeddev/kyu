@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     id: page
@@ -17,7 +18,7 @@ ColumnLayout {
         text: "$ diff -u " + page.path + " " + page.saved
         font.family: Kirigami.Theme.fixedWidthFont.family
         font.pointSize: Kirigami.Theme.smallFont.pointSize
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         wrapMode: Text.WrapAnywhere
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
@@ -51,7 +52,7 @@ ColumnLayout {
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
                 color: modelData.kind === "add" ? Kirigami.Theme.positiveTextColor
                      : modelData.kind === "remove" ? Kirigami.Theme.negativeTextColor
-                     : modelData.kind === "hunk" || modelData.kind === "header" ? Kirigami.Theme.disabledTextColor
+                     : modelData.kind === "hunk" || modelData.kind === "header" ? Style.muted(Kirigami.Theme.textColor)
                      : Kirigami.Theme.textColor
             }
         }

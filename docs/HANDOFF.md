@@ -128,7 +128,7 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - Tested with a fake pacman on a private session bus (`ctest`): killing the client mid-update and reattaching, busy, locked, an unanswerable question, pacman failure, SIGTERM mid-update, and helper killed mid-update. Separately checked on a private system bus with the real polkitd: the bus policy lets only root own the name, the polkit action loads, a user without an agent gets `NotAuthorized`, and root is authorized.
 - Not yet run against real pacman (the development container is Ubuntu). First thing to do on an Arch machine: install, `sudo systemctl reload dbus`, run `kyu-update`, and compare its output and log with a manual `pacman -Syu`.
 
-**Milestone 3 (update panel): done.** Screenshots in `docs/screenshots/`, made with `tools/preview-panel.sh`.
+**Milestone 3 (update panel): done.** Screenshots in `docs/screenshots/`, made with `tools/kyu-demo.sh` (then called `preview-panel.sh`).
 
 - `kyu` is a standalone Qt Quick window using Kirigami for theme roles, units, icons and headings, and stock Qt Quick Controls for the rest (Plasma's `org.kde.desktop` style when installed). It is single-instance over the session bus. Clicking the tray icon, or "Show updates" in its menu, starts it.
 - **List:** count, total package size, check time, check failures quoted; packages grouped by repo in pacman.conf order (kyu-check now sorts them that way and records each package's size from `pacman -Sup --print-format`), Flatpaks under their remote. "Update all", plus a menu with "Copy as command" (`sudo pacman -Syu`) and "Check again". Flatpaks are listed with a note that "Update all" does not update them yet (milestone 5).
@@ -261,7 +261,7 @@ The sketches in `docs/sketches/` show the earlier card look; the screenshots in 
 - **Other distributions:** no news.
 - **The panel:** shows one row above the list only when pacman updates are pending and there is something to show. It reads "Arch Linux news · N since your last upgrade" above the newest title, which gets the full width because it is often the warning itself. Clicking opens that post, or the news page if there are several. A failed fetch is one muted line ("Arch Linux news not checked: …"). The bordered box, the per-distro feed table and the title list are gone. A plain "open news" button was rejected because it states no fact: someone who never clicks it learns nothing.
 
-**Scaling and resizing (after the news change).** Tested offscreen with `tools/preview-state-long.json` (154 updates, long names, git snapshot versions, a restart, a long check error, a long news title). Sizes: the minimum window, the default, 1200×700, fonts at 14 and 18 pt, and `QT_SCALE_FACTOR=2`; list, updating, question and finished screens. Fixes:
+**Scaling and resizing (after the news change).** Tested offscreen with `tools/demo/state-long.json` (154 updates, long names, git snapshot versions, a restart, a long check error, a long news title). Sizes: the minimum window, the default, 1200×700, fonts at 14 and 18 pt, and `QT_SCALE_FACTOR=2`; list, updating, question and finished screens. Fixes:
 
 - **Window:** the default and minimum sizes are clamped to 90% of the screen's free area, so a large font cannot push the buttons off a small screen. The minimum is 18×25 grid units. On wide windows the content stays a centred column of at most 44 grid units.
 - **Package rows:** column widths come from the text measured in its own fixed-width font (`TextMetrics`); the old widths came from the default font and elided short names. With room, the name and versions show in full. When short of space, the name keeps at least 4 grid units and ends in "…", and the versions are cut from the left, so the new version stays visible. The restart chip is never covered. Below 22 grid units the size column hides. Hovering a cut row shows the full text.
@@ -269,8 +269,23 @@ The sketches in `docs/sketches/` show the earlier card look; the screenshots in 
 - **Questions:** the option name stays on one line (up to 60% of the row); the detail ("extra · pacman's default") wraps first.
 - **News row:** the source sits on its own line so the title gets the full width.
 
-To repeat: `STATE=$PWD/tools/preview-state-long.json tools/preview-panel.sh out.png --size 270x375` (also `--font-size 18`, or `QT_SCALE_FACTOR=2` in the environment). Not tested: a real Plasma session, fractional scaling under Wayland, right-to-left languages.
+To repeat: `SIZE=270x375 OUT=out.png tools/kyu-demo.sh list-long` (also `FONT_PT=18`, or `SCALE=2`), or all at once with `tools/kyu-screens.sh`. Not tested: a real Plasma session, fractional scaling under Wayland, right-to-left languages.
+
+**Ready for a real system (after the Manjaro feed).** The owner tests on Arch + Plasma 6 next; [`docs/TESTING.md`](TESTING.md) is the procedure.
+
+- **Test kit:** the screenshot and key options moved from the preview build into the real panel (`src/panel/testdriver.cpp`): window size, screenshot, opening a page, and, only against a session-bus test helper, pressing Update all, answering and pressing keys. `tools/kyu-demo.sh` runs the real panel against a simulated system: a test helper on a private bus, the fake pacman (its package list now configurable), a throwaway Flatpak installation, a fake checker (`KYU_CHECK`, also honoured by kyu-flatpak), a fake `/proc` and modules directory. It has 31 scenarios, with sample states in `tools/demo/`. Colour scheme, font size, scale and window size apply through a private `kdeglobals`. `tools/kyu-screens.sh` screenshots the matrix. "Restart now" never restarts in session-bus mode (test).
+- **Pacman's real transaction:** when "Packages (N)" differs from the list the update started with, the updating and result screens say so ("new dependencies, or the mirrors changed"), and point to pacman's own list in the output (test). This closes the "Show the real transaction" requirement as a report. The helper still answers "Proceed" itself: the API takes no package list (rule: fixed operations only).
+- **Packaging:** `packaging/arch/PKGBUILD` builds the checkout in place. A staged install (`DESTDIR`) put every file where dbus, polkit, systemd and XDG autostart read it.
+- **Second review (Fable, before the real-machine test), fixed:**
+  - The autostart file went to `/usr/etc/xdg/autostart`: it now uses the full sysconfdir (`/etc`). Configuring the helper with a prefix other than `/usr` now warns, because dbus and polkit read only from `/usr/share` and `/etc`.
+  - The question's digit and Enter shortcuts stayed live under the output page, so Enter could answer a question nobody saw. They are now active only while the question is on screen, and Enter on a focused push button clicks it ("Cancel the update", "Check again"). On Qt 6.4 `instanceof QQC2.AbstractButton` is false for Buttons, so the check is duck-typed (`Style.pressable`).
+  - Secondary text used `Kirigami.Theme.disabledTextColor`, which real colour schemes draw fainter than the stand-in. It is now the text colour at 70% (`Style.muted`).
+  - A tray click could not focus an open panel on Wayland. The click's activation token now goes to the panel, through `XDG_ACTIVATION_TOKEN` for a new panel, or `Activate(token)` for a running one, using KWindowSystem when available.
+  - The tray drew the count into a pixmap, coloured for the application palette rather than Plasma's panel. The icon is now set by name, with the count as an overlay.
+  - Manjaro ARM (`ID=manjaro-arm`) got Arch's news; pamac's full upgrades did not count as the last upgrade. Both are fixed (tests).
+  - Found while testing: the result message elided an empty line, and with the 3-line cap hid "2 Flatpaks updated". The update result is now shown in full.
+- **Not verified (no KF6 here):** `KStatusNotifierItem::providedToken()`, `KWindowSystem::setCurrentXdgActivationToken`/`activateWindow`, `Kirigami.Theme.fixedWidthFont`, how qqc2-desktop-style draws `highlighted` buttons, and running offscreen with the KDE platform theme.
 
 Open items carried forward:
-- User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
-- The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").
+- User-visible strings (tray and panel) use `QStringLiteral`, not KI18n.
+- Milestone 8 (dry run, watched packages, AUR, settings) is not started.

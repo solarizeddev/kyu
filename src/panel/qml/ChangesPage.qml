@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal back()
@@ -60,7 +61,7 @@ ColumnLayout {
                               : modelData.action + " " + modelData.newVersion
                         font.family: Kirigami.Theme.fixedWidthFont.family
                         font.pointSize: Kirigami.Theme.smallFont.pointSize
-                        color: Kirigami.Theme.disabledTextColor
+                        color: Style.muted(Kirigami.Theme.textColor)
                     }
                 }
                 Kirigami.Separator {

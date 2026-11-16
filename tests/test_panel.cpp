@@ -1,5 +1,6 @@
 // Drives PanelController with the records kyu-helper sends, without D-Bus.
 
+#include "helperclient.h"
 #include "panelcontroller.h"
 
 #include <QFile>
@@ -119,6 +120,7 @@ private Q_SLOTS:
         QCOMPARE(c.progressText(), QStringLiteral("Synchronizing package databases"));
         c.handleRecord(rec("output", {{QStringLiteral("stream"), QStringLiteral("stdout")}, {QStringLiteral("text"), QStringLiteral("Packages (4) ...")}}));
         c.handleRecord(rec("packages", {{QStringLiteral("total"), 4}}));
+        QVERIFY(c.transactionNote().isEmpty()); // the same 4 as the list
         c.handleRecord(rec("stage", {{QStringLiteral("stage"), QStringLiteral("commit")}}));
 
         auto progress = [&](const char *action, const char *package, int current) {
@@ -577,6 +579,34 @@ private Q_SLOTS:
         QCOMPARE(c.screen(), QStringLiteral("finished"));
         QVERIFY(!c.success());
         QVERIFY(c.resultText().contains(QStringLiteral("/var/log/kyu/x.jsonl")));
+    }
+
+    void transactionDiffersFromTheList()
+    {
+        // The mirror changed after the check: pacman upgrades 6, not 4.
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        QVERIFY(c.transactionNote().isEmpty()); // not known yet
+        c.handleRecord(rec("packages", {{QStringLiteral("total"), 6}}));
+        const QString note = QStringLiteral("pacman's transaction has 6 packages; the list showed 4 (new dependencies, or the mirrors "
+                                            "changed since the last check). pacman's own list is in the output.");
+        QCOMPARE(c.transactionNote(), note);
+        // A check that finishes meanwhile does not change what was shown.
+        UpdateState after = sample();
+        after.packages.clear();
+        c.setUpdateState(after);
+        QCOMPARE(c.transactionNote(), note);
+    }
+
+    void testModeNeverRestarts()
+    {
+        // With a session-bus test helper "Restart now" must not reach logind.
+        HelperClient helper(HelperClient::Bus::Session);
+        PanelController c;
+        c.setHelper(&helper, true);
+        c.restartNow();
+        QVERIFY(c.message().contains(QStringLiteral("not restarted")));
     }
 };
 

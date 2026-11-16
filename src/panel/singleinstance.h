@@ -16,8 +16,9 @@ public:
     bool claim();
 
 public Q_SLOTS:
-    Q_SCRIPTABLE void Activate();
+    // token: a Wayland activation token (may be empty).
+    Q_SCRIPTABLE void Activate(const QString &token);
 
 Q_SIGNALS:
-    void activated();
+    void activated(const QString &token);
 };

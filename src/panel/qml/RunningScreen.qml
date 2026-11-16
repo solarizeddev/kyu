@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal showOutput()
@@ -24,8 +25,16 @@ ColumnLayout {
             text: Panel.progressText
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             elide: Text.ElideRight
+            Layout.fillWidth: true
+        }
+        QQC2.Label {
+            text: Panel.transactionNote
+            visible: text.length > 0
+            font.pointSize: Kirigami.Theme.smallFont.pointSize
+            color: Kirigami.Theme.neutralTextColor
+            wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
         ThinBar {
@@ -61,7 +70,7 @@ ColumnLayout {
         QQC2.Label {
             text: "Closing this window does not stop the update."
             wrapMode: Text.Wrap
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
         }
         QQC2.Button {

@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 Rectangle {
     id: row
@@ -85,7 +86,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.maximumWidth: Math.ceil(nameMetrics.advanceWidth) + 1
                 Layout.minimumWidth: Math.min(Math.ceil(nameMetrics.advanceWidth) + 1, Kirigami.Units.gridUnit * 4)
-                color: row.quiet ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
+                color: row.quiet ? Style.muted(Kirigami.Theme.textColor) : Kirigami.Theme.textColor
             }
             // Updating the running kernel's package means a restart.
             Rectangle {
@@ -116,7 +117,7 @@ Rectangle {
             text: row.detailText()
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: row.working ? Kirigami.Theme.textColor : Kirigami.Theme.disabledTextColor
+            color: row.working ? Kirigami.Theme.textColor : Style.muted(Kirigami.Theme.textColor)
             // Long versions (git snapshots) give way from the left, so the
             // new version stays readable.
             elide: Text.ElideLeft
@@ -133,7 +134,7 @@ Rectangle {
             Layout.preferredWidth: Kirigami.Units.gridUnit * 3.5
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
         }
     }
 }

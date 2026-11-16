@@ -1,0 +1,58 @@
+# Builds and packages the Kyu checkout this file sits in, for testing on a
+# real system. Not an AUR package: it has no source=() and uses the working
+# tree as it is (including uncommitted changes).
+#
+#   cd packaging/arch && makepkg -si          build, run the tests, install
+#   makepkg -si --nocheck                     skip the tests
+#   sudo pacman -R kyu-git                    remove it again
+
+pkgname=kyu-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='KDE updater for Arch-based systems: pacman and Flatpak updates in one list'
+arch=(x86_64 aarch64)
+url='https://github.com/solarizeddev/kyu'
+license=(GPL-3.0-or-later)
+depends=(
+    dbus
+    flatpak
+    gcc-libs
+    glibc
+    kirigami
+    kstatusnotifieritem
+    kwindowsystem
+    pacman
+    pacman-contrib
+    polkit
+    qqc2-desktop-style
+    qt6-base
+    qt6-declarative
+)
+makedepends=(cmake corrosion git ninja rust)
+checkdepends=(flatpak)
+provides=(kyu)
+conflicts=(kyu)
+
+_root=$(realpath "$startdir/../..")
+
+pkgver() {
+    cd "$_root"
+    printf '0.1.0.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cmake -S "$_root" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBEXECDIR=lib/kyu \
+        -DKYU_REQUIRE_KSNI=ON
+    cmake --build build
+}
+
+check() {
+    ctest --test-dir build --output-on-failure
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}

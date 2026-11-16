@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 Rectangle {
     id: tail
@@ -38,11 +39,11 @@ Rectangle {
                 elide: Text.ElideRight
                 font.family: Kirigami.Theme.fixedWidthFont.family
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: !entry ? Kirigami.Theme.disabledTextColor
+                color: !entry ? Style.muted(Kirigami.Theme.textColor)
                      : entry.stream === "kyu" ? Kirigami.Theme.linkColor
                      : entry.stream === "stderr" ? Kirigami.Theme.neutralTextColor
                      : index === tail.shown.length - 1 ? Kirigami.Theme.textColor
-                     : Kirigami.Theme.disabledTextColor
+                     : Style.muted(Kirigami.Theme.textColor)
             }
         }
     }

@@ -4,7 +4,9 @@ import QtQuick
 import QtQml
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     id: screen
@@ -26,19 +28,30 @@ ColumnLayout {
     }
 
     // Keys: the option numbers pick, Enter continues. Esc (in Main) only
-    // closes the window: pacman keeps waiting and the question stays.
+    // closes the window: pacman keeps waiting and the question stays. Only
+    // while the question is on screen (not under the output page). Enter on
+    // a focused button (Tab to "Cancel the update") clicks that button.
+    readonly property bool keysActive: visible && Panel.canAnswer
     Instantiator {
         model: Math.min(Panel.questionOptions.length, 9)
         delegate: Shortcut {
             required property int index
             sequence: String(index + 1)
-            enabled: Panel.canAnswer
+            enabled: screen.keysActive
             onActivated: screen.selected = Panel.questionOptions[index].value
         }
     }
     Shortcut {
         sequences: ["Return", "Enter"]
-        onActivated: screen.continueWithSelection()
+        enabled: screen.keysActive
+        onActivated: {
+            const button = Style.pressable(screen.Window.activeFocusItem)
+            if (button) {
+                button.clicked()
+            } else {
+                screen.continueWithSelection()
+            }
+        }
     }
 
     ColumnLayout {
@@ -63,7 +76,7 @@ ColumnLayout {
             text: Panel.questionText
             visible: text.length > 0
             wrapMode: Text.Wrap
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
         }
     }
@@ -109,7 +122,7 @@ ColumnLayout {
                             text: option.index < 9 ? String(option.index + 1) : ""
                             font.family: Kirigami.Theme.fixedWidthFont.family
                             font.pointSize: Kirigami.Theme.smallFont.pointSize
-                            color: Kirigami.Theme.disabledTextColor
+                            color: Style.muted(Kirigami.Theme.textColor)
                             Accessible.ignored: true
                         }
                         // The name is what the person picks: it keeps one line
@@ -129,7 +142,7 @@ ColumnLayout {
                             text: option.modelData.detail
                             visible: text.length > 0
                             font: Kirigami.Theme.smallFont
-                            color: Kirigami.Theme.disabledTextColor
+                            color: Style.muted(Kirigami.Theme.textColor)
                             horizontalAlignment: Text.AlignRight
                             wrapMode: Text.Wrap
                             Layout.fillWidth: true
@@ -154,7 +167,7 @@ ColumnLayout {
 
             QQC2.Label {
                 text: "pacman asked:"
-                color: Kirigami.Theme.disabledTextColor
+                color: Style.muted(Kirigami.Theme.textColor)
                 font: Kirigami.Theme.smallFont
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.gridUnit
@@ -165,7 +178,7 @@ ColumnLayout {
                 text: Panel.questionPacman
                 font.family: Kirigami.Theme.fixedWidthFont.family
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: Kirigami.Theme.disabledTextColor
+                color: Style.muted(Kirigami.Theme.textColor)
                 wrapMode: Text.WrapAnywhere
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.gridUnit
@@ -190,7 +203,7 @@ ColumnLayout {
             visible: text.length > 0
             wrapMode: Text.Wrap
             font: Kirigami.Theme.smallFont
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
         }
         RowLayout {

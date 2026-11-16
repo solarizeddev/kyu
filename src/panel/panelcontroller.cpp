@@ -258,6 +258,17 @@ QString PanelController::flatpakNote() const
     return QStringLiteral("Update all runs pacman -Syu, then updates the Flatpaks.");
 }
 
+QString PanelController::transactionNote() const
+{
+    if (m_transactionSize <= 0 || m_transactionSize == m_listedAtStart) {
+        return {};
+    }
+    return QStringLiteral("pacman's transaction has %1 packages; the list showed %2 (new dependencies, or the mirrors changed "
+                          "since the last check). pacman's own list is in the output.")
+        .arg(m_transactionSize)
+        .arg(m_listedAtStart);
+}
+
 QString PanelController::newsText() const
 {
     // News matters before a system upgrade: shown only with pacman updates.
@@ -432,6 +443,8 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_action.clear();
         m_current = 0;
         m_total = 0;
+        m_transactionSize = 0;
+        m_listedAtStart = int(m_state.packages.size());
         m_question.clear();
         m_pending = {};
         m_replying = false;
@@ -446,6 +459,7 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_stage = r.value(QStringLiteral("stage")).toString();
     } else if (kind == QLatin1String("packages")) {
         m_total = r.value(QStringLiteral("total")).toInt();
+        m_transactionSize = m_total;
     } else if (kind == QLatin1String("progress")) {
         m_current = r.value(QStringLiteral("current")).toInt();
         m_total = qMax(m_total, r.value(QStringLiteral("total")).toInt());
@@ -982,10 +996,10 @@ QString PanelController::resultText() const
     }
     // Both parts' results, so it is clear what did happen.
     QStringList lines;
-    if (m_pacmanRun) {
+    if (m_pacmanRun && !m_summary.isEmpty()) {
         lines.append(m_summary);
     }
-    if (m_fpRun) {
+    if (m_fpRun && !m_fpSummary.isEmpty()) {
         lines.append(m_fpSummary);
     }
     return lines.join(QLatin1Char('\n'));
@@ -1151,6 +1165,13 @@ QVariantList PanelController::diff(const QString &path, const QString &saved) co
 
 void PanelController::restartNow()
 {
+    // With a test helper (tools/kyu-demo.sh) the update was simulated: never
+    // restart the machine.
+    if (m_sessionBus) {
+        m_message = QStringLiteral("Test mode (--session-bus): the computer was not restarted.");
+        Q_EMIT changed();
+        return;
+    }
     // Plasma's own prompt first: it lets applications save their work. The
     // service is started on demand, so call it rather than check for it.
     auto session = QDBusConnection::sessionBus();

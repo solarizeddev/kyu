@@ -1,6 +1,5 @@
 #include "preview.h"
 
-#include "panelcontroller.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -13,9 +12,6 @@
 #include <QQuickItem>
 #include <QQmlContext>
 #include <QQuickWindow>
-#include <QKeyEvent>
-#include <QKeySequence>
-#include <QTimer>
 #include <QUrlQuery>
 #include <QtQml/qqmlregistration.h>
 
@@ -210,24 +206,12 @@ namespace Preview
 namespace
 {
 QCommandLineOption dark(QStringLiteral("dark"), QStringLiteral("Preview: Breeze Dark colours."));
-QCommandLineOption screenshot(QStringLiteral("screenshot"), QStringLiteral("Preview: save the window to FILE and quit."), QStringLiteral("file"));
-QCommandLineOption delay(QStringLiteral("delay"), QStringLiteral("Preview: wait MS before the screenshot."), QStringLiteral("ms"), QStringLiteral("1500"));
-QCommandLineOption startUpdate(QStringLiteral("start-update"), QStringLiteral("Preview: press Update all after loading."));
-QCommandLineOption page(QStringLiteral("page"),
-                        QStringLiteral("Preview: open \"output\", \"changes\", \"configs\", \"diff\" (the first settings file) or \"processes\" after MS (--page-delay)."),
-                        QStringLiteral("name"));
-QCommandLineOption answer(QStringLiteral("answer"), QStringLiteral("Preview: answer pacman's question with VALUE (\"cancel\" cancels)."), QStringLiteral("value"));
-QCommandLineOption press(QStringLiteral("press"),
-                         QStringLiteral("Preview: press KEY (Qt key name, e.g. Return, L, Escape) after MS: KEY@MS, repeatable."),
-                         QStringLiteral("key@ms"));
-QCommandLineOption size(QStringLiteral("size"), QStringLiteral("Preview: window size WxH in logical pixels."), QStringLiteral("WxH"));
 QCommandLineOption fontSize(QStringLiteral("font-size"), QStringLiteral("Preview: default font size in points."), QStringLiteral("pt"));
-QCommandLineOption pageDelay(QStringLiteral("page-delay"), QStringLiteral("Preview: delay for --page."), QStringLiteral("ms"), QStringLiteral("500"));
 }
 
 void addOptions(QCommandLineParser &parser)
 {
-    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer, press, size, fontSize});
+    parser.addOptions({dark, fontSize});
 }
 
 void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
@@ -274,16 +258,9 @@ void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
     qmlRegisterType(QUrl(QStringLiteral("qrc:/preview/kirigami/Separator.qml")), uri, 2, 0, "Separator");
 }
 
-void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelController &panel)
+void run(QQmlApplicationEngine &engine)
 {
     QObject *root = engine.rootObjects().constFirst();
-    if (parser.isSet(size)) {
-        const QStringList wh = parser.value(size).split(QLatin1Char('x'));
-        if (wh.size() == 2) {
-            root->setProperty("width", wh[0].toInt());
-            root->setProperty("height", wh[1].toInt());
-        }
-    }
     // The window's palette (a QQuickPalette) is what the controls read.
     if (auto *palette = root->property("palette").value<QObject *>()) {
         const QPalette pal = QApplication::palette();
@@ -295,74 +272,6 @@ void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelC
         for (const auto &[name, role] : roles) {
             palette->setProperty(name, pal.color(QPalette::Active, role));
         }
-    }
-    if (parser.isSet(startUpdate)) {
-        QTimer::singleShot(300, &panel, &PanelController::updateAll);
-    }
-    if (parser.isSet(answer)) {
-        // As if the user picked it and pressed Continue (or Cancel).
-        const QString value = parser.value(answer);
-        QObject::connect(&panel, &PanelController::changed, &panel, [&panel, value] {
-            if (panel.screen() == QLatin1String("question") && !panel.replying()) {
-                QTimer::singleShot(300, &panel, [&panel, value] {
-                    if (value == QLatin1String("cancel")) {
-                        panel.cancelUpdate();
-                    } else {
-                        panel.answer(value);
-                    }
-                });
-            }
-        });
-    }
-    for (const QString &spec : parser.values(press)) {
-        const QString keyName = spec.section(QLatin1Char('@'), 0, 0);
-        const int at = spec.section(QLatin1Char('@'), 1).toInt();
-        QTimer::singleShot(at, root, [root, keyName] {
-            auto *window = qobject_cast<QQuickWindow *>(root);
-            const QKeySequence sequence(keyName);
-            if (!window || sequence.isEmpty()) {
-                qWarning("preview: cannot press %s", qPrintable(keyName));
-                return;
-            }
-            window->requestActivate();
-            const int key = sequence[0].key();
-            const QString text = keyName.size() == 1 ? keyName.toLower() : QString();
-            QKeyEvent down(QEvent::KeyPress, key, Qt::NoModifier, text);
-            QKeyEvent up(QEvent::KeyRelease, key, Qt::NoModifier, text);
-            QCoreApplication::sendEvent(window, &down);
-            QCoreApplication::sendEvent(window, &up);
-        });
-    }
-    if (parser.isSet(page)) {
-        const QString name = parser.value(page);
-        QTimer::singleShot(parser.value(pageDelay).toInt(), root, [root, name] {
-            if (name == QLatin1String("diff")) {
-                QObject *panel = qvariant_cast<QObject *>(qmlContext(root)->contextProperty(QStringLiteral("Panel")));
-                const QVariantList configs = panel ? panel->property("configs").toList() : QVariantList();
-                if (!configs.isEmpty()) {
-                    const QVariantMap first = configs.first().toMap();
-                    QMetaObject::invokeMethod(root, "showDiff", Q_ARG(QVariant, first.value(QStringLiteral("path"))),
-                                              Q_ARG(QVariant, first.value(QStringLiteral("saved"))));
-                }
-                return;
-            }
-            const char *method = name == QLatin1String("changes")     ? "showChanges"
-                               : name == QLatin1String("configs")     ? "showConfigs"
-                               : name == QLatin1String("processes")   ? "showProcesses"
-                                                                       : "showOutput";
-            QMetaObject::invokeMethod(root, method);
-        });
-    }
-    if (parser.isSet(screenshot)) {
-        const QString file = parser.value(screenshot);
-        QTimer::singleShot(parser.value(delay).toInt(), root, [root, file] {
-            auto *window = qobject_cast<QQuickWindow *>(root);
-            const bool ok = window && window->grabWindow().save(file);
-            if (!ok) {
-                qWarning("preview: could not save %s", qPrintable(file));
-            }
-            QCoreApplication::exit(ok ? 0 : 1);
-        });
     }
 }
 }

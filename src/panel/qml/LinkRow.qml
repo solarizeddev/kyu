@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 Item {
     id: row
@@ -35,7 +36,7 @@ Item {
                 text: row.subtitle
                 visible: text.length > 0
                 font: Kirigami.Theme.smallFont
-                color: Kirigami.Theme.disabledTextColor
+                color: Style.muted(Kirigami.Theme.textColor)
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
@@ -45,7 +46,7 @@ Item {
             visible: text.length > 0
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
         }
         Kirigami.Icon {
             source: "go-next"

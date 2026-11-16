@@ -84,8 +84,10 @@ PacmanOutcome waitForPacman(const QString &tx, bool sessionBus, Kyu::JsonLog &lo
 
 void runCheck(const QString &self)
 {
+    // KYU_CHECK: a stand-in checker (tools/kyu-demo.sh).
+    const QString override = qEnvironmentVariable("KYU_CHECK");
     const QString check = QFileInfo(self).absolutePath() + QStringLiteral("/kyu-check");
-    QProcess::startDetached(QFileInfo(check).isExecutable() ? check : QStringLiteral("kyu-check"), {});
+    QProcess::startDetached(!override.isEmpty() ? override : QFileInfo(check).isExecutable() ? check : QStringLiteral("kyu-check"), {});
 }
 }
 

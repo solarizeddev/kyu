@@ -27,14 +27,24 @@ int main(int argc, char **argv)
     // After a pacman update, check again: the count is stale otherwise.
     HelperWatcher helper;
     QObject::connect(&helper, &HelperWatcher::transactionFinished, &scheduler, &CheckScheduler::checkNow);
-    QObject::connect(&tray, &TrayIcon::panelRequested, &tray, [] {
+    QObject::connect(&tray, &TrayIcon::panelRequested, &tray, [](const QString &token) {
         // The panel is its own process (so it can close or crash without
         // touching the tray) and is single-instance: a second start raises it.
         QString panel = QApplication::applicationDirPath() + QStringLiteral("/kyu");
         if (!QFileInfo(panel).isExecutable()) {
             panel = QFileInfo(QStringLiteral(KYU_PANEL_BINARY)).isExecutable() ? QStringLiteral(KYU_PANEL_BINARY) : QStringLiteral("kyu");
         }
-        if (!QProcess::startDetached(panel, {})) {
+        // The click's activation token lets the panel take focus on Wayland
+        // (a new panel reads it from the environment; a running one gets it
+        // through its Activate call).
+        QProcess process;
+        process.setProgram(panel);
+        if (!token.isEmpty()) {
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert(QStringLiteral("XDG_ACTIVATION_TOKEN"), token);
+            process.setProcessEnvironment(env);
+        }
+        if (!process.startDetached()) {
             qWarning("kyu-tray: could not start %s", qPrintable(panel));
         }
     });

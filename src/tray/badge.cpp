@@ -3,11 +3,10 @@
 #include <QPainter>
 #include <QPainterPath>
 
-QIcon badgedIcon(const QIcon &base, int count, const QPalette &palette)
+namespace
 {
-    if (count <= 0) {
-        return base;
-    }
+QIcon draw(const QIcon &base, int count, const QPalette &palette, bool overlay)
+{
     const QString text = count > 99 ? QStringLiteral("99+") : QString::number(count);
 
     QIcon result;
@@ -27,7 +26,7 @@ QIcon badgedIcon(const QIcon &base, int count, const QPalette &palette)
 
         QFont font = painter.font();
         font.setBold(true);
-        const int badgeHeight = qMax(9, qRound(size * 0.55));
+        const int badgeHeight = overlay ? size : qMax(9, qRound(size * 0.55));
         font.setPixelSize(qMax(7, qRound(badgeHeight * 0.75)));
         painter.setFont(font);
 
@@ -45,4 +44,15 @@ QIcon badgedIcon(const QIcon &base, int count, const QPalette &palette)
         result.addPixmap(pixmap);
     }
     return result;
+}
+}
+
+QIcon badgedIcon(const QIcon &base, int count, const QPalette &palette)
+{
+    return count > 0 ? draw(base, count, palette, false) : base;
+}
+
+QIcon countOverlay(int count, const QPalette &palette)
+{
+    return count > 0 ? draw(QIcon(), count, palette, true) : QIcon();
 }

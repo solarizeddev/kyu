@@ -106,6 +106,8 @@ private Q_SLOTS:
         QCOMPARE(arm.url, QStringLiteral("https://forum.manjaro.org/c/arm/stable-updates/79.rss"));
         QCOMPARE(newsSourceFor(manjaro, dir.filePath(QStringLiteral("mirrors")), QStringLiteral("arm64")).url,
                  QStringLiteral("https://forum.manjaro.org/c/arm/testing-updates/80.rss"));
+        QCOMPARE(newsSourceFor(write(dir, "manjaro-arm", "ID=\"manjaro-arm\"\nID_LIKE=\"manjaro arch\"\n"), none, QStringLiteral("x86_64")).url,
+                 QStringLiteral("https://forum.manjaro.org/c/arm/stable-updates/79.rss"));
         QVERIFY(newsSourceFor(write(dir, "ubuntu", "ID=ubuntu\nID_LIKE=debian\n")).name.isEmpty());
     }
 
@@ -124,6 +126,12 @@ private Q_SLOTS:
                                   "[2026-11-15T08:00:05+0100] [PACMAN] Running 'pacman -Syu'\n");
         QCOMPARE(lastFullUpgrade(log), QDateTime(QDate(2026, 11, 10), QTime(19, 30), Qt::UTC));
         QVERIFY(!lastFullUpgrade(dir.filePath(QStringLiteral("missing"))).isValid());
+
+        // Another frontend (pamac) with its own tag counts too.
+        const QString pamac = write(dir, "pamac.log",
+                                    "[2026-11-13T18:00:00+0100] [PAMAC] starting full system upgrade\n"
+                                    "[2026-11-13T18:02:00+0100] [ALPM] transaction completed\n");
+        QCOMPARE(lastFullUpgrade(pamac), QDateTime(QDate(2026, 11, 13), QTime(17, 0), Qt::UTC));
     }
 
     void runningKernel()

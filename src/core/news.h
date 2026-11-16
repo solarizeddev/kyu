@@ -32,7 +32,7 @@ NewsSource newsSourceFor(const QString &osReleasePath = QStringLiteral("/etc/os-
                          const QString &cpuArchitecture = QString());
 
 // When the last full system upgrade that completed started, from pacman.log:
-// a "[PACMAN] starting full system upgrade" line followed by "[ALPM]
+// a "[PACMAN] starting full system upgrade" line (or another frontend's tag) followed by "[ALPM]
 // transaction completed". An upgrade that failed or was stopped does not
 // count, so news explaining why stays visible.
 QDateTime lastFullUpgrade(const QString &pacmanLogPath = QStringLiteral("/var/log/pacman.log"));

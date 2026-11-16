@@ -8,6 +8,7 @@
 #include "panelcontroller.h"
 #include "singleinstance.h"
 #include "statewatcher.h"
+#include "testdriver.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -17,6 +18,11 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
+
+#ifdef KYU_HAVE_KWINDOWSYSTEM
+#include <KWindowSystem>
+#endif
 
 #ifdef KYU_PREVIEW
 #include "preview/preview.h"
@@ -53,6 +59,7 @@ int main(int argc, char **argv)
     // session management and removes it from the arguments.
     QCommandLineOption session(QStringLiteral("session-bus"), QStringLiteral("Use a helper on the session bus (development)."));
     parser.addOption(session);
+    TestDriver::addOptions(parser);
 #ifdef KYU_PREVIEW
     Preview::addOptions(parser);
 #endif
@@ -76,7 +83,6 @@ int main(int argc, char **argv)
     panel.setFlatpakFollower(&flatpak);
     panel.setHelper(&helper, parser.isSet(session));
     panel.attach();
-    QObject::connect(&instance, &SingleInstance::activated, &panel, &PanelController::activateRequested);
 
     QQmlApplicationEngine engine;
 #ifdef KYU_PREVIEW
@@ -87,8 +93,22 @@ int main(int argc, char **argv)
     if (engine.rootObjects().isEmpty()) {
         return 1;
     }
-#ifdef KYU_PREVIEW
-    Preview::run(engine, parser, panel);
+    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
+    QObject::connect(&instance, &SingleInstance::activated, &panel, [&panel, window]([[maybe_unused]] const QString &token) {
+        Q_EMIT panel.activateRequested(); // show and raise (Main.qml)
+#ifdef KYU_HAVE_KWINDOWSYSTEM
+        // On Wayland, focus needs the tray click's activation token.
+        if (window && !token.isEmpty()) {
+            KWindowSystem::setCurrentXdgActivationToken(token);
+            KWindowSystem::activateWindow(window);
+        }
+#else
+        Q_UNUSED(window)
 #endif
+    });
+#ifdef KYU_PREVIEW
+    Preview::run(engine);
+#endif
+    TestDriver::run(engine, parser, panel, parser.isSet(session));
     return app.exec();
 }

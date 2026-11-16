@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal back()
@@ -41,7 +42,7 @@ ColumnLayout {
         text: Panel.processLine
         font.family: Kirigami.Theme.fixedWidthFont.family
         font.pointSize: Kirigami.Theme.smallFont.pointSize
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         wrapMode: Text.Wrap
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
@@ -123,7 +124,7 @@ ColumnLayout {
         text: "Exactly the commands shown run, nothing hidden." + (Panel.logPath.length > 0 ? " Full log: " + Panel.logPath : "")
         wrapMode: Text.WrapAnywhere
         font: Kirigami.Theme.smallFont
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit

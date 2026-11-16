@@ -6,7 +6,7 @@ target_include_directories(kyupanel PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(kyupanel PUBLIC kyucore kyuclient Qt6::Gui Qt6::DBus)
 
 # The panel window.
-add_executable(kyu main.cpp singleinstance.cpp)
+add_executable(kyu main.cpp singleinstance.cpp testdriver.cpp)
 target_link_libraries(kyu PRIVATE kyupanel Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::DBus)
 target_compile_definitions(kyu PRIVATE KYU_VERSION="${PROJECT_VERSION}" KYU_APP_ID="${KYU_APP_ID}")
 qt_add_resources(kyu panel_qml PREFIX "/" FILES
@@ -30,8 +30,16 @@ qt_add_resources(kyu panel_qml PREFIX "/" FILES
     qml/ConfigsPage.qml
     qml/DiffPage.qml
     qml/ProcessesPage.qml
+    qml/Style.js
 )
 install(TARGETS kyu DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Optional: lets a tray click focus an already open panel on Wayland.
+find_package(KF6WindowSystem QUIET)
+if(KF6WindowSystem_FOUND)
+    target_link_libraries(kyu PRIVATE KF6::WindowSystem)
+    target_compile_definitions(kyu PRIVATE KYU_HAVE_KWINDOWSYSTEM)
+endif()
 
 # Development only: a stand-in for the few Kirigami types the panel uses, so
 # the panel runs (and can be screenshotted) where KF6 is not installed. Never

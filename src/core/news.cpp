@@ -52,7 +52,9 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
 {
     const auto os = keyValues(osReleasePath, QLatin1Char('='));
     const QString id = os.value(QStringLiteral("ID"));
-    if (id == QLatin1String("manjaro")) {
+    const QStringList like = os.value(QStringLiteral("ID_LIKE")).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    // Manjaro ARM's os-release says ID=manjaro-arm (ID_LIKE "manjaro arch").
+    if (id == QLatin1String("manjaro") || id == QLatin1String("manjaro-arm") || like.contains(QLatin1String("manjaro"))) {
         QString branch = keyValues(mirrorsConfPath, QLatin1Char('=')).value(QStringLiteral("Branch"), QStringLiteral("stable"));
         if (branch != QLatin1String("testing") && branch != QLatin1String("unstable")) {
             branch = QStringLiteral("stable");
@@ -60,7 +62,7 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
         // Discourse category ids, as in Manjaro's own news app
         // (github.com/oguzkaganeren/manjaro-app, NewsScreen.tsx).
         const QString cpu = cpuArchitecture.isEmpty() ? QSysInfo::currentCpuArchitecture() : cpuArchitecture;
-        const bool arm = cpu == QLatin1String("arm64");
+        const bool arm = id == QLatin1String("manjaro-arm") || cpu == QLatin1String("arm64");
         const int id = arm ? (branch == QLatin1String("testing") ? 80 : branch == QLatin1String("unstable") ? 81 : 79)
                            : (branch == QLatin1String("testing") ? 13 : branch == QLatin1String("unstable") ? 15 : 12);
         const QString page = QStringLiteral("https://forum.manjaro.org/c/%1/%2-updates/%3")
@@ -68,7 +70,7 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
                                  .arg(id);
         return {QStringLiteral("Manjaro %1%2 updates").arg(arm ? QStringLiteral("ARM ") : QString(), branch), page + QStringLiteral(".rss"), page};
     }
-    if (id == QLatin1String("arch") || os.value(QStringLiteral("ID_LIKE")).split(QLatin1Char(' ')).contains(QLatin1String("arch"))) {
+    if (id == QLatin1String("arch") || like.contains(QLatin1String("arch"))) {
         return {QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/"), QStringLiteral("https://archlinux.org/news/")};
     }
     return {};
@@ -90,7 +92,8 @@ QDateTime lastFullUpgrade(const QString &pacmanLogPath)
     QByteArray last;
     while (!file.atEnd()) {
         const QByteArray line = file.readLine();
-        if (line.contains("] [PACMAN] starting full system upgrade")) {
+        // "[PACMAN] starting full system upgrade"; pamac logs its own tag.
+        if (line.contains("] starting full system upgrade")) {
             started = line;
         } else if (!started.isEmpty() && line.contains("] [ALPM] transaction completed")) {
             last = started;

@@ -6,6 +6,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 QQC2.ApplicationWindow {
     id: root
@@ -53,8 +54,16 @@ QQC2.ApplicationWindow {
     readonly property bool onScreen: stack.depth === 1
     Shortcut {
         sequences: ["Return", "Enter"]
+        // Enter on a focused button (Tab to "Check again") clicks that button.
         enabled: root.onScreen && Panel.screen === "list" && Panel.canUpdate
-        onActivated: Panel.updateAll()
+        onActivated: {
+            const button = Style.pressable(root.activeFocusItem)
+            if (button) {
+                button.clicked()
+            } else {
+                Panel.updateAll()
+            }
+        }
     }
     Shortcut {
         sequence: "C"

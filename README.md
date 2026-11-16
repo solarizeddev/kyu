@@ -2,7 +2,7 @@
 
 A KDE-native updater for Arch-based systems: a tray icon showing the number of pending repo and Flatpak updates, and (in later milestones) a panel that applies them through a privileged helper. Design and milestones: [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
-Current state: milestone 7. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer. Before an update, the list marks the package of the running kernel ("restart") and shows Arch's news published since the last full upgrade (Arch, CachyOS, EndeavourOS) or, on Manjaro, the update announcement for your branch. Afterwards, it says whether a restart is required, and why (running vs installed kernel, systemd using replaced libraries). It also lists the programs still running replaced libraries and the settings files pacman left as `.pacnew`/`.pacsave`, with a diff view. When an update fails, the panel says why from pacman's own lines (no network, an out-of-date mirror, keyring, files already on disk, disk space, dependencies) with the command that usually fixes it. It also notices an update that was interrupted, and removes pacman's lock file only when no running process holds it.
+Current state: milestone 7, ready for a first test on a real system: see [`docs/TESTING.md`](docs/TESTING.md) for building, a simulated walkthrough of every screen, screenshots across themes and sizes, and installing. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer. Before an update, the list marks the package of the running kernel ("restart") and shows Arch's news published since the last full upgrade (Arch, CachyOS, EndeavourOS) or, on Manjaro, the update announcement for your branch. Afterwards, it says whether a restart is required, and why (running vs installed kernel, systemd using replaced libraries). It also lists the programs still running replaced libraries and the settings files pacman left as `.pacnew`/`.pacsave`, with a diff view. When an update fails, the panel says why from pacman's own lines (no network, an out-of-date mirror, keyring, files already on disk, disk space, dependencies) with the command that usually fixes it. It also notices an update that was interrupted, and removes pacman's lock file only when no running process holds it.
 
 | List | Updating | Question | Output | Done | Settings file | Failed |
 |---|---|---|---|---|---|---|
@@ -14,7 +14,7 @@ The panel is dense and keyboard-driven: flat sections with dividers, data in the
 
 Keys: Enter updates all (list) or continues (question); 1–9 pick an answer; c checks again; l shows the output; s, p and w open the settings files, programs and changes after an update; y copies the log; Esc goes back, closes the window or (on the result) is Done. No key restarts the computer or cancels an update: those are buttons only, and closing the window never stops an update or answers a question.
 
-The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stand-in for Kirigami (Breeze colours, Fusion controls). On Plasma the panel uses the real Kirigami, your colour scheme and Plasma's control style.
+The screenshots come from `tools/kyu-demo.sh` with a fake pacman and a stand-in for Kirigami (Breeze colours, Fusion controls). On Plasma the panel uses the real Kirigami, your colour scheme and Plasma's control style.
 
 ## Components
 
@@ -31,7 +31,7 @@ The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stan
 
 ## Dependencies
 
-Runtime: `pacman-contrib` (for `checkupdates`), `flatpak` (libflatpak), Qt 6 (with Qt Quick Controls), KF6 StatusNotifierItem, Kirigami, the Plasma Qt Quick Controls style (`qqc2-desktop-style`), polkit and a polkit agent (Plasma has one).
+Runtime: `pacman-contrib` (for `checkupdates`), `flatpak` (libflatpak), Qt 6 (with Qt Quick Controls), KF6 StatusNotifierItem, Kirigami, the Plasma Qt Quick Controls style (`qqc2-desktop-style`), polkit and a polkit agent (Plasma has one). Optional: KF6 WindowSystem, so a tray click can focus an open panel on Wayland.
 
 Tests also use `dbus-run-session`, `gdbus` and the `flatpak` command; tests whose tools are missing are left out.
 
@@ -40,7 +40,7 @@ Build: CMake ≥ 3.22, a C++20 compiler, Qt 6 (Core, Gui, Widgets, DBus, Quick, 
 On Arch:
 
 ```bash
-sudo pacman -S --needed base-devel cmake ninja rust corrosion qt6-base qt6-declarative kirigami qqc2-desktop-style kstatusnotifieritem flatpak pacman-contrib
+sudo pacman -S --needed base-devel cmake ninja rust corrosion qt6-base qt6-declarative kirigami qqc2-desktop-style kstatusnotifieritem kwindowsystem flatpak pacman-contrib
 ```
 
 ## Build and test
@@ -57,7 +57,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Without KF6, drop `-DKYU_REQUIRE_KSNI=ON`; the tray then falls back to `QSystemTrayIcon`. `-DKYU_FLATPAK=OFF` builds without libflatpak (Flatpaks are then reported as not checked).
+To install, use the package in `packaging/arch` (`makepkg -si`, see [`docs/TESTING.md`](docs/TESTING.md)), or configure with `-DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBEXECDIR=lib/kyu`: the helper's D-Bus policy and polkit action only work under `/usr`. Without KF6, drop `-DKYU_REQUIRE_KSNI=ON`; the tray then falls back to `QSystemTrayIcon`. `-DKYU_FLATPAK=OFF` builds without libflatpak (Flatpaks are then reported as not checked).
 
 ## Try it from the build tree
 
@@ -110,19 +110,21 @@ The panel works against the same development helper (the option is `--session-bu
 build/bin/kyu --session-bus
 ```
 
-### Panel previews without KF6
+### Every screen against a simulated system
 
-Configure with `-DKYU_PREVIEW=ON` to build the panel with a stand-in for the few Kirigami types it uses, then script screenshots (offscreen, private bus, fake pacman):
+`tools/kyu-demo.sh SCENARIO` runs the panel against a test helper, a fake pacman and a throwaway Flatpak installation (30 scenarios: errors, questions, updates, pages); `tools/kyu-screens.sh` screenshots them across colour schemes, sizes, fonts and scale factors. Details in [`docs/TESTING.md`](docs/TESTING.md).
+
+Without KF6, configure with `-DKYU_PREVIEW=ON` to build the panel with a stand-in for the few Kirigami types it uses (Breeze colours, Fusion controls); the same scripts then render offscreen:
 
 ```bash
 cmake -S . -B build -DKYU_PREVIEW=ON
 ```
 
 ```bash
-tools/preview-panel.sh /tmp/running.png --start-update --delay 3300
+OUT=/tmp/running.png tools/kyu-demo.sh running
 ```
 
-The script's header lists more examples (dark colours, output page, questions with `MODE=provider|conflict|replace|key`, `--answer VALUE`, a long list with `STATE=$PWD/tools/preview-state-long.json`, window size with `--size WxH`, font size with `--font-size PT`). Never package a preview build.
+Never package a preview build.
 
 `kyu-check` exits 0 when every source was checked, 2 when one failed (the error is printed and stored in the state file), 1 when the state file could not be written.
 

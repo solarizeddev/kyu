@@ -18,11 +18,14 @@ bool SingleInstance::claim()
         bus.registerObject(QStringLiteral("/"), this, QDBusConnection::ExportScriptableSlots);
         return true;
     }
-    bus.call(QDBusMessage::createMethodCall(Service, QStringLiteral("/"), Service, QStringLiteral("Activate")));
+    // Pass on the token this process was started with (from the tray click).
+    auto call = QDBusMessage::createMethodCall(Service, QStringLiteral("/"), Service, QStringLiteral("Activate"));
+    call.setArguments({qEnvironmentVariable("XDG_ACTIVATION_TOKEN")});
+    bus.call(call);
     return false;
 }
 
-void SingleInstance::Activate()
+void SingleInstance::Activate(const QString &token)
 {
-    Q_EMIT activated();
+    Q_EMIT activated(token);
 }

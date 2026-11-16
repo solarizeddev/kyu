@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal back()
@@ -15,7 +16,7 @@ ColumnLayout {
             + (Panel.otherUsersProcesses > 0 ? " " + Panel.otherUsersProcesses + " more belong to other users and are counted, not named." : "")
             + (Panel.processCount - Panel.otherUsersProcesses > Panel.processes.length ? " The first " + Panel.processes.length + " are listed." : "")
         wrapMode: Text.Wrap
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
@@ -54,7 +55,7 @@ ColumnLayout {
                         text: modelData.libraries
                         font.family: Kirigami.Theme.fixedWidthFont.family
                         font.pointSize: Kirigami.Theme.smallFont.pointSize
-                        color: Kirigami.Theme.disabledTextColor
+                        color: Style.muted(Kirigami.Theme.textColor)
                         wrapMode: Text.WrapAnywhere
                         Layout.fillWidth: true
                     }

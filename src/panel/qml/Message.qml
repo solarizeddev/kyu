@@ -10,6 +10,9 @@ Rectangle {
     property string iconName: "dialog-warning"
     // Long messages (an error with a whole URL) take three lines until
     // clicked, so they never push the list and buttons off the window.
+    // collapsible: false shows everything (the update's own result, which
+    // sits in a scrolling area).
+    property bool collapsible: true
     property bool expanded: false
 
     visible: text.length > 0
@@ -41,7 +44,7 @@ Rectangle {
             id: label
             Layout.fillWidth: true
             wrapMode: Text.Wrap
-            maximumLineCount: message.expanded ? 1000 : 3
+            maximumLineCount: message.expanded || !message.collapsible ? 1000 : 3
             elide: Text.ElideRight
             color: Kirigami.Theme.textColor
         }

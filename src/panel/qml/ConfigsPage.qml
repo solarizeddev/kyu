@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal back()
@@ -14,7 +15,7 @@ ColumnLayout {
     QQC2.Label {
         text: "pacman did not overwrite these files. A .pacnew file holds the package's new defaults next to your version; a .pacsave file keeps the settings of a removed package."
         wrapMode: Text.Wrap
-        color: Kirigami.Theme.disabledTextColor
+        color: Style.muted(Kirigami.Theme.textColor)
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
@@ -50,7 +51,7 @@ ColumnLayout {
                         QQC2.Label {
                             text: modelData.kind === "pacnew" ? "new defaults in " + modelData.saved : "removed package's settings in " + modelData.saved
                             font: Kirigami.Theme.smallFont
-                            color: Kirigami.Theme.disabledTextColor
+                            color: Style.muted(Kirigami.Theme.textColor)
                             elide: Text.ElideMiddle
                             Layout.fillWidth: true
                         }
@@ -84,7 +85,7 @@ ColumnLayout {
             text: "To merge them: sudo pacdiff"
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
         }
         QQC2.Button {

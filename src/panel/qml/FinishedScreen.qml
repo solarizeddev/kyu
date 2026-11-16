@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "Style.js" as Style
 
 ColumnLayout {
     signal showOutput()
@@ -28,7 +29,15 @@ ColumnLayout {
             visible: text.length > 0
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.disabledTextColor
+            color: Style.muted(Kirigami.Theme.textColor)
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        QQC2.Label {
+            text: Panel.transactionNote
+            visible: text.length > 0
+            font.pointSize: Kirigami.Theme.smallFont.pointSize
+            color: Kirigami.Theme.neutralTextColor
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
@@ -53,6 +62,7 @@ ColumnLayout {
                 Message {
                     text: Panel.resultText
                     iconName: "dialog-error"
+                    collapsible: false
                 }
                 QQC2.Label {
                     visible: Panel.restartRequired
@@ -116,7 +126,7 @@ ColumnLayout {
                     text: "pacman:\n" + Panel.failureLines.slice(0, 6).join("\n")
                     font.family: Kirigami.Theme.fixedWidthFont.family
                     font.pointSize: Kirigami.Theme.smallFont.pointSize
-                    color: Kirigami.Theme.disabledTextColor
+                    color: Style.muted(Kirigami.Theme.textColor)
                     wrapMode: Text.WrapAnywhere
                     Layout.fillWidth: true
                 }

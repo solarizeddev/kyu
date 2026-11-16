@@ -21,7 +21,9 @@ public:
 
 Q_SIGNALS:
     void checkRequested();
-    void panelRequested();
+    // token: the Wayland activation token of the click, if any, so the panel
+    // may take focus.
+    void panelRequested(const QString &token);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
