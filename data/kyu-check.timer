@@ -1,0 +1,13 @@
+[Unit]
+Description=Check for updates hourly (Kyu)
+Documentation=https://github.com/solarizeddev/kyu
+
+[Timer]
+# kyu-tray starts this timer at login. To check without the tray:
+#   systemctl --user enable --now kyu-check.timer
+OnActiveSec=2min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -2,7 +2,7 @@
 
 Working name: **Kyu** (KDE "K" + pacman `-Syu`, read as "queue"). Check the name on GitHub, the AUR and KDE's app list before committing to it.
 
-This file records the decisions from the design session so a coding session can start without the chat history. Static copies of the sketches are in `sketches/`.
+This file records the decisions from the design session so a coding session can start without the chat history. Static copies of the sketches are in `sketches/` (also packed in `kyu-handoff.zip`).
 
 ## What it is
 
@@ -39,7 +39,24 @@ User session (no root)
 Decisions:
 - **Drive the `pacman` binary and parse its output** at first. Do not link libalpm yet (kalu's history shows the maintenance cost).
 - **AUR is out of scope for v1.** If added later it is a separate, explicit step, never part of the system upgrade.
-- **Suggested stack:** Qt6, Kirigami/QML, KStatusNotifierItem, polkit (KAuth or plain), helper in C++ or Rust.
+- **Stack:** checker, tray and panel in C++ with Qt6, Kirigami/QML and KStatusNotifierItem. Helper in **Rust** (zbus, polkit called directly over D-Bus). Decided 2026-11-16, see below.
+- **Panel form:** a small standalone window opened from the tray, not a plasmoid, so releases are not tied to Plasma versions.
+- **No roll back.** Kyu does not take or restore snapshots (decided 2026-11-16: unnecessary complexity). Users who run snap-pac or similar keep their snapshots through pacman hooks, outside Kyu.
+
+### Why Rust for the helper, and not KAuth
+
+KAuth suits short one-shot actions with one-way progress. The helper needs more than that: it must ask the panel questions mid-transaction (milestone 4) and let a new panel reattach to a running update. Neither fits KAuth. So either language needs a custom system-bus service that calls polkit itself, which removes C++'s main advantage. The UI/helper contract is language-neutral anyway: a D-Bus introspection XML (qdbusxml2cpp on the Qt side, zbus-xmlgen on the helper side) plus a versioned log format. Rust then gives exhaustive matching for the prompt/transaction state machine and memory safety for root code that parses text. Build the helper through Corrosion so `cmake --build` stays the only entry point. Main risk: two toolchains and a small pool of Rust maintainers; keep the helper small and its dependencies few and locked.
+
+### Helper requirements (from the language review, for milestones 2 and 4)
+
+- **Reattach needs live state, not only the log.** Add a D-Bus `GetState` (phase, pending prompt, transaction id). Keep the log for history.
+- **Prompt ownership.** Only the uid that started the transaction may answer or reattach. Define what happens when a prompt is pending and no panel is open: wait, or time out and abort.
+- **Fixed operations only.** The D-Bus API never takes client-supplied arguments, package lists or environment.
+- **Lifetime.** Do not kill pacman on SIGHUP or service stop mid-transaction. Hold a logind inhibitor against shutdown and sleep while running. Handle a stale `db.lck`.
+- **Show the real transaction.** The `checkupdates` list and the actual `-Syu` set can differ (mirror changed in between). Report the real set before committing.
+- **Locale.** Parsing needs `LC_ALL=C`, which conflicts with UI rule 3 (quote pacman's messages): the quotes would be in English. Decide per message, or parse with C and show localized text separately.
+- **Prompts are not a stable interface.** A `--print` pre-pass will not surface every question. Pin tested pacman versions and fail closed on unknown prompts, or reconsider libalpm's question callback just for prompts.
+- **"Update at shutdown"** (in the Updates list menu) has no mechanism yet. It needs something like systemd offline updates, which is a separate design.
 
 ## UI rules
 
@@ -58,9 +75,9 @@ Decisions:
 | `ready-*.html` | Updates list | Count, total size, restart flag. Rows: name, old -> new, grouped by repo. "Update all" plus a menu: update at shutdown, hold a package, copy as command. |
 | `details-*.html` | Package info | Versions, download size, size change, required-by, install reason, changelog, files. "Hold this package" with IgnorePkg warning. |
 | `running-*.html` | Updating | Percentage, thin bar, the same list ticking off per package. "Closing this panel will not stop the update." |
-| `log-*.html` | Pacman output | Live output, commands shown, helper pid and privilege info, copy log, follow in Konsole. |
+| `log-*.html` | Pacman output | Live output, commands shown, helper pid and privilege info, copy log, follow in Konsole. (Ignore the sketch's "snapshot taken" line; no snapshots.) |
 | `ask-*.html` | Question | Provider choice as radios with a suggested default, pacman's message quoted. Same pattern for conflicts, replacements, key imports. |
-| `finished-*.html` | Done | "N updated, restart required", running vs installed kernel, restart now or later, .pacnew review, list of what changed, roll back. |
+| `finished-*.html` | Done | "N updated, restart required", running vs installed kernel, restart now or later, .pacnew review, list of what changed. (The sketch still shows a roll back row; it is out of scope.) |
 
 All numbers, versions and package names in the sketches are sample data.
 
@@ -87,12 +104,20 @@ Colour roles used in the sketches and their Kirigami equivalents:
 5. **Flatpak in the same list.**
 6. **After-update care.** Restart detection, .pacnew files, distro news before big updates.
 7. **Failure states** (not sketched yet): out-of-sync mirror, keyring error, interrupted update and reattach, no network, lock file present.
-8. **Later, optional:** upgrade simulation (dry run) before applying, snapshot before update and roll back (Btrfs/Snapper or Timeshift), watched packages, AUR as a separate step, settings.
+8. **Later, optional:** upgrade simulation (dry run) before applying, watched packages, AUR as a separate step, settings.
 
 ## Open questions
 
-- Helper language: C++ (KAuth integration) or Rust.
-- Panel form: Plasma applet (plasmoid) or a small standalone window opened from the tray. A plasmoid is more native but ties releases to Plasma versions.
 - Manjaro specifics: branches, `pacman-mirrors`, and whether `checkupdates` behaves on Manjaro mirrors.
-- How to answer pacman's interactive prompts reliably when driving the binary (pty and output parsing vs a `--print`/dry-run pre-pass to detect questions up front).
-- Whether the roll back feature is in scope at all.
+- How to answer pacman's interactive prompts reliably when driving the binary (pty and output parsing vs a `--print`/dry-run pre-pass to detect questions up front). See "Helper requirements" above.
+- Where the panel reads history from: the helper's transaction log, or the journal (the log sketch says "the full log stays in the system journal").
+- Order of pacman and Flatpak in one run: the log sketch runs Flatpak first, the running sketch runs it after pacman.
+
+## Status
+
+**Milestone 1 (checker + tray icon): done.** See the README for build and run steps.
+
+- `kyu-check` runs `checkupdates` against a private database copy (`$XDG_CACHE_HOME/kyu/checkup-db`), looks up each package's repo in that copy with `pacman -Sl`, and counts Flatpak updates in all system installations plus the user installation through libflatpak. It writes `$XDG_STATE_HOME/kyu/updates.json` atomically. A source that fails keeps its last good list and records the tool's own error message.
+- `kyu-check.timer` (systemd user unit) runs it hourly. `kyu-tray` starts the timer at login. Without a systemd user manager, the tray runs `kyu-check` itself every hour.
+- `kyu-tray` watches the state directory and shows the theme icon `update-low` with the count drawn in the palette's highlight colours, a tooltip with counts per repo and remote, and the check time or failure. The icon goes Passive (hidden in the tray's overflow) when there is nothing to do. The menu has "Check for updates now".
+- Not done yet: strings go through `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, because the development container had no KF6. No PKGBUILD yet.

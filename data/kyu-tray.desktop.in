@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kyu
+GenericName=Update notifier
+Comment=Shows pending pacman and Flatpak updates
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/kyu-tray
+Icon=update-low
+Categories=System;
+NoDisplay=true
+X-KDE-autostart-phase=2

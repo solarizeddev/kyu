@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kyu sketch: Technical details (light)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600&family=Noto+Sans+Mono:wght@400;500&display=swap">
+<style>body{margin:0;background:#eff0f1}</style>
+</head>
+<body>
+<div style="width: 420px; height: 640px; box-sizing: border-box; padding: 20px 28px 28px 28px; background: #eff0f1; font-family: 'Noto Sans', sans-serif; font-size: 15px; color: #232629; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 4px; margin-left: -12px">
+<button type="button" aria-label="Back" style="width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: #232629; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; flex: 1">Technical details</h1>
+<span style="font-size: 20px; font-weight: 600">44%</span>
+</div>
+<div role="img" aria-label="Progress, 44 percent" style="height: 4px; background: #d3d7db; border-radius: 2px; overflow: hidden"><div style="width: 44%; height: 4px; background: #3daee9"></div></div>
+<div style="display: flex; flex-direction: column; gap: 4px; font: 400 12px 'Noto Sans Mono', monospace; color: #5d6368">
+<span>helper pid 4127 · running as root via polkit</span>
+<span>pacman 7.1.0 · snapshot #212 taken before start</span>
+</div>
+<div style="flex: 1; border-radius: 12px; background: #232627; padding: 14px; font: 400 12.5px/1.75 'Noto Sans Mono', monospace; color: #fcfcfc; overflow: hidden">
+<span style="color: #7fd0ff">$ flatpak update -y</span><br>
+3 apps updated<br>
+<span style="color: #7fd0ff">$ pacman -Syu</span><br>
+:: Synchronizing package databases...<br>
+:: Starting full system upgrade...<br>
+:: Processing package changes...<br>
+(1/9) upgrading plasma-desktop<br>
+(2/9) upgrading kwin<br>
+(3/9) upgrading plasma-workspace<br>
+<span style="color: #b8bec4">waiting: linux618, mesa and 4 more</span>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" style="flex: 1; height: 44px; border: 0; border-radius: 12px; background: #ffffff; color: #232629; font: 400 14px 'Noto Sans', sans-serif">Copy log</button>
+<button type="button" style="flex: 1; height: 44px; border: 0; border-radius: 12px; background: #ffffff; color: #232629; font: 400 14px 'Noto Sans', sans-serif">Follow in Konsole</button>
+</div>
+<span style="font-size: 13px; color: #5d6368">Exactly the commands shown run, nothing hidden. The full log stays in the system journal.</span>
+</div>
+</body>
+</html>
