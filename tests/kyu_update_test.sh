@@ -23,11 +23,21 @@ run() {
     name=$1; input=$2; shift 2
     d="$work/$name"
     fake_system "$d"
-    printf "$input" | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 \
+    printf "$input" | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
         timeout 30 "$bin/kyu-update" --no-wait $(fake_args "$d") "$@" >"$d/out" 2>&1
     echo $? >"$d/code"
 }
 prepare() { mkdir -p "$work/$1"; }
+# idle FILE: until FILE has not grown for 0.6 seconds (at most 15 seconds).
+idle() {
+    last=-1; n=0
+    while [ $n -lt 50 ]; do
+        sleep 0.3; n=$((n + 1))
+        size=$(wc -c <"$1" 2>/dev/null || echo 0)
+        [ "$size" -gt 0 ] && [ "$size" = "$last" ] && sleep 0.3 && [ "$(wc -c <"$1")" = "$size" ] && return
+        last=$size
+    done
+}
 
 echo "success: pacman, then flatpak, then what is left to do"
 run ok 'y\n'
@@ -44,6 +54,8 @@ hasnt "$d/out" 'Nothing else to do' ok
 has "$d/out" 'Keep this window open until Kyu says it is done.' ok
 hasnt "$d/out" 'Snapshot' ok
 grep -q '"restartRequired": true' "$d/state/kyu/last-run.json" || fail "ok: last-run.json without the restart"
+[ -e "$d/inhibited" ] || fail "ok: pacman did not run under systemd-inhibit"
+[ "$(cat "$d/pacman-args")" = -Syu ] || fail "ok: pacman ran with $(cat "$d/pacman-args")"
 grep -q '"/etc/sddm.conf.pacnew"' "$d/state/kyu/last-run.json" || fail "ok: last-run.json without the settings file"
 
 echo "news: Enter alone (or n) stops before anything runs"
@@ -53,7 +65,7 @@ d=$work/news-no
 [ "$(cat "$d/code")" = 4 ] || fail "news-no: exit $(cat "$d/code")"
 has "$d/out" 'Manual intervention for foo' news-no
 has "$d/out" 'Continue? [y/N]' news-no
-has "$d/out" 'Stopped. Nothing was changed.' news-no
+has "$d/out" 'Stopped. Nothing was installed.' news-no
 [ ! -e "$d/pacman-ran" ] || fail "news-no: pacman ran"
 
 echo "news: y continues"
@@ -82,7 +94,7 @@ prepare lock; touch "$work/lock/db.lck"
 run lock ''
 d=$work/lock
 [ "$(cat "$d/code")" = 1 ] || fail "lock: exit $(cat "$d/code")"
-has "$d/out" "pacman's lock file is left over" lock
+has "$d/out" "pacman's lock is left over" lock
 [ ! -e "$d/pacman-ran" ] || fail "lock: pacman ran"
 
 echo "lock held by a running pacman"
@@ -101,13 +113,13 @@ has "$d/out" ' · 2 Flatpaks' fponly
 echo "a stale lock while the pamac tray runs (it takes no lock)"
 prepare tray; touch "$work/tray/db.lck"; mkdir -p "$work/tray/proc/777"; echo pamac-tray-plas >"$work/tray/proc/777/comm"
 run tray ''
-has "$work/tray/out" "pacman's lock file is left over" tray
+has "$work/tray/out" "pacman's lock is left over" tray
 
 echo "flatpak fails after pacman: both said"
 KYU_FAKE_FLATPAK_EXIT=1 run fpfail 'y\n'
 d=$work/fpfail
 [ "$(cat "$d/code")" = 5 ] || fail "fpfail: exit $(cat "$d/code")"
-has "$d/out" 'flatpak update failed (status 1)' fpfail
+has "$d/out" 'Flatpaks failed (status 1)' fpfail
 has "$d/out" 'Packages done: 2 packages' fpfail
 
 echo "pacman fails mid-transaction: what changed is said"
@@ -141,17 +153,18 @@ hasnt "$work/clean/out" 'Restart needed' clean
 echo "a snapshot hook is named before pacman"
 prepare snap; mkdir -p "$work/snap/hooks"; touch "$work/snap/hooks/05-snap-pac-pre.hook"
 run snap 'y\n'
-has "$work/snap/out" 'Snapshot   by snap-pac, before pacman changes anything' snap
+has "$work/snap/out" 'Snapshot   snap-pac takes one first' snap
 
 # runtty NAME INPUT [args...]: in a terminal (util-linux script), so the last
-# line offers its keys. INPUT is answers separated by "|", typed one second
-# apart (typed ahead, they would go to pacman's own terminal, as for a person).
+# line offers its keys. INPUT is answers separated by "|", each typed once the
+# output has been still for a moment (Kyu drops keys typed before its question).
 runtty() {
     name=$1; input=$2; shift 2
     d="$work/$name"
     fake_system "$d"
     # shellcheck disable=SC2046
-    (IFS='|'; for a in $input; do sleep 1; printf "$a"; done; sleep 2) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 \
+    : >"$d/out"
+    (IFS='|'; for a in $input; do idle "$d/out"; printf '%b' "$a"; done; idle "$d/out"; sleep 1) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
         timeout 30 script -q -e -c "$bin/kyu-update $(fake_args "$d") $*" /dev/null >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -161,7 +174,7 @@ prepare lockfix; touch "$work/lockfix/db.lck"
 runtty lockfix 'f\n|y\n|\n'
 d=$work/lockfix
 has "$d/out" "Fix: sudo rm $d/db.lck" lockfix
-has "$d/out" '[f] fix and update again   [Enter] close' lockfix
+has "$d/out" '[f] fix, update again   [Enter] close' lockfix
 [ ! -e "$d/db.lck" ] || fail "lockfix: the lock is still there"
 [ -e "$d/pacman-ran" ] || fail "lockfix: the update did not run again"
 has "$d/out" 'Done in ' lockfix
@@ -173,9 +186,41 @@ has "$work/keyfix/out" 'Fix: sudo pacman -Sy --needed' keyfix
 has "$work/keyfix/out" '[Enter] close' keyfix
 runtty merge 'y\n|m\n|\n'
 d=$work/merge
-has "$d/out" '[r] restart now   [m] merge sddm.conf   [Enter] close' merge
+has "$d/out" '[r] restart   [m] merge   [Enter] close' merge
 [ -e "$d/pacdiff-ran" ] || fail "merge: pacdiff did not run"
 has "$d/out" 'fake pacdiff --sudo' merge
+
+echo "plain ASCII where the terminal is not UTF-8"
+LC_ALL=C run ascii 'y\n'
+has "$work/ascii/out" 'Kyu - 3 updates: 2 packages, 1 Flatpak' ascii
+has "$work/ascii/out" '> Packages   sudo pacman -Syu' ascii
+
+echo "--refresh: pacman -Syyu"
+run refresh 'y\n' --refresh
+[ "$(cat "$work/refresh/pacman-args")" = -Syyu ] || fail "refresh: pacman ran with $(cat "$work/refresh/pacman-args")"
+
+echo "keys: [r] asks, then restarts (here: a fake systemctl)"
+runtty reboot 'y\n|r\n|y\n'
+[ -e "$work/reboot/systemctl-reboot" ] || fail "reboot: systemctl reboot did not run"
+has "$work/reboot/out" 'Restart now? Unsaved work in open programs is lost. [y/N]' reboot
+
+echo "keys: no [r] after half an update"
+KYU_FAKE_MODE=midfail runtty halfway 'y\n|\n'
+has "$work/halfway/out" 'Do not restart until the update has finished.' halfway
+hasnt "$work/halfway/out" '[r] restart' halfway
+
+echo "keys: [f] for the keyring, then the whole update again without the news"
+prepare keyagain; state "$work/keyagain/state.json" 2 1 1
+KYU_FAKE_MODE=keyring runtty keyagain 'y\n|y\n|f\n|y\n|\n'
+d=$work/keyagain
+[ -e "$d/keyring-fixed" ] || fail "keyagain: the keyring fix did not run"
+[ "$(grep -c 'Continue? \[y/N\]' "$d/out")" = 1 ] || fail "keyagain: the news were asked again"
+has "$d/out" 'The package lists are newer than the system: update before installing anything.' keyagain
+
+echo "a restart from before this run says so"
+prepare earlier; state "$work/earlier/state.json" 0 0 0
+KYU_FAKE_MODE=nothing run earlier ''
+has "$work/earlier/out" 'Restart needed: new kernel 6.18.22-1-MANJARO (from an earlier update)' earlier
 
 echo "one update at a time"
 KYU_FAKE_MODE=slow run first 'y\n' &
