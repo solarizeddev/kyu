@@ -25,3 +25,10 @@ if(KYU_HELPER)
     install(FILES io.github.solarizeddev.kyu.policy DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
     install(FILES io.github.solarizeddev.kyu.Helper1.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/interfaces)
 endif()
+
+# "Updating" tray icon frames (data/icons/README.md), by name in hicolor so
+# Plasma colours them like theme icons.
+foreach(size 22 16)
+    file(GLOB _frames ${CMAKE_CURRENT_SOURCE_DIR}/icons/${size}/kyu-updating-*.svg)
+    install(FILES ${_frames} DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/status)
+endforeach()

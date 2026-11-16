@@ -5,6 +5,7 @@
 
 class QAction;
 class QMenu;
+class QTimer;
 class StateWatcher;
 
 #ifdef KYU_HAVE_KSNI
@@ -30,10 +31,14 @@ protected:
 
 private:
     void refresh();
+    void spin();
 
     StateWatcher *m_watcher;
     QMenu *m_menu;
     QAction *m_checkAction;
+    QTimer *m_poll = nullptr;
+    QTimer *m_spin = nullptr;
+    int m_frame = 0;
 #ifdef KYU_HAVE_KSNI
     KStatusNotifierItem *m_item;
 #else

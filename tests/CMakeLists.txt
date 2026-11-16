@@ -10,6 +10,7 @@ kyu_test(test_pacmanparse)
 kyu_test(test_updatestate)
 kyu_test(test_news)
 kyu_test(test_aftercare)
+kyu_test(test_traystate)
 
 # kyu-update end to end, with fake sudo/pacman/flatpak and util-linux script.
 find_program(SCRIPT_TOOL script)
