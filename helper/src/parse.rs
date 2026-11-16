@@ -271,28 +271,41 @@ fn yes_no_question(text: &str, default: &str, recent: &[String]) -> Option<Quest
     }
     // ":: %s and %s are in conflict. Remove %s?"
     // ":: %s and %s are in conflict (%s). Remove %s?"
+    // Newer pacman versions may print name-version for the two packages.
     if let Some(rest) = body.strip_prefix(":: ")
         && let Some((pair, remove)) = rest.split_once(" are in conflict")
     {
         let (a, b) = pair.split_once(" and ")?;
         let remove = remove.rsplit_once(" Remove ")?.1.strip_suffix('?')?;
-        if remove != a && remove != b {
+        let names = |p: &str, name: &str| {
+            p == name || p.strip_prefix(name).is_some_and(|v| v.starts_with('-'))
+        };
+        let keep = if names(a, remove) {
+            b
+        } else if names(b, remove) {
+            a
+        } else {
             return None;
-        }
-        let keep = if remove == a { b } else { a };
+        };
         return Some(q(
             "conflict",
             vec![],
             vec![("install", keep.into()), ("remove", remove.into())],
         ));
     }
-    // ":: Import PGP key %s, \"%s\"?"
+    // ":: Import PGP key FPR, \"UID\"?", older: "..., \"UID\", created: DATE?",
+    // no uid: ":: Import PGP key FPR?"
     if let Some(rest) = body
         .strip_prefix(":: Import PGP key ")
         .and_then(|r| r.strip_suffix('?'))
     {
-        let (key, uid) = rest.split_once(", ")?;
-        let uid = uid.trim_matches('"');
+        let (key, uid) = match rest.split_once(", \"") {
+            Some((key, rest)) => (key, rest.split('"').next().unwrap_or_default()),
+            None => (rest, ""),
+        };
+        if key.is_empty() || key.contains(' ') {
+            return None;
+        }
         return Some(q(
             "import_key",
             vec![],
@@ -301,7 +314,12 @@ fn yes_no_question(text: &str, default: &str, recent: &[String]) -> Option<Quest
     }
     // ":: File %s is corrupted (%s).\nDo you want to delete it?"
     if body == "Do you want to delete it?" {
-        let line = recent.last()?;
+        // The ":: File ... is corrupted" line pacman printed just before.
+        let line = recent
+            .iter()
+            .rev()
+            .take(5)
+            .find(|l| l.trim_start().starts_with(":: File "))?;
         let rest = line.trim_start().strip_prefix(":: File ")?;
         let (file, reason) = rest.split_once(" is corrupted (")?;
         let reason = reason.strip_suffix(").")?;
@@ -313,8 +331,9 @@ fn yes_no_question(text: &str, default: &str, recent: &[String]) -> Option<Quest
     }
     // ":: The following package(s) cannot be upgraded due to unresolvable
     // dependencies:\n  pkgs\n\nDo you want to skip the above package(s) for this upgrade?"
-    if body == "Do you want to skip the above package for this upgrade?"
-        || body == "Do you want to skip the above packages for this upgrade?"
+    let unprefixed = body.strip_prefix(":: ").unwrap_or(body);
+    if unprefixed == "Do you want to skip the above package for this upgrade?"
+        || unprefixed == "Do you want to skip the above packages for this upgrade?"
     {
         let start = recent
             .iter()
@@ -324,7 +343,11 @@ fn yes_no_question(text: &str, default: &str, recent: &[String]) -> Option<Quest
             .iter()
             .flat_map(|l| l.split_whitespace().map(str::to_string).collect::<Vec<_>>())
             .collect();
-        return Some(q("skip", context, vec![("packages", packages.join(" "))]));
+        // Skipping them would be a partial upgrade (HANDOFF.md rule 4): the
+        // helper accepts no answer to this question, only Cancel.
+        let mut question = q("skip", context, vec![("packages", packages.join(" "))]);
+        question.answers.clear();
+        return Some(question);
     }
     // "%s is in IgnorePkg/IgnoreGroup. Install anyway?"
     if let Some(package) = body.strip_suffix(" is in IgnorePkg/IgnoreGroup. Install anyway?") {
@@ -573,8 +596,60 @@ mod tests {
             ],
         );
         assert_eq!((q.kind, q.default.as_str()), ("skip", "n"));
+        assert!(q.answers.is_empty(), "no answer may skip packages");
         assert_eq!(detail(&q, "packages"), "foo bar");
         assert_eq!(q.context.len(), 3);
+    }
+
+    #[test]
+    fn real_pacman_prefixes_and_variants() {
+        // pacman's question() puts ":: " before every yes/no question.
+        let q = relayed(
+            ":: Do you want to skip the above package for this upgrade? [y/N] ",
+            &[
+                ":: The following package cannot be upgraded due to unresolvable dependencies:",
+                "      foo",
+                "",
+            ],
+        );
+        assert_eq!(q.kind, "skip");
+        assert!(q.answers.is_empty());
+        // Conflict with versions.
+        let q = relayed(
+            ":: foo-2.0-1 and bar-1.0-1 are in conflict. Remove bar? [y/N] ",
+            &[],
+        );
+        assert_eq!(detail(&q, "remove"), "bar");
+        assert_eq!(detail(&q, "install"), "foo-2.0-1");
+        assert_eq!(
+            prompt(
+                ":: foo-2 and bar-1 are in conflict. Remove baz? [y/N] ",
+                &[]
+            ),
+            Some(Prompt::Unsupported)
+        );
+        // Key without uid, and the older "created:" form.
+        assert_eq!(
+            detail(&relayed(":: Import PGP key 0123ABCD? [Y/n] ", &[]), "key"),
+            "0123ABCD"
+        );
+        let q = relayed(
+            ":: Import PGP key 4096R/0123ABCD, \"Someone <s@x>\", created: 2020-01-01? [Y/n] ",
+            &[],
+        );
+        assert_eq!(detail(&q, "uid"), "Someone <s@x>");
+        // Another line between the corrupted file and the question.
+        let q = relayed(
+            "Do you want to delete it? [Y/n] ",
+            &[
+                ":: File /var/cache/pacman/pkg/a.pkg.tar.zst is corrupted (invalid or corrupted package (checksum)).",
+                "checking package integrity...",
+            ],
+        );
+        assert_eq!(
+            detail(&q, "reason"),
+            "invalid or corrupted package (checksum)"
+        );
     }
 
     #[test]

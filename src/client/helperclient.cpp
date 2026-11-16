@@ -78,7 +78,13 @@ bool HelperClient::follow(const QJsonObject &state)
     if (tx.isEmpty()) {
         return false;
     }
-    m_tx = tx.value(QStringLiteral("tx")).toString();
+    const QString id = tx.value(QStringLiteral("tx")).toString();
+    if (id != m_tx) {
+        // A new transaction: its sequence numbers start again at 1.
+        m_lastSeq = 0;
+        m_finished = false;
+    }
+    m_tx = id;
     m_logPath = tx.value(QStringLiteral("log")).toString();
     m_following = true;
     readLog();
@@ -93,6 +99,10 @@ bool HelperClient::follow(const QJsonObject &state)
 
 void HelperClient::startUpdate()
 {
+    // Until the reply names the new transaction, buffer signals rather than
+    // match them against the previous one.
+    m_following = false;
+    m_early.clear();
     auto call = QDBusMessage::createMethodCall(QString::fromLatin1(Service),
                                                QString::fromLatin1(Path),
                                                QString::fromLatin1(Interface),

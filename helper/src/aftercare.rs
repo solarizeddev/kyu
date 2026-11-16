@@ -36,9 +36,13 @@ pub struct Kernel {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Process {
     pub pid: u32,
+    pub owner: u32,
     pub name: String,
     pub libraries: Vec<String>,
 }
+
+/// System accounts (root, daemons) are below this uid.
+const FIRST_USER_UID: u32 = 1000;
 
 fn read_trimmed(path: &Path) -> Option<String> {
     fs::read_to_string(path)
@@ -127,8 +131,14 @@ pub fn processes(roots: &Roots) -> Vec<Process> {
             continue;
         }
         let name = read_trimmed(&entry.path().join("comm")).unwrap_or_else(|| pid.to_string());
+        // /proc/PID belongs to the process's user.
+        let Ok(meta) = fs::metadata(entry.path()) else {
+            continue;
+        };
+        let owner = std::os::unix::fs::MetadataExt::uid(&meta);
         found.push(Process {
             pid,
+            owner,
             name,
             libraries: libraries.into_iter().collect(),
         });
@@ -138,9 +148,18 @@ pub fn processes(roots: &Roots) -> Vec<Process> {
 }
 
 /// The "restart" object of the finished record.
-pub fn restart(roots: &Roots) -> Value {
+/// The "restart" object of the finished record. The record is readable by
+/// every local user (log file, broadcast signal), so it names only processes
+/// of `uid` (who started the update) and of system accounts; other users'
+/// processes are counted, not named.
+pub fn restart(roots: &Roots, uid: u32) -> Value {
     let kernel = kernel(roots);
-    let processes = processes(roots);
+    let all = processes(roots);
+    let process_count = all.len();
+    let processes: Vec<Process> = all
+        .into_iter()
+        .filter(|p| p.owner == uid || p.owner < FIRST_USER_UID)
+        .collect();
     let kernel_replaced = kernel.as_ref().is_some_and(|k| k.replaced);
     let pid1 = processes.iter().any(|p| p.pid == 1);
     json!({
@@ -149,7 +168,8 @@ pub fn restart(roots: &Roots) -> Value {
         "systemd": pid1,
         // Listing every process can be long; the first 200 by name.
         "processes": processes.iter().take(200).map(|p| json!({ "pid": p.pid, "name": p.name, "libraries": p.libraries })).collect::<Vec<_>>(),
-        "processCount": processes.len(),
+        "processCount": process_count,
+        "otherUsersProcesses": process_count - processes.len(),
     })
 }
 
@@ -254,6 +274,27 @@ mod tests {
     }
 
     #[test]
+    fn other_users_processes_are_counted_not_named() {
+        let t = Tree::new("privacy");
+        t.file("proc/50/comm", "firefox\n").file(
+            "proc/50/maps",
+            "1-2 r--p 0 00:1f 9  /usr/lib/libnss3.so (deleted)\n",
+        );
+        // Needs root to give the directory to another user; skip otherwise.
+        let path =
+            std::ffi::CString::new(t.0.join("proc/50").to_string_lossy().as_bytes()).unwrap();
+        // SAFETY: plain chown(2) on a test directory.
+        if unsafe { libc::chown(path.as_ptr(), 1001, 1001) } != 0 {
+            return;
+        }
+        let r = restart(&t.roots(), 1000);
+        assert_eq!(r["processCount"], 1);
+        assert_eq!(r["otherUsersProcesses"], 1);
+        assert_eq!(r["processes"].as_array().unwrap().len(), 0);
+        assert_eq!(restart(&t.roots(), 1001)["processes"][0]["name"], "firefox");
+    }
+
+    #[test]
     fn restart_required_by_systemd_or_kernel() {
         let t = Tree::new("processes");
         t.file("proc/1/comm", "systemd\n")
@@ -262,7 +303,7 @@ mod tests {
             .file("proc/42/maps", "1-2 r--p 0 00:1f 9  /usr/lib/libQt6Core.so.6.10.1 (deleted)\n1-2 r--p 0 00:1f 9  /usr/lib/libQt6Core.so.6.10.1 (deleted)\n")
             .file("proc/43/comm", "bash\n")
             .file("proc/43/maps", "1-2 r--p 0 00:1f 9  /usr/lib/libc.so.6\n");
-        let r = restart(&t.roots());
+        let r = restart(&t.roots(), 1000);
         assert_eq!(r["required"], true);
         assert_eq!(r["systemd"], true);
         assert_eq!(r["kernel"], Value::Null);
@@ -273,6 +314,6 @@ mod tests {
         let t = Tree::new("none");
         t.file("proc/43/comm", "bash\n")
             .file("proc/43/maps", "1-2 r--p 0 00:1f 9  /usr/lib/libc.so.6\n");
-        assert_eq!(restart(&t.roots())["required"], false);
+        assert_eq!(restart(&t.roots(), 1000)["required"], false);
     }
 }

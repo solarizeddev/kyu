@@ -65,7 +65,7 @@ private Q_SLOTS:
                              "if [ \"$1\" = -Sl ]; then\n"
                              "  echo 'core linux618 6.18.22-1 [installed: 6.18.20-1]'\n"
                              "  echo 'extra kwin 6.7.4-1'\n"
-                             "elif [ \"$1\" = -Sup ] && [ \"$4 $5\" = '--print-format %n %s' ]; then\n"
+                             "elif [ \"$1\" = -Sup ] && [ \"$4 $5 $6\" = '--print-format %n %s --noconfirm' ]; then\n"
                              "  echo 'linux618 150000000'\n"
                              "  echo 'kwin 9000000'\n"
                              "  echo 'new-dependency 1000'\n"
@@ -146,7 +146,8 @@ private Q_SLOTS:
         os.close();
         QFile log(m_dir.filePath(QStringLiteral("pacman.log")));
         QVERIFY(log.open(QIODevice::WriteOnly));
-        log.write("[2026-11-10T20:30:00+0000] [PACMAN] starting full system upgrade\n");
+        log.write("[2026-11-10T20:30:00+0000] [PACMAN] starting full system upgrade\n"
+                  "[2026-11-10T20:31:00+0000] [ALPM] transaction completed\n");
         log.close();
         QFile feed(m_dir.filePath(QStringLiteral("feed.xml")));
         QVERIFY(feed.open(QIODevice::WriteOnly));

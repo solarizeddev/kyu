@@ -73,8 +73,13 @@ private Q_SLOTS:
         const QString log = write(dir, "pacman.log",
                                   "[2026-11-01T09:00:00+0100] [PACMAN] Running 'pacman -Syu'\n"
                                   "[2026-11-01T09:00:01+0100] [PACMAN] starting full system upgrade\n"
+                                  "[2026-11-01T09:00:30+0100] [ALPM] transaction completed\n"
                                   "[2026-11-10T20:30:00+0100] [PACMAN] starting full system upgrade\n"
-                                  "[2026-11-12T08:00:00+0100] [PACMAN] Running 'pacman -S foo'\n");
+                                  "[2026-11-10T20:31:00+0100] [ALPM] transaction completed\n"
+                                  "[2026-11-12T08:00:00+0100] [PACMAN] Running 'pacman -S foo'\n"
+                                  // A later upgrade that failed: not counted.
+                                  "[2026-11-15T08:00:00+0100] [PACMAN] starting full system upgrade\n"
+                                  "[2026-11-15T08:00:05+0100] [PACMAN] Running 'pacman -Syu'\n");
         QCOMPARE(lastFullUpgrade(log), QDateTime(QDate(2026, 11, 10), QTime(19, 30), Qt::UTC));
         QVERIFY(!lastFullUpgrade(dir.filePath(QStringLiteral("missing"))).isValid());
     }

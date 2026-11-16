@@ -298,7 +298,11 @@ QString PanelController::newsError() const
 
 void PanelController::openLink(const QString &url)
 {
-    QDesktopServices::openUrl(QUrl(url));
+    // Links come from a news feed: web pages only.
+    const QUrl link(url);
+    if (link.scheme() == QLatin1String("https") || link.scheme() == QLatin1String("http")) {
+        QDesktopServices::openUrl(link);
+    }
 }
 
 void PanelController::copyText(const QString &text)
@@ -1068,6 +1072,11 @@ int PanelController::processCount() const
     return m_restart.value(QStringLiteral("processCount")).toInt();
 }
 
+int PanelController::otherUsersProcesses() const
+{
+    return m_restart.value(QStringLiteral("otherUsersProcesses")).toInt();
+}
+
 QVariantList PanelController::configs() const
 {
     QVariantList list;
@@ -1118,13 +1127,19 @@ QVariantList PanelController::diff(const QString &path, const QString &saved) co
 
 void PanelController::restartNow()
 {
-    // Plasma's own prompt first: it lets applications save their work.
+    // Plasma's own prompt first: it lets applications save their work. The
+    // service is started on demand, so call it rather than check for it.
     auto session = QDBusConnection::sessionBus();
-    if (session.isConnected() && session.interface()->isServiceRegistered(QStringLiteral("org.kde.LogoutPrompt"))) {
-        session.call(QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
-                                                    QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot")),
-                     QDBus::NoBlock);
-        return;
+    if (session.isConnected()) {
+        const QDBusMessage reply = session.call(QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"),
+                                                                               QStringLiteral("/LogoutPrompt"),
+                                                                               QStringLiteral("org.kde.LogoutPrompt"),
+                                                                               QStringLiteral("promptReboot")),
+                                                QDBus::Block,
+                                                5000);
+        if (reply.type() != QDBusMessage::ErrorMessage) {
+            return;
+        }
     }
     // Otherwise logind, which asks polkit if needed.
     auto call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1"),

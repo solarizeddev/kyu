@@ -80,6 +80,12 @@ void printRecord(const QJsonObject &r, bool quiet)
         for (const auto &a : r.value(QStringLiteral("answers")).toArray()) {
             values.append(a.toObject().value(QStringLiteral("value")).toString());
         }
+        if (values.isEmpty()) {
+            // The skip question: answering yes would be a partial upgrade.
+            err() << "kyu: Kyu offers no answer here: skipping packages would be a partial upgrade. "
+                  << "Press Enter or type c to cancel the update." << Qt::endl;
+            return;
+        }
         err() << "kyu: type " << values.join(QLatin1Char('/')) << " (Enter: pacman's default, "
               << r.value(QStringLiteral("default")).toString() << "), or c to cancel the update. "
               << "The panel can answer too." << Qt::endl;
@@ -182,6 +188,7 @@ int main(int argc, char **argv)
     // Answers to pacman's questions come from stdin, one line each.
     qulonglong openQuestion = 0;
     QString defaultAnswer;
+    bool noAnswers = false;
     QByteArray typed;
     QSocketNotifier input(STDIN_FILENO, QSocketNotifier::Read);
     input.setEnabled(false);
@@ -191,7 +198,7 @@ int main(int argc, char **argv)
         while (openQuestion && (end = typed.indexOf('\n')) >= 0) {
             const QString line = QString::fromLocal8Bit(typed.left(end)).trimmed();
             typed.remove(0, end + 1);
-            if (line == QLatin1String("c")) {
+            if (line == QLatin1String("c") || (noAnswers && line.isEmpty())) {
                 client.cancel();
             } else {
                 client.answer(openQuestion, line.isEmpty() ? defaultAnswer : line);
@@ -221,6 +228,7 @@ int main(int argc, char **argv)
         if (kind == QLatin1String("question") && r.value(QStringLiteral("handled")).toBool()) {
             openQuestion = static_cast<qulonglong>(r.value(QStringLiteral("id")).toInteger());
             defaultAnswer = r.value(QStringLiteral("default")).toString();
+            noAnswers = r.value(QStringLiteral("answers")).toArray().isEmpty();
             input.setEnabled(stdinOpen);
             answerTyped(); // lines typed ahead
         } else if (kind == QLatin1String("answered") || kind == QLatin1String("cancelled") || kind == QLatin1String("timeout")) {

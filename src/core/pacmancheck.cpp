@@ -44,6 +44,7 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
     QProcess check;
     check.setProcessEnvironment(env);
     check.start(options.checkupdates, {QStringLiteral("--nocolor")});
+    check.closeWriteChannel();
     if (!check.waitForStarted()) {
         if (QStandardPaths::findExecutable(options.checkupdates).isEmpty() && !QFileInfo(options.checkupdates).isExecutable()) {
             result.error = QStringLiteral("%1 not found; it is part of the pacman-contrib package").arg(options.checkupdates);
@@ -84,6 +85,7 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
     QProcess list;
     list.setProcessEnvironment(cLocaleEnvironment());
     list.start(options.pacman, {QStringLiteral("-Sl"), QStringLiteral("--dbpath"), dbPath});
+    list.closeWriteChannel();
     if (list.waitForFinished(60 * 1000) && list.exitStatus() == QProcess::NormalExit && list.exitCode() == 0) {
         const QByteArray syncList = list.readAllStandardOutput();
         const auto repos = PacmanParse::reposFor(syncList, result.packages);
@@ -107,8 +109,12 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
     // Sizes from the same database copy. --print needs no root and no lock.
     QProcess sizes;
     sizes.setProcessEnvironment(cLocaleEnvironment());
+    // --print still resolves the transaction, and resolving may ask a question
+    // (provider, replacement): never wait for an answer here.
     sizes.start(options.pacman,
-                {QStringLiteral("-Sup"), QStringLiteral("--dbpath"), dbPath, QStringLiteral("--print-format"), QStringLiteral("%n %s")});
+                {QStringLiteral("-Sup"), QStringLiteral("--dbpath"), dbPath, QStringLiteral("--print-format"), QStringLiteral("%n %s"),
+                 QStringLiteral("--noconfirm")});
+    sizes.closeWriteChannel();
     if (sizes.waitForFinished(60 * 1000) && sizes.exitStatus() == QProcess::NormalExit && sizes.exitCode() == 0) {
         const auto bySize = PacmanParse::printedSizes(sizes.readAllStandardOutput());
         for (auto &p : result.packages) {

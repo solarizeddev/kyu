@@ -10,13 +10,14 @@
 //! Anything else stops pacman with SIGINT before it changes a package.
 
 use std::collections::VecDeque;
-use std::os::fd::OwnedFd;
+use std::io::Read;
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::json;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
@@ -42,18 +43,48 @@ pub fn command_line(pacman: &str) -> Vec<String> {
         .collect()
 }
 
-#[derive(Clone, Copy)]
-enum Stream {
-    Stdout,
-    Stderr,
+/// pacman writes "error:" and "warning:" lines to stderr; with both streams
+/// on one terminal, tell them apart by their prefix (a display hint only).
+fn stream_of(text: &str) -> &'static str {
+    let t = text.trim_start();
+    if t.starts_with("error:") || t.starts_with("warning:") {
+        "stderr"
+    } else {
+        "stdout"
+    }
 }
 
-impl Stream {
-    fn as_str(self) -> &'static str {
-        match self {
-            Stream::Stdout => "stdout",
-            Stream::Stderr => "stderr",
+/// A pseudo-terminal pair for pacman's output: raw (no \r\n translation),
+/// wide enough that pacman does not wrap its package lists.
+fn open_pty() -> std::io::Result<(OwnedFd, OwnedFd)> {
+    let mut master: libc::c_int = -1;
+    let mut slave: libc::c_int = -1;
+    let size = libc::winsize {
+        ws_row: 50,
+        ws_col: 512,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    // SAFETY: plain libc calls on fds we own.
+    unsafe {
+        if libc::openpty(
+            &mut master,
+            &mut slave,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            &size,
+        ) != 0
+        {
+            return Err(std::io::Error::last_os_error());
         }
+        let (master, slave) = (OwnedFd::from_raw_fd(master), OwnedFd::from_raw_fd(slave));
+        libc::fcntl(master.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC);
+        let mut termios: libc::termios = std::mem::zeroed();
+        if libc::tcgetattr(slave.as_raw_fd(), &mut termios) == 0 {
+            libc::cfmakeraw(&mut termios);
+            libc::tcsetattr(slave.as_raw_fd(), libc::TCSANOW, &termios);
+        }
+        Ok((master, slave))
     }
 }
 
@@ -72,6 +103,9 @@ struct Tally {
     configs: Vec<serde_json::Value>,
     /// Error lines and friends, to say why an update failed.
     evidence: failure::Evidence,
+    /// pacman has started changing packages (":: Processing package
+    /// changes..."): no more questions, no more signals.
+    committing: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -103,6 +137,32 @@ impl Tally {
 /// mid-update.
 pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
     let pacman = shared.config.pacman.display().to_string();
+    let started_failed = |e: String| {
+        let shared = shared.clone();
+        let pacman = pacman.clone();
+        async move {
+            shared
+                .emit(
+                    "started",
+                    json!({ "uid": uid, "command": command_line(&pacman) }),
+                )
+                .await;
+            shared.emit("finished", json!({ "success": false, "summary": format!("Could not start {pacman}: {e}") })).await;
+        }
+    };
+    // pacman's stdout and stderr go to one pseudo-terminal: pacman then
+    // line-buffers stdout (a pipe would get 4 KiB blocks, so progress and a
+    // provider list could arrive late), both streams arrive in the order
+    // pacman wrote them, and if the helper dies pacman's writes fail with
+    // EIO instead of a SIGPIPE that would kill it mid-commit.
+    let (master, slave) = match open_pty() {
+        Ok(fds) => fds,
+        Err(e) => return started_failed(format!("cannot open a pseudo-terminal: {e}")).await,
+    };
+    let slave_err = match slave.try_clone() {
+        Ok(fd) => fd,
+        Err(e) => return started_failed(format!("cannot open a pseudo-terminal: {e}")).await,
+    };
     let mut command = Command::new(&shared.config.pacman);
     command
         .args(PACMAN_ARGS)
@@ -113,25 +173,26 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
         )
         .env("LC_ALL", "C")
         .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::from(slave))
+        .stderr(Stdio::from(slave_err))
         // Never kill pacman because the helper's handle went away.
         .kill_on_drop(false);
+    // SAFETY: async-signal-safe calls only, between fork and exec.
+    unsafe {
+        command.pre_exec(|| {
+            // stdin is a pipe from the helper: if the helper dies while pacman
+            // reads an answer, a write must not kill pacman either.
+            libc::signal(libc::SIGPIPE, libc::SIG_IGN);
+            Ok(())
+        });
+    }
 
-    let mut child = match command.spawn() {
+    let spawned = command.spawn();
+    // The parent's copies of the terminal must close, or reading never ends.
+    drop(command);
+    let mut child = match spawned {
         Ok(child) => child,
-        Err(e) => {
-            shared
-                .emit(
-                    "started",
-                    json!({ "uid": uid, "command": command_line(&pacman) }),
-                )
-                .await;
-            shared
-                .emit("finished", json!({ "success": false, "summary": format!("Could not start {pacman}: {e}") }))
-                .await;
-            return;
-        }
+        Err(e) => return started_failed(e.to_string()).await,
     };
     let pid = child.id().unwrap_or_default();
     shared
@@ -141,120 +202,103 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
         )
         .await;
 
-    let (sender, mut chunks) = mpsc::channel::<(Stream, Vec<u8>)>(64);
-    for (stream, reader) in [
-        (
-            Stream::Stdout,
-            child
-                .stdout
-                .take()
-                .map(|r| Box::new(r) as Box<dyn tokio::io::AsyncRead + Unpin + Send>),
-        ),
-        (
-            Stream::Stderr,
-            child
-                .stderr
-                .take()
-                .map(|r| Box::new(r) as Box<dyn tokio::io::AsyncRead + Unpin + Send>),
-        ),
-    ] {
-        let Some(mut reader) = reader else { continue };
-        let sender = sender.clone();
-        tokio::spawn(async move {
-            let mut buf = vec![0u8; 8192];
-            loop {
-                match reader.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if sender.send((stream, buf[..n].to_vec())).await.is_err() {
-                            break;
-                        }
+    let (sender, mut chunks) = mpsc::channel::<Vec<u8>>(64);
+    std::thread::spawn(move || {
+        let mut master = std::fs::File::from(master);
+        let mut buf = vec![0u8; 8192];
+        loop {
+            // EIO once every writer (pacman, its hooks) has closed the terminal.
+            match master.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if sender.blocking_send(buf[..n].to_vec()).is_err() {
+                        break;
                     }
                 }
             }
-        });
-    }
-    drop(sender);
+        }
+    });
 
     let mut stdin = child.stdin.take();
     let mut tally = Tally::default();
-    let mut pending = [Vec::<u8>::new(), Vec::<u8>::new()];
+    let mut pending = Vec::<u8>::new();
 
-    while let Some((stream, bytes)) = chunks.recv().await {
-        ingest(&shared, &mut tally, &mut pending, stream, &bytes).await;
-        for stream in [Stream::Stdout, Stream::Stderr] {
-            let tail = String::from_utf8_lossy(&pending[stream as usize]).to_string();
-            if parse::prompt(&tail, &[]).is_none() {
-                continue;
+    while let Some(bytes) = chunks.recv().await {
+        ingest(&shared, &mut tally, &mut pending, &bytes).await;
+        // pacman asks nothing once it has started changing packages; from
+        // then on an unterminated line is just output (a hook's, say), and
+        // the helper never writes to pacman or signals it.
+        if tally.committing {
+            continue;
+        }
+        let tail = String::from_utf8_lossy(&pending).to_string();
+        if parse::prompt(&tail, &[]).is_none() {
+            continue;
+        }
+        // A question is followed by silence: pacman waits. More output means
+        // this was only the end of a chunk.
+        if let Ok(Some(more)) = tokio::time::timeout(SETTLE, chunks.recv()).await {
+            ingest(&shared, &mut tally, &mut pending, &more).await;
+            continue;
+        }
+        let recent: Vec<String> = tally.recent.iter().cloned().collect();
+        let Some(prompt) = parse::prompt(&tail, &recent) else {
+            continue;
+        };
+        pending.clear();
+        shared
+            .emit(
+                "output",
+                json!({ "stream": stream_of(&tail), "text": tail }),
+            )
+            .await;
+        let answer = match prompt {
+            Prompt::Proceed => {
+                shared
+                    .emit(
+                        "answered",
+                        json!({ "question": tail.trim(), "answer": "y", "reason": "Update all was chosen" }),
+                    )
+                    .await;
+                Some("y".to_string())
             }
-            // Let the other pipe catch up so the question's context is complete.
-            while let Ok(Some((s, b))) = tokio::time::timeout(SETTLE, chunks.recv()).await {
-                ingest(&shared, &mut tally, &mut pending, s, &b).await;
+            Prompt::Unsupported => {
+                shared
+                    .emit("question", json!({ "text": tail.trim(), "handled": false }))
+                    .await;
+                tally.stopped = Some((Stop::Unsupported, tail.trim().to_string()));
+                None
             }
-            let tail = String::from_utf8_lossy(&pending[stream as usize]).to_string();
-            let recent: Vec<String> = tally.recent.iter().cloned().collect();
-            let Some(prompt) = parse::prompt(&tail, &recent) else {
-                continue;
-            };
-            pending[stream as usize].clear();
-            shared
-                .emit("output", json!({ "stream": stream.as_str(), "text": tail }))
-                .await;
-            let answer = match prompt {
-                Prompt::Proceed => {
-                    shared
-                        .emit(
-                            "answered",
-                            json!({ "question": tail.trim(), "answer": "y", "reason": "Update all was chosen" }),
-                        )
-                        .await;
-                    Some("y".to_string())
+            Prompt::Relay(question) => ask(&shared, &mut tally, question).await,
+        };
+        match answer {
+            Some(answer) => {
+                let written = match stdin.as_mut() {
+                    Some(stdin) => stdin
+                        .write_all(format!("{answer}\n").as_bytes())
+                        .await
+                        .and(stdin.flush().await)
+                        .is_ok(),
+                    None => false,
+                };
+                if !written {
+                    eprintln!("kyu-helper: could not answer pacman's question");
                 }
-                Prompt::Unsupported => {
-                    shared
-                        .emit("question", json!({ "text": tail.trim(), "handled": false }))
-                        .await;
-                    tally.stopped = Some((Stop::Unsupported, tail.trim().to_string()));
-                    None
-                }
-                Prompt::Relay(question) => ask(&shared, &mut tally, question).await,
-            };
-            match answer {
-                Some(answer) => {
-                    let written = match stdin.as_mut() {
-                        Some(stdin) => stdin
-                            .write_all(format!("{answer}\n").as_bytes())
-                            .await
-                            .and(stdin.flush().await)
-                            .is_ok(),
-                        None => false,
-                    };
-                    if !written {
-                        eprintln!("kyu-helper: could not answer pacman's question");
-                    }
-                }
-                None => {
-                    // pacman is blocked reading stdin, before any package is
-                    // changed (all its questions come before that). SIGINT
-                    // makes it clean up and exit.
-                    if pid != 0 {
-                        // SAFETY: plain kill(2) on our own child.
-                        unsafe { libc::kill(pid as i32, libc::SIGINT) };
-                    }
+            }
+            None => {
+                // pacman is blocked reading stdin, before any package is
+                // changed (all its questions come before that). SIGINT
+                // makes it clean up and exit.
+                if pid != 0 {
+                    // SAFETY: plain kill(2) on our own child.
+                    unsafe { libc::kill(pid as i32, libc::SIGINT) };
                 }
             }
         }
     }
-    for (index, buffer) in pending.iter().enumerate() {
-        if !buffer.is_empty() {
-            let stream = if index == 0 {
-                Stream::Stdout
-            } else {
-                Stream::Stderr
-            };
-            let text = String::from_utf8_lossy(buffer).to_string();
-            handle_line(&shared, &mut tally, stream, text).await;
-        }
+    if !pending.is_empty() {
+        let text = String::from_utf8_lossy(&pending).to_string();
+        handle_line(&shared, &mut tally, text).await;
     }
     drop(stdin);
 
@@ -277,28 +321,21 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
                 // when the helper stopped pacman at a question).
                 "failure": if success || tally.stopped.is_some() { serde_json::Value::Null } else { tally.evidence.classify().unwrap_or(serde_json::Value::Null) },
                 // Only when packages changed: what still runs old code.
-                "restart": if changed > 0 { aftercare::restart(&shared.config.roots) } else { serde_json::Value::Null },
+                "restart": if changed > 0 { aftercare::restart(&shared.config.roots, uid) } else { serde_json::Value::Null },
             }),
         )
         .await;
 }
 
 /// Appends a chunk to its stream's buffer and handles every complete line.
-async fn ingest(
-    shared: &Shared,
-    tally: &mut Tally,
-    pending: &mut [Vec<u8>; 2],
-    stream: Stream,
-    bytes: &[u8],
-) {
-    let buffer = &mut pending[stream as usize];
-    buffer.extend_from_slice(bytes);
-    while let Some(end) = buffer.iter().position(|&b| b == b'\n') {
-        let line: Vec<u8> = buffer.drain(..=end).collect();
+async fn ingest(shared: &Shared, tally: &mut Tally, pending: &mut Vec<u8>, bytes: &[u8]) {
+    pending.extend_from_slice(bytes);
+    while let Some(end) = pending.iter().position(|&b| b == b'\n') {
+        let line: Vec<u8> = pending.drain(..=end).collect();
         let text = String::from_utf8_lossy(&line[..line.len() - 1])
             .trim_end_matches('\r')
             .to_string();
-        handle_line(shared, tally, stream, text).await;
+        handle_line(shared, tally, text).await;
     }
 }
 
@@ -354,21 +391,26 @@ async fn ask(shared: &Shared, tally: &mut Tally, question: Question) -> Option<S
     }
 }
 
-async fn handle_line(shared: &Shared, tally: &mut Tally, stream: Stream, text: String) {
+async fn handle_line(shared: &Shared, tally: &mut Tally, text: String) {
     if tally.recent.len() == RECENT_LINES {
         tally.recent.pop_front();
     }
     tally.recent.push_back(text.clone());
     tally.evidence.add(&text);
     shared
-        .emit("output", json!({ "stream": stream.as_str(), "text": text }))
+        .emit(
+            "output",
+            json!({ "stream": stream_of(&text), "text": text }),
+        )
         .await;
     match parse::classify(&text) {
         LineInfo::PackageCount(total) => {
             tally.total = total;
             shared.emit("packages", json!({ "total": total })).await;
         }
-        LineInfo::Operation { action, package } => {
+        // pacman prints one line per package only while changing packages;
+        // the same words from anything else are not operations.
+        LineInfo::Operation { action, package } if tally.committing => {
             tally.current += 1;
             tally.count(action);
             shared
@@ -384,6 +426,9 @@ async fn handle_line(shared: &Shared, tally: &mut Tally, stream: Stream, text: S
                 .await;
         }
         LineInfo::Stage(stage) => {
+            if matches!(stage, parse::Stage::Commit | parse::Stage::Hooks) {
+                tally.committing = true;
+            }
             shared
                 .emit("stage", json!({ "stage": stage.as_str() }))
                 .await
@@ -393,7 +438,7 @@ async fn handle_line(shared: &Shared, tally: &mut Tally, stream: Stream, text: S
         LineInfo::Config { kind, path, saved } => tally
             .configs
             .push(json!({ "kind": kind, "path": path, "saved": saved })),
-        LineInfo::Other => {}
+        LineInfo::Operation { .. } | LineInfo::Other => {}
     }
 }
 

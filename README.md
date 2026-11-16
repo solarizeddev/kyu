@@ -130,7 +130,7 @@ Without the installed systemd units, the tray runs `build/bin/kyu-check` itself:
 sudo cmake --install build
 ```
 
-This installs the binaries (`kyu-helper` into libexec), the systemd units, the D-Bus and polkit files and `/etc/xdg/autostart/io.github.solarizeddev.kyu.tray.desktop`. At the next login the tray starts and starts `kyu-check.timer`. To check on a timer without the tray:
+This installs the binaries (`kyu-helper` into `CMAKE_INSTALL_LIBEXECDIR`; Arch packages put helpers in `/usr/lib`, so configure with `-DCMAKE_INSTALL_LIBEXECDIR=lib/kyu` there; the systemd unit and D-Bus activation file follow the same setting), the systemd units, the D-Bus and polkit files and `/etc/xdg/autostart/io.github.solarizeddev.kyu.tray.desktop`. At the next login the tray starts and starts `kyu-check.timer`. To check on a timer without the tray:
 
 ```bash
 systemctl --user enable --now kyu-check.timer

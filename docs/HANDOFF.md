@@ -222,6 +222,27 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - **No network for checks:** checkupdates and libflatpak failures were already quoted on the list (milestones 1 and 5).
 - **Tests:** classification against recorded pacman 7 lines (Rust); lock holder detection with a fake `/proc` (Rust); end to end with a fake pacman for each failure kind, a stale lock removed and a held one refused (session test); the panel's failure, interrupted and lock states.
 
+**Review of milestones 1-6 (by Fable, read-only, after milestone 7).** Each finding was checked against the code; fixed and tested unless noted.
+
+- **Fixed: question detection could SIGINT pacman mid-commit** (a hook or scriptlet ending a partial line in `[y/N] `). Questions are now looked for only before `:: Processing package changes...` and only after 150 ms of quiet; afterwards the helper never writes to or signals pacman. Test: a hook line ending in `[y/N]` during the commit stage.
+- **Fixed: the skip question accepted "y" over D-Bus** (rule 4 was enforced only in the panel). The helper now gives it no answers; only Cancel. Test: `Answer y` refused, then cancelled.
+- **Fixed: pacman could be killed by SIGPIPE if the helper died; pacman's stdout was block-buffered on a pipe** (progress in bursts, and a provider list possibly stuck behind the question). pacman now writes to a pseudo-terminal for stdout and stderr (line-buffered, one ordered stream; EIO instead of SIGPIPE), stdin stays a pipe, and SIGPIPE is ignored in pacman.
+- **Fixed: parser mismatches with real pacman.**
+  - the `:: ` prefix pacman's `question()` adds (the skip question)
+  - conflict names with versions
+  - key import without a uid, and the older "created:" form
+  - the corrupted-file line no longer has to be the very last line
+
+  Tests for each format.
+- **Fixed: HelperClient kept the previous transaction's sequence number**, so a second update in the same panel session showed nothing or dropped records. Test: two logs followed one after the other.
+- **Fixed: the helper could exit as idle while the polkit dialog was open** (calls in flight now count as activity). **SIGTERM with a question pending** now cancels at that safe point instead of waiting up to 30 minutes (test). **A panic in the transaction task** now ends with a `finished` record instead of leaving the helper "running".
+- **Fixed: `pacman -Sup` in kyu-check could wait on stdin** for 60 s on every check (now `--noconfirm` and stdin closed). **News after a failed or stopped upgrade:** the cutoff is now the last upgrade that completed (test).
+- **Fixed: privacy.** The world-readable finished record named every user's processes; it now names only the starting user's and system processes, and counts the rest.
+- **Fixed: feed links** open only for http(s). **Restart now** calls Plasma's on-demand `org.kde.LogoutPrompt` instead of checking whether it is already running.
+- **Partly addressed: hook or scriptlet lines that look like package operations** (`installing foo...`) are now counted only during the commit stage; a scriptlet printing exactly that line during commit would still be counted.
+- **Noted: `CMAKE_INSTALL_LIBEXECDIR`** defaults to `/usr/libexec`; an Arch package should set it (README).
+- **Not verifiable here:** the exact pacman 7 wording of the conflict question, and whether the provider list was ever stuck behind the question; both are covered by the changes above, but need a run against real pacman.
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").

@@ -4,6 +4,7 @@
 # because the helper clears the environment:
 #   mode   normal | nothing | fail | provider | conflict | replace | key | unknown
 #          network | mirror | keyring | files | disk  (failures, as pacman 7 words them)
+#          skip (unresolvable packages) | hooktail (a hook prints "[y/N] " without a newline)
 #   delay  seconds per package (default 0)
 #   pacnew settings file to report a .pacnew for (default /etc/kyu-test.conf)
 dir=$(dirname "$0")
@@ -60,6 +61,15 @@ replace)
     printf ':: Replace oldthing with extra/newthing? [Y/n] ' >&2
     read -r answer
     [ "$answer" = y ] && packages="$packages newthing"
+    ;;
+skip)
+    echo ":: The following package cannot be upgraded due to unresolvable dependencies:" >&2
+    echo "      foo" >&2
+    echo "" >&2
+    printf ':: Do you want to skip the above package for this upgrade? [y/N] ' >&2
+    read -r answer
+    echo "error: the helper answered '$answer' to the skip question" >&2
+    exit 1
     ;;
 unknown)
     printf ':: Something Kyu has never seen? [Y/n] ' >&2
@@ -118,6 +128,11 @@ if [ "$mode" = disk ]; then
     exit 1
 fi
 echo ":: Processing package changes..."
+if [ "$mode" = hooktail ]; then
+    printf 'Restart your session now? [y/N] '
+    sleep 1
+    echo
+fi
 for p in $packages; do
     case "$p" in
     bar-removed) echo "removing bar..." ;;

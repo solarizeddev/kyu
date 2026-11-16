@@ -55,6 +55,7 @@ ColumnLayout {
                         text: modelData.action === "upgrading" && modelData.oldVersion.length > 0
                               ? modelData.oldVersion + " → " + modelData.newVersion
                               : modelData.action === "removing" ? "removed"
+                              : modelData.action === "updating" ? "updated"
                               : modelData.action === "installing" ? "installed" + (modelData.newVersion.length > 0 ? " " + modelData.newVersion : "")
                               : modelData.action + " " + modelData.newVersion
                         font.family: Kirigami.Theme.fixedWidthFont.family

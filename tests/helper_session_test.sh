@@ -221,6 +221,20 @@ contains cancelled 'kyu: cancelled; stopping pacman'
 contains cancelled "Cancelled at pacman's question \":: foo and bar are in conflict. Remove bar? [y/N]\". No packages were changed."
 absent cancelled 'failed to prepare transaction'
 
+echo "the skip question accepts no answer (partial upgrade), only cancel"
+mode skip
+INPUT='y\n\n' expect_code 1 skip
+contains skip "InvalidAnswer"
+contains skip 'kyu: cancelled; stopping pacman'
+absent skip "the helper answered"
+
+echo "an unterminated line during the commit stage is output, not a question"
+mode hooktail
+expect_code 0 hooktail
+contains hooktail 'Restart your session now? [y/N]'
+contains hooktail 'kyu: 3 upgraded'
+absent hooktail 'stopping it'
+
 echo "the D-Bus API: answers from another client, refusals"
 mode provider
 "$bin/kyu-update" --session </dev/null >"$work/remote.out" 2>&1 &
@@ -337,5 +351,20 @@ helper_pid=
 start_helper
 expect_code 0 interrupted --attach
 contains interrupted 'was interrupted: its log ends without a result'
+
+echo "SIGTERM while pacman waits for an answer cancels at that safe point"
+kill -9 "$helper_pid"; wait "$helper_pid" 2>/dev/null || true
+start_helper
+mode provider
+"$bin/kyu-update" --session </dev/null >"$work/term-question.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/term-question.out" 'kyu: type'
+kill -TERM "$helper_pid"
+set +e; wait "$ui_pid"; code=$?; set -e
+[ "$code" = 1 ] || fail "update at a question after SIGTERM: exit code $code, expected 1"
+grep -qF 'kyu: cancelled; stopping pacman' "$work/term-question.out" || fail "SIGTERM did not cancel the question"
+i=0; while kill -0 "$helper_pid" 2>/dev/null; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper did not exit"; sleep 0.1; done
+helper_pid=
+mode normal
 
 echo "all helper tests passed"

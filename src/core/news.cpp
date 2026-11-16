@@ -78,11 +78,15 @@ QDateTime lastFullUpgrade(const QString &pacmanLogPath)
         file.seek(file.size() - tail);
         file.readLine();
     }
+    QByteArray started;
     QByteArray last;
     while (!file.atEnd()) {
         const QByteArray line = file.readLine();
         if (line.contains("] [PACMAN] starting full system upgrade")) {
-            last = line;
+            started = line;
+        } else if (!started.isEmpty() && line.contains("] [ALPM] transaction completed")) {
+            last = started;
+            started.clear();
         }
     }
     if (!last.startsWith('[')) {

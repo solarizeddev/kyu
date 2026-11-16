@@ -16,7 +16,7 @@ Only root may own the service name. Anyone may call it. `GetState` and the signa
 
 ## Methods
 
-**`StartUpdate() → s transaction`.** Runs `pacman -Syu --noprogressbar --color never` with `LC_ALL=C` and an empty environment apart from `PATH`. It takes no arguments: callers cannot choose packages, options or environment. polkit may show a password dialog, so call it with a long timeout (the Qt client uses 10 minutes). Errors (`io.github.solarizeddev.kyu.Helper1.Error.*`):
+**`StartUpdate() → s transaction`.** Runs `pacman -Syu --noprogressbar --color never` with `LC_ALL=C` and an empty environment apart from `PATH`. pacman's stdout and stderr go to one pseudo-terminal (512 columns, raw), so pacman writes line by line in its own order and a dying helper causes write errors, not a SIGPIPE; stdin is a pipe for answers, and SIGPIPE is ignored in pacman. It takes no arguments: callers cannot choose packages, options or environment. polkit may show a password dialog, so call it with a long timeout (the Qt client uses 10 minutes). Errors (`io.github.solarizeddev.kyu.Helper1.Error.*`):
 
 | Error | Meaning |
 |---|---|
@@ -107,14 +107,15 @@ The `finished` record also says what the update leaves to do.
   "kernel": {"running": "6.18.20-1-MANJARO", "installed": "6.18.22-1-MANJARO", "replaced": true},
   "systemd": false,
   "processes": [{"pid": 1301, "name": "plasmashell", "libraries": ["/usr/lib/libQt6Core.so.6.10.1"]}],
-  "processCount": 1
+  "processCount": 1,
+  "otherUsersProcesses": 0
 }
 ```
 
 Everything here is derived from the running system (HANDOFF.md rule 7), never from package lists:
 
 - **`kernel`:** the running kernel (`/proc/sys/kernel/osrelease`) has been replaced when its `/usr/lib/modules/<release>` directory is gone. `installed` is the module directory whose `pkgbase` matches the running kernel's package; that package comes from `BOOT_IMAGE=/boot/vmlinuz-<pkgbase>` in `/proc/cmdline`. `kernel` is `null` when there is no modules directory at all, as in a container.
-- **`processes`:** processes whose `/proc/PID/maps` maps a shared library under `/usr/lib` or `/lib` that is marked `(deleted)`, meaning the update replaced it while they ran. At most 200 are listed; `processCount` is the full number.
+- **`processes`:** processes whose `/proc/PID/maps` maps a shared library under `/usr/lib` or `/lib` that is marked `(deleted)`, meaning the update replaced it while they ran. The record is readable by every local user, so only processes of the user who started the update and of system accounts (uid < 1000) are named, at most 200. `processCount` counts all of them, and `otherUsersProcesses` counts those of other users.
 - **`required`:** the kernel was replaced, or `systemd` (PID 1) maps a replaced library.
 
 ## Failures
@@ -144,6 +145,8 @@ When pacman fails (not when the helper stopped it at a question), `failure` says
 
 ## Questions
 
+The helper looks for a question only before pacman starts changing packages. From `:: Processing package changes...` on, pacman asks nothing, so an unterminated line (a hook's, say) is only output, and the helper never writes to pacman or signals it. A question must also be followed by quiet (150 ms): pacman waits for its answer.
+
 pacman prints questions on stderr without a newline and waits on stdin. The helper reads them like this:
 
 - **`:: Proceed with installation? [Y/n]`**: answered `y` by the helper, because the user chose "Update all". This produces an `answered` record with a `reason`.
@@ -161,7 +164,7 @@ pacman prints questions on stderr without a newline and waits on stdin. The help
 
   For yes/no questions, `answers` is `y` and `n`. `default` is pacman's own default, read from `[Y/n]`, `[y/N]` or `(default=N)`. `text` is the question line verbatim, and `context` holds the lines pacman printed for it, such as the provider list.
 
-  The panel offers no answer for `skip`: answering yes would be a partial upgrade (HANDOFF.md rule 4). Only `Cancel` is offered.
+  `skip` has no `answers`: answering yes would be a partial upgrade (HANDOFF.md rule 4), so the helper accepts only `Cancel`.
 - **Anything else** is a `question` record with `handled: false`, and pacman gets SIGINT. The helper fails closed rather than guessing.
 
 pacman waits up to 30 minutes for an answer (`--question-timeout`). After that the helper stops it, the same as a cancel. Only the uid that started the transaction, or root, may answer or cancel. A client that attaches while pacman waits sees the `question` record in the log replay, and can answer it.
@@ -184,7 +187,9 @@ With `--after TX` it follows that kyu-helper transaction to its end. It skips th
 ## Lifetime
 
 - SIGHUP is ignored.
-- SIGTERM or SIGINT while pacman runs: the helper waits for pacman to finish, then exits. The unit has `KillMode=mixed` and `TimeoutStopSec=30min`, so systemd sends SIGTERM to the helper only.
+- SIGTERM or SIGINT while pacman runs: the helper waits for pacman to finish, then exits. If pacman is waiting for an answer at that moment, the helper cancels the update there (the safe point) instead of waiting for the question's timeout.
+- A method call still in progress (`StartUpdate` waiting for the polkit password dialog, say) keeps the helper from exiting as idle.
+- If the task following pacman fails (a bug), the helper records a `finished` record saying so, rather than staying "running". The unit has `KillMode=mixed` and `TimeoutStopSec=30min`, so systemd sends SIGTERM to the helper only.
 - During a transaction the helper holds a logind `block` inhibitor for shutdown and sleep, if logind is available.
 - A pending question does not count as idle; a question nobody answers ends after `--question-timeout` (default 30 minutes).
 - The helper exits after 5 minutes without a transaction. The next call starts it again through D-Bus activation.

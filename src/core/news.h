@@ -25,8 +25,10 @@ struct NewsSource {
 NewsSource newsSourceFor(const QString &osReleasePath = QStringLiteral("/etc/os-release"),
                          const QString &mirrorsConfPath = QStringLiteral("/etc/pacman-mirrors.conf"));
 
-// When the last full system upgrade started, from pacman.log
-// ("[2026-11-14T10:01:22+0100] [PACMAN] starting full system upgrade").
+// When the last full system upgrade that completed started, from pacman.log:
+// a "[PACMAN] starting full system upgrade" line followed by "[ALPM]
+// transaction completed". An upgrade that failed or was stopped does not
+// count, so news explaining why stays visible.
 QDateTime lastFullUpgrade(const QString &pacmanLogPath = QStringLiteral("/var/log/pacman.log"));
 
 // RSS 2.0 items (Arch, Discourse) or Atom entries.

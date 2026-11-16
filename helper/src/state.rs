@@ -99,6 +99,17 @@ struct Inner {
     last_activity: Instant,
     exit_when_done: bool,
     pending: Option<PendingQuestion>,
+    calls_in_flight: usize,
+}
+
+pub struct CallGuard(Arc<Shared>);
+
+impl Drop for CallGuard {
+    fn drop(&mut self) {
+        let mut inner = self.0.lock();
+        inner.calls_in_flight = inner.calls_in_flight.saturating_sub(1);
+        inner.last_activity = Instant::now();
+    }
 }
 
 pub struct Shared {
@@ -121,6 +132,7 @@ impl Shared {
                 last_activity: Instant::now(),
                 exit_when_done: false,
                 pending: None,
+                calls_in_flight: 0,
             }),
             conn: OnceLock::new(),
         })
@@ -142,7 +154,15 @@ impl Shared {
 
     pub fn idle_for(&self) -> Option<std::time::Duration> {
         let inner = self.lock();
-        (inner.phase != Phase::Running).then(|| inner.last_activity.elapsed())
+        // A call waiting on polkit (a password dialog) is not idle either.
+        (inner.phase != Phase::Running && inner.calls_in_flight == 0)
+            .then(|| inner.last_activity.elapsed())
+    }
+
+    /// Marks a method call as in progress until the guard is dropped.
+    pub fn call_guard(self: &Arc<Self>) -> CallGuard {
+        self.lock().calls_in_flight += 1;
+        CallGuard(self.clone())
     }
 
     pub fn is_running(&self) -> bool {
@@ -155,6 +175,14 @@ impl Shared {
         let mut inner = self.lock();
         if inner.phase == Phase::Running {
             inner.exit_when_done = true;
+            // pacman waiting for an answer is the safe point to stop it:
+            // cancel the question rather than wait for its timeout.
+            if let Some(pending) = inner.pending.take() {
+                eprintln!(
+                    "kyu-helper: stop requested while pacman waits for an answer; cancelling the update"
+                );
+                let _ = pending.sender.send(Reply::Cancel { uid: 0 });
+            }
             false
         } else {
             true
@@ -324,6 +352,21 @@ impl Shared {
             None => Err(ReplyError::NoQuestion(
                 "pacman is not waiting for an answer. Kyu stops pacman only at a question, before it changes packages".into(),
             )),
+        }
+    }
+
+    /// The transaction task died without a result (a bug in the helper).
+    /// Records that, so the helper does not stay "running" forever.
+    pub async fn abandon(&self, reason: &str) {
+        if self.lock().phase == Phase::Running {
+            self.emit(
+                "finished",
+                json!({
+                    "success": false,
+                    "summary": format!("kyu-helper stopped following pacman ({reason}). pacman may still be running; its own log is /var/log/pacman.log."),
+                }),
+            )
+            .await;
         }
     }
 

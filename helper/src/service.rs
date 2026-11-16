@@ -50,7 +50,7 @@ impl Helper {
         #[zbus(header)] header: Header<'_>,
         #[zbus(connection)] conn: &Connection,
     ) -> Result<String, HelperError> {
-        self.shared.touch();
+        let _call = self.shared.call_guard();
         let uid = caller_uid(conn, &header).await?;
 
         if self.shared.is_running() {
@@ -88,7 +88,13 @@ impl Helper {
         })?;
         let shared = self.shared.clone();
         tokio::spawn(async move {
-            transaction::run(shared.clone(), uid, inhibitor).await;
+            // A panic in the transaction task must not leave the helper
+            // "running" (and refusing every StartUpdate) until it exits.
+            let task = tokio::spawn(transaction::run(shared.clone(), uid, inhibitor));
+            if let Err(e) = task.await {
+                eprintln!("kyu-helper: transaction task failed: {e}");
+                shared.abandon(&e.to_string()).await;
+            }
             if shared.exit_when_done() {
                 eprintln!("kyu-helper: update finished, exiting as requested");
                 std::process::exit(0);
@@ -135,7 +141,7 @@ impl Helper {
         #[zbus(header)] header: Header<'_>,
         #[zbus(connection)] conn: &Connection,
     ) -> Result<(), HelperError> {
-        self.shared.touch();
+        let _call = self.shared.call_guard();
         if self.shared.is_running() {
             return Err(HelperError::Busy("an update is running".into()));
         }

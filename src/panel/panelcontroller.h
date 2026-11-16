@@ -74,6 +74,7 @@ class PanelController : public QObject
     Q_PROPERTY(QString restartReason READ restartReason NOTIFY changed)
     Q_PROPERTY(QVariantList processes READ processes NOTIFY changed)
     Q_PROPERTY(int processCount READ processCount NOTIFY changed)
+    Q_PROPERTY(int otherUsersProcesses READ otherUsersProcesses NOTIFY changed)
     Q_PROPERTY(QVariantList configs READ configs NOTIFY changed)
     Q_PROPERTY(QString failureTitle READ failureTitle NOTIFY changed)
     Q_PROPERTY(QString failureText READ failureText NOTIFY changed)
@@ -145,6 +146,7 @@ public:
     QString restartReason() const;
     QVariantList processes() const;
     int processCount() const;
+    int otherUsersProcesses() const;
     QVariantList configs() const;
     QString failureTitle() const;
     QString failureText() const;

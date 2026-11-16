@@ -12,7 +12,8 @@ ColumnLayout {
 
     QQC2.Label {
         text: "These programs mapped a library file that the update replaced, so they still run the old version. Restarting a program, logging out, or restarting the computer makes it use the new one."
-            + (Panel.processCount > Panel.processes.length ? " The first " + Panel.processes.length + " of " + Panel.processCount + " are listed." : "")
+            + (Panel.otherUsersProcesses > 0 ? " " + Panel.otherUsersProcesses + " more belong to other users and are counted, not named." : "")
+            + (Panel.processCount - Panel.otherUsersProcesses > Panel.processes.length ? " The first " + Panel.processes.length + " are listed." : "")
         wrapMode: Text.Wrap
         color: Kirigami.Theme.disabledTextColor
         Layout.fillWidth: true

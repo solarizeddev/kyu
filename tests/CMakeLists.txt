@@ -40,3 +40,7 @@ endif()
 add_executable(test_panel test_panel.cpp)
 target_link_libraries(test_panel PRIVATE kyupanel Qt6::Test)
 add_test(NAME test_panel COMMAND test_panel)
+
+add_executable(test_helperclient test_helperclient.cpp)
+target_link_libraries(test_helperclient PRIVATE kyuclient Qt6::Test)
+add_test(NAME test_helperclient COMMAND test_helperclient)
