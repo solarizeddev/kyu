@@ -15,7 +15,7 @@ UpdateState sample()
     s.pacman = {true, true, {}, s.checkedAt, s.checkedAt};
     s.flatpak = {true, true, {}, s.checkedAt, s.checkedAt};
     s.packages = {
-        {QStringLiteral("linux618"), QStringLiteral("core"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1")},
+        {QStringLiteral("linux618"), QStringLiteral("core"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), 150000000},
         {QStringLiteral("kwin"), QStringLiteral("extra"), QStringLiteral("6.7.3-1"), QStringLiteral("6.7.4-1")},
         {QStringLiteral("mesa"), QStringLiteral("extra"), QStringLiteral("26.2.1-1"), QStringLiteral("26.2.3-1")},
         {QStringLiteral("glibc"), QStringLiteral("core"), QStringLiteral("2.42-1"), QStringLiteral("2.42-2")},

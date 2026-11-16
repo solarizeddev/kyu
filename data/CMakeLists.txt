@@ -1,5 +1,7 @@
 configure_file(kyu-check.service.in ${CMAKE_CURRENT_BINARY_DIR}/kyu-check.service @ONLY)
 configure_file(kyu-tray.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.tray.desktop @ONLY)
+configure_file(kyu.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.desktop @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/kyu-check.service

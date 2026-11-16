@@ -15,6 +15,7 @@ struct PackageUpdate {
     QString repo; // empty when the sync databases could not be read
     QString oldVersion;
     QString newVersion;
+    qint64 size = -1; // package file size in bytes (pacman's %s); -1 = unknown
 
     bool operator==(const PackageUpdate &) const = default;
 };
@@ -66,13 +67,16 @@ struct UpdateState {
     {
         return packages.size() + flatpaks.size();
     }
+    // Sum of known package sizes; -1 when none is known.
+    qint64 totalSize() const;
     bool hasError() const
     {
         return (pacman.checked && !pacman.ok) || (flatpak.checked && !flatpak.ok);
     }
 
-    // Counts per repo (pacman) and per remote (Flatpak), in first-seen order:
-    // pacman repos follow pacman.conf order, remotes follow libflatpak order.
+    // Counts per repo (pacman) and per remote (Flatpak), in first-seen order.
+    // kyu-check stores packages sorted by repo in pacman.conf order, so repos
+    // come out in that order; remotes follow libflatpak's order.
     QList<std::pair<QString, int>> groups() const;
 
     // "12 updates: core 2 · extra 7 · flathub 3", or "No updates".

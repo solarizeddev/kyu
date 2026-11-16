@@ -21,6 +21,7 @@ public:
 
 Q_SIGNALS:
     void checkRequested();
+    void panelRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

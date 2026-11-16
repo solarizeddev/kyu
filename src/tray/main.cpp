@@ -6,6 +6,8 @@
 #include "trayicon.h"
 
 #include <QApplication>
+#include <QFileInfo>
+#include <QProcess>
 
 int main(int argc, char **argv)
 {
@@ -21,6 +23,17 @@ int main(int argc, char **argv)
     CheckScheduler scheduler;
     TrayIcon tray(&watcher);
     QObject::connect(&tray, &TrayIcon::checkRequested, &scheduler, &CheckScheduler::checkNow);
+    QObject::connect(&tray, &TrayIcon::panelRequested, &tray, [] {
+        // The panel is its own process (so it can close or crash without
+        // touching the tray) and is single-instance: a second start raises it.
+        QString panel = QApplication::applicationDirPath() + QStringLiteral("/kyu");
+        if (!QFileInfo(panel).isExecutable()) {
+            panel = QFileInfo(QStringLiteral(KYU_PANEL_BINARY)).isExecutable() ? QStringLiteral(KYU_PANEL_BINARY) : QStringLiteral("kyu");
+        }
+        if (!QProcess::startDetached(panel, {})) {
+            qWarning("kyu-tray: could not start %s", qPrintable(panel));
+        }
+    });
 
     watcher.reload();
     scheduler.start();

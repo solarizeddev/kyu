@@ -40,6 +40,21 @@ private Q_SLOTS:
         QVERIFY(PacmanParse::parseCheckupdates("").isEmpty());
     }
 
+    void printedSizes()
+    {
+        const auto sizes = PacmanParse::printedSizes("kwin 9000000\nmesa 38200000\nwarning: something odd\nbad x\n");
+        QCOMPARE(sizes.size(), 2);
+        QCOMPARE(sizes.value(QStringLiteral("mesa")), 38200000);
+    }
+
+    void repoOrderFollowsTheSyncList()
+    {
+        const QByteArray syncList =
+            "core a 1-1\ncore b 1-1\nextra c 1-1\nmultilib d 1-1\nextra-testing e 1-1\n";
+        QCOMPARE(PacmanParse::repoOrder(syncList),
+                 (QStringList{QStringLiteral("core"), QStringLiteral("extra"), QStringLiteral("multilib"), QStringLiteral("extra-testing")}));
+    }
+
     void findsRepos()
     {
         const QByteArray syncList =

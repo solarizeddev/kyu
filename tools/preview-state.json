@@ -1,0 +1,69 @@
+{
+ "formatVersion": 1,
+ "checkedAt": "2026-11-16T10:30:00Z",
+ "pacman": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T10:30:00Z"
+ },
+ "flatpak": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T10:30:00Z"
+ },
+ "packages": [
+  {
+   "name": "linux618",
+   "repo": "core",
+   "oldVersion": "6.18.20-1",
+   "newVersion": "6.18.22-1",
+   "size": 157286400
+  },
+  {
+   "name": "linux618-headers",
+   "repo": "core",
+   "oldVersion": "6.18.20-1",
+   "newVersion": "6.18.22-1",
+   "size": 37748736
+  },
+  {
+   "name": "kwin",
+   "repo": "extra",
+   "oldVersion": "6.7.3-1",
+   "newVersion": "6.7.4-1",
+   "size": 9437184
+  },
+  {
+   "name": "mesa",
+   "repo": "extra",
+   "oldVersion": "1:26.2.1-1",
+   "newVersion": "1:26.2.3-1",
+   "size": 40054374
+  },
+  {
+   "name": "plasma-desktop",
+   "repo": "extra",
+   "oldVersion": "6.7.3-1",
+   "newVersion": "6.7.4-1",
+   "size": 12582912
+  },
+  {
+   "name": "plasma-workspace",
+   "repo": "extra",
+   "oldVersion": "6.7.3-1",
+   "newVersion": "6.7.4-1",
+   "size": 25165824
+  }
+ ],
+ "flatpaks": [
+  {
+   "name": "org.mozilla.firefox",
+   "kind": "app",
+   "branch": "stable",
+   "origin": "flathub",
+   "installation": "system"
+  }
+ ]
+}

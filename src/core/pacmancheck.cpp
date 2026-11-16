@@ -4,6 +4,8 @@
 #include "paths.h"
 
 #include <QDir>
+
+#include <algorithm>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
@@ -83,13 +85,38 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
     list.setProcessEnvironment(cLocaleEnvironment());
     list.start(options.pacman, {QStringLiteral("-Sl"), QStringLiteral("--dbpath"), dbPath});
     if (list.waitForFinished(60 * 1000) && list.exitStatus() == QProcess::NormalExit && list.exitCode() == 0) {
-        const auto repos = PacmanParse::reposFor(list.readAllStandardOutput(), result.packages);
+        const QByteArray syncList = list.readAllStandardOutput();
+        const auto repos = PacmanParse::reposFor(syncList, result.packages);
         for (auto &p : result.packages) {
             p.repo = repos.value(p.name);
         }
+        // Group by repo in pacman.conf order; names stay alphabetical within.
+        const QStringList order = PacmanParse::repoOrder(syncList);
+        auto rank = [&order](const QString &repo) {
+            const auto i = order.indexOf(repo);
+            return i < 0 ? order.size() : i;
+        };
+        std::stable_sort(result.packages.begin(), result.packages.end(), [&rank](const PackageUpdate &a, const PackageUpdate &b) {
+            return rank(a.repo) < rank(b.repo);
+        });
     } else if (list.state() != QProcess::NotRunning) {
         list.kill();
         list.waitForFinished();
+    }
+
+    // Sizes from the same database copy. --print needs no root and no lock.
+    QProcess sizes;
+    sizes.setProcessEnvironment(cLocaleEnvironment());
+    sizes.start(options.pacman,
+                {QStringLiteral("-Sup"), QStringLiteral("--dbpath"), dbPath, QStringLiteral("--print-format"), QStringLiteral("%n %s")});
+    if (sizes.waitForFinished(60 * 1000) && sizes.exitStatus() == QProcess::NormalExit && sizes.exitCode() == 0) {
+        const auto bySize = PacmanParse::printedSizes(sizes.readAllStandardOutput());
+        for (auto &p : result.packages) {
+            p.size = bySize.value(p.name, -1);
+        }
+    } else if (sizes.state() != QProcess::NotRunning) {
+        sizes.kill();
+        sizes.waitForFinished();
     }
     return result;
 }

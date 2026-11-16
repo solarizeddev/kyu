@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kyu
+GenericName=System Update
+Comment=Lists pending pacman and Flatpak updates and applies them
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/kyu
+Icon=system-software-update
+Categories=System;PackageManager;
+Keywords=update;upgrade;pacman;flatpak;
+StartupNotify=true

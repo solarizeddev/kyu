@@ -17,4 +17,10 @@ QList<PackageUpdate> parseCheckupdates(const QByteArray &output, QStringList *sk
 // that carries the wanted version wins, else the first one in pacman.conf order
 // (which is the order pacman -Sl prints).
 QHash<QString, QString> reposFor(const QByteArray &syncList, const QList<PackageUpdate> &wanted);
+
+// Repos in the order `pacman -Sl` lists them, which is pacman.conf order.
+QStringList repoOrder(const QByteArray &syncList);
+
+// Parses `pacman -Sup --print-format "%n %s"`: "name bytes" per line.
+QHash<QString, qint64> printedSizes(const QByteArray &output);
 }

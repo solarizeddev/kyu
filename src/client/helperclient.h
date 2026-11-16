@@ -47,6 +47,11 @@ public:
     {
         return m_tx;
     }
+    // Log file of the followed transaction, as the helper reported it.
+    QString logPath() const
+    {
+        return m_logPath;
+    }
 
 Q_SIGNALS:
     void record(const QJsonObject &record);

@@ -30,6 +30,19 @@ void addFailure(QStringList &lines, const QString &source, const SourceStatus &s
 }
 }
 
+QStringList failureLines(const UpdateState &state, const QDateTime &now)
+{
+    QStringList lines;
+    addFailure(lines, QStringLiteral("pacman"), state.pacman, now);
+    addFailure(lines, QStringLiteral("Flatpak"), state.flatpak, now);
+    return lines;
+}
+
+QString shortWhen(const QDateTime &dt, const QDateTime &now)
+{
+    return when(dt, now);
+}
+
 QStringList statusLines(const std::optional<UpdateState> &state,
                         bool checking,
                         const QString &loadError,

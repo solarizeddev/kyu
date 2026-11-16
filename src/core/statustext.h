@@ -14,4 +14,10 @@ QStringList statusLines(const std::optional<UpdateState> &state,
                         bool checking,
                         const QString &loadError,
                         const QDateTime &now);
+
+// Only the "... check failed at ..." lines.
+QStringList failureLines(const UpdateState &state, const QDateTime &now);
+
+// "14:05" today, else a short date and time.
+QString shortWhen(const QDateTime &dt, const QDateTime &now);
 }

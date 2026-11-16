@@ -99,7 +99,8 @@ int main(int argc, char **argv)
     QCommandLineOption attach(QStringLiteral("attach"), QStringLiteral("Follow the running update instead of starting one."));
     QCommandLineOption state(QStringLiteral("state"), QStringLiteral("Print the helper's state as JSON and exit."));
     QCommandLineOption quiet(QStringLiteral("quiet"), QStringLiteral("Show progress lines instead of pacman's output."));
-    QCommandLineOption session(QStringLiteral("session"), QStringLiteral("Use a helper on the session bus (development)."));
+    QCommandLineOption session(QStringList{QStringLiteral("session"), QStringLiteral("session-bus")},
+                               QStringLiteral("Use a helper on the session bus (development)."));
     parser.addOptions({attach, state, quiet, session});
     parser.process(app);
 

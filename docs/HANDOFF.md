@@ -110,7 +110,6 @@ Colour roles used in the sketches and their Kirigami equivalents:
 
 - Manjaro specifics: branches, `pacman-mirrors`, and whether `checkupdates` behaves on Manjaro mirrors.
 - How to answer pacman's interactive prompts reliably when driving the binary (pty and output parsing vs a `--print`/dry-run pre-pass to detect questions up front). See "Helper requirements" above.
-- Where the panel reads history from: the helper's transaction log, or the journal (the log sketch says "the full log stays in the system journal").
 - Order of pacman and Flatpak in one run: the log sketch runs Flatpak first, the running sketch runs it after pacman.
 
 ## Status
@@ -130,7 +129,19 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - Tested with a fake pacman on a private session bus (`ctest`): killing the client mid-update and reattaching, busy, locked, an unanswerable question, pacman failure, SIGTERM mid-update, and helper killed mid-update. Separately checked on a private system bus with the real polkitd: the bus policy lets only root own the name, the polkit action loads, a user without an agent gets `NotAuthorized`, and root is authorized.
 - Not yet run against real pacman (the development container is Ubuntu). First thing to do on an Arch machine: install, `sudo systemctl reload dbus`, run `kyu-update`, and compare its output and log with a manual `pacman -Syu`.
 
+**Milestone 3 (update panel): done.** Screenshots in `docs/screenshots/`, made with `tools/preview-panel.sh`.
+
+- `kyu` is a standalone Qt Quick window using Kirigami for theme roles, units, icons and headings, and stock Qt Quick Controls for the rest (Plasma's `org.kde.desktop` style when installed). It is single-instance over the session bus. Clicking the tray icon, or "Show updates" in its menu, starts it.
+- **List:** count, total package size, check time, check failures quoted; packages grouped by repo in pacman.conf order (kyu-check now sorts them that way and records each package's size from `pacman -Sup --print-format`), Flatpaks under their remote. "Update all", plus a menu with "Copy as command" (`sudo pacman -Syu`) and "Check again". Flatpaks are listed with a note that "Update all" does not update them yet (milestone 5).
+- **Updating:** completed share of package operations, the stage or "upgrading N of M", the same list ticking off (done, working, waiting; packages pacman touched that the check did not list appear under "not in the last check"). "Closing this panel will not stop the update."
+- **pacman output:** live output with Kyu's own lines (the command, the answered question) marked, pacman pid, root via polkit, the log path; "Copy log" and "Follow in Konsole" (runs `kyu-update --attach`).
+- **Finished:** pacman's summary as the title, time, duration and exit code; on failure, pacman's error quoted; "What changed" lists the changed packages with old and new versions. After an update the panel runs kyu-check so the tray and list are current.
+- Reopening the panel mid-update shows the running screen with progress so far (replayed from the helper's log). Tested by killing the panel mid-update and starting it again, and by starting a second panel (it hands off to the first and exits).
+- The panel reads history from the helper's log in `/var/log/kyu/`, not the journal; the log sketch's "full log stays in the system journal" line is superseded.
+- `PanelController` is covered by `tests/test_panel.cpp` (list grouping, transaction progress, failures, start errors, lost helper). The QML itself has only been run against the preview stand-in, not real Kirigami.
+- Not in this milestone: restart detection and .pacnew review (milestone 6), hold a package / update at shutdown (no mechanism yet), package details screen, prompts (milestone 4).
+
 Open items carried forward:
-- The tray's strings use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, because the development container had no KF6. No PKGBUILD yet.
+- User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").
 - Prompt ownership (only the starting uid may answer) is recorded per transaction (`uid`), but there is nothing to answer until milestone 4.

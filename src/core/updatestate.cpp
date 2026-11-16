@@ -82,6 +82,17 @@ QList<std::pair<QString, int>> UpdateState::groups() const
     return result;
 }
 
+qint64 UpdateState::totalSize() const
+{
+    qint64 sum = -1;
+    for (const auto &p : packages) {
+        if (p.size >= 0) {
+            sum = qMax<qint64>(sum, 0) + p.size;
+        }
+    }
+    return sum;
+}
+
 QString UpdateState::summary() const
 {
     QString text = updatesText(total());
@@ -100,12 +111,16 @@ QJsonObject UpdateState::toJson() const
 {
     QJsonArray packageArray;
     for (const auto &p : packages) {
-        packageArray.append(QJsonObject{
+        QJsonObject o{
             {QStringLiteral("name"), p.name},
             {QStringLiteral("repo"), p.repo},
             {QStringLiteral("oldVersion"), p.oldVersion},
             {QStringLiteral("newVersion"), p.newVersion},
-        });
+        };
+        if (p.size >= 0) {
+            o.insert(QStringLiteral("size"), p.size);
+        }
+        packageArray.append(o);
     }
     QJsonArray flatpakArray;
     for (const auto &f : flatpaks) {
@@ -141,6 +156,7 @@ UpdateState UpdateState::fromJson(const QJsonObject &object)
             o.value(QStringLiteral("repo")).toString(),
             o.value(QStringLiteral("oldVersion")).toString(),
             o.value(QStringLiteral("newVersion")).toString(),
+            o.contains(QStringLiteral("size")) ? o.value(QStringLiteral("size")).toInteger() : -1,
         });
     }
     const auto flatpakArray = object.value(QStringLiteral("flatpaks")).toArray();

@@ -25,6 +25,43 @@ QList<PackageUpdate> parseCheckupdates(const QByteArray &output, QStringList *sk
     return result;
 }
 
+QStringList repoOrder(const QByteArray &syncList)
+{
+    QStringList repos;
+    const auto lines = syncList.split('\n');
+    for (const QByteArray &rawLine : lines) {
+        const int space = rawLine.indexOf(' ');
+        if (space <= 0) {
+            continue;
+        }
+        const QString repo = QString::fromUtf8(rawLine.left(space));
+        if (repos.isEmpty() || repos.constLast() != repo) {
+            if (!repos.contains(repo)) {
+                repos.append(repo);
+            }
+        }
+    }
+    return repos;
+}
+
+QHash<QString, qint64> printedSizes(const QByteArray &output)
+{
+    QHash<QString, qint64> sizes;
+    const auto lines = output.split('\n');
+    for (const QByteArray &rawLine : lines) {
+        const QList<QByteArray> fields = rawLine.trimmed().split(' ');
+        if (fields.size() != 2) {
+            continue;
+        }
+        bool ok = false;
+        const qint64 size = fields.at(1).toLongLong(&ok);
+        if (ok && size >= 0) {
+            sizes.insert(QString::fromUtf8(fields.at(0)), size);
+        }
+    }
+    return sizes;
+}
+
 QHash<QString, QString> reposFor(const QByteArray &syncList, const QList<PackageUpdate> &wanted)
 {
     QHash<QString, QString> wantedVersion;

@@ -27,3 +27,7 @@ if(KYU_HELPER)
     add_test(NAME helper_unit COMMAND cargo test --locked --manifest-path ${CMAKE_SOURCE_DIR}/helper/Cargo.toml
              --target-dir ${CMAKE_BINARY_DIR}/cargo-test)
 endif()
+
+add_executable(test_panel test_panel.cpp)
+target_link_libraries(test_panel PRIVATE kyupanel Qt6::Test)
+add_test(NAME test_panel COMMAND test_panel)

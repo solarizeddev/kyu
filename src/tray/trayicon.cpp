@@ -27,6 +27,8 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     , m_watcher(watcher)
     , m_menu(new QMenu)
 {
+    auto *show = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-update")), QStringLiteral("Show updates"));
+    connect(show, &QAction::triggered, this, &TrayIcon::panelRequested);
     m_checkAction = m_menu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), QStringLiteral("Check for updates now"));
     connect(m_checkAction, &QAction::triggered, this, &TrayIcon::checkRequested);
 
@@ -36,12 +38,21 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     m_item->setTitle(QStringLiteral("Kyu"));
     m_item->setToolTipTitle(QStringLiteral("Updates"));
     m_item->setContextMenu(m_menu); // takes ownership; adds Quit
+    // No associated window: a click asks for the panel, a separate process.
+    connect(m_item, &KStatusNotifierItem::activateRequested, this, [this] {
+        Q_EMIT panelRequested();
+    });
 #else
     m_menu->addSeparator();
     m_menu->addAction(QIcon::fromTheme(QStringLiteral("application-exit")), QStringLiteral("Quit"), qApp, &QCoreApplication::quit);
     m_item = new QSystemTrayIcon(this);
     m_item->setContextMenu(m_menu);
     connect(this, &QObject::destroyed, m_menu, &QObject::deleteLater);
+    connect(m_item, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger) {
+            Q_EMIT panelRequested();
+        }
+    });
 #endif
 
     connect(m_watcher, &StateWatcher::changed, this, &TrayIcon::refresh);
