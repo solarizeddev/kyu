@@ -4,13 +4,23 @@ A KDE-native updater for Arch-based systems: a tray icon showing the number of p
 
 Current state: milestone 7, ready for a first test on a real system: see [`docs/TESTING.md`](docs/TESTING.md) for building, a simulated walkthrough of every screen, screenshots across themes and sizes, and installing. `tools/kyu-test-all.sh` does the build, the tests and the screenshots in one go and writes `~/kyu-test.zip`. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer. Before an update, the list marks the package of the running kernel ("restart") and shows Arch's news published since the last full upgrade (Arch, CachyOS, EndeavourOS) or, on Manjaro, the update announcement for your branch. Afterwards, it says whether a restart is required, and why (running vs installed kernel, systemd using replaced libraries). It also lists the programs still running replaced libraries and the settings files pacman left as `.pacnew`/`.pacsave`, with a diff view. When an update fails, the panel says why from pacman's own lines (no network, an out-of-date mirror, keyring, files already on disk, disk space, dependencies) with the command that usually fixes it. It also notices an update that was interrupted, and removes pacman's lock file only when no running process holds it.
 
-| List | Updating | Question | Output | Done | Settings file | Failed |
-|---|---|---|---|---|---|---|
-| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-question.png) | ![](docs/screenshots/panel-output.png) | ![](docs/screenshots/panel-finished.png) | ![](docs/screenshots/panel-diff.png) | ![](docs/screenshots/panel-failed.png) |
+The panel has two looks, both drawn only from your colour scheme. Plasma (default):
+
+| List | Updating | Question | Done | Failed |
+|---|---|---|---|---|
+| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-question.png) | ![](docs/screenshots/panel-finished.png) | ![](docs/screenshots/panel-failed.png) |
+
+Terminal ("More" > "Terminal look"), here with Breeze Dark:
+
+| List | Updating | Question | Done | Failed |
+|---|---|---|---|---|
+| ![](docs/screenshots/terminal-list.png) | ![](docs/screenshots/terminal-running.png) | ![](docs/screenshots/terminal-question.png) | ![](docs/screenshots/terminal-finished.png) | ![](docs/screenshots/terminal-failed.png) |
+
+Shared pages: [output](docs/screenshots/panel-output.png), [settings file diff](docs/screenshots/panel-diff.png).
 
 The news items in the screenshots are sample data.
 
-The panel is dense and keyboard-driven: flat sections with dividers, data in the fixed-width font, the exact command above "Update all", a live tail of the output while it runs, and a line of key hints on every screen. Colours come only from your colour scheme, so it looks like a terminal tool with a terminal-like scheme (Tokyo Night, Catppuccin) and like a KDE utility with Breeze.
+The Plasma look follows Discover and System Settings: a header with the one fact that matters, problems as notices, two-line package rows, one accent "Update all", the outcome first after an update. The terminal look is all fixed-width: a status line, aligned columns, the live output, and a key line at the bottom. Both are keyboard-driven and take every colour from your colour scheme, so the terminal look changes with it (Breeze Dark, Tokyo Night, Catppuccin…).
 
 Keys: Enter updates all (list) or continues (question); 1–9 pick an answer; c checks again; l shows the output; s, p and w open the settings files, programs and changes after an update; y copies the log; Esc goes back, closes the window or (on the result) is Done. No key restarts the computer or cancels an update: those are buttons only, and closing the window never stops an update or answers a question.
 

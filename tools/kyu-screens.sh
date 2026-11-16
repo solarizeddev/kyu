@@ -2,7 +2,7 @@
 # Screenshots of the panel across scenarios, colour schemes, window sizes,
 # font sizes and scale factors, through tools/kyu-demo.sh (simulated system:
 # nothing on your machine changes). Windows open and close by themselves;
-# leave the desktop alone while it runs (about 5 minutes).
+# leave the desktop alone while it runs (about 15 minutes for both looks).
 #
 #   tools/kyu-screens.sh [OUTDIR]          default OUTDIR: ./kyu-screens
 #
@@ -11,21 +11,23 @@
 #                                      every installed one. Your current scheme
 #                                      is always in section A.
 #   SECTIONS="A B C D E"               which sections to run
+#   LOOKS="plasma terminal"            which looks of the panel
 #   OFFSCREEN=1                        no windows (less faithful: no compositor)
 #
-# Sections:
+# Sections (each for every look; names start with the section and the look):
 #   A  every scenario, your theme, default size
 #   B  colour schemes  x  list, question, finished, failure
 #   C  window sizes    x  long list, question, finished
 #   D  font sizes      x  long list, finished
 #   E  scale factors   x  long list, finished
-# If ImageMagick is installed, OUTDIR/sheet-*.png puts each section on one image.
+# If ImageMagick is installed, OUTDIR/sheet-<section>-<look>.png puts each on one image.
 set -u
 src=$(cd "$(dirname "$0")/.." && pwd)
 demo="$src/tools/kyu-demo.sh"
 out=$(realpath -m "${1:-kyu-screens}")
 mkdir -p "$out"
 sections=${SECTIONS:-A B C D E}
+looks=${LOOKS:-plasma terminal}
 failed=0
 
 shot() { # NAME SCENARIO [VAR=value...]
@@ -48,12 +50,13 @@ sheet() { # PREFIX
 }
 
 for s in $sections; do
+  for look in $looks; do
+    p="$s-$look"
     case "$s" in
     A)
         for scenario in $("$demo" --list | awk '{ print $1 }'); do
-            shot "A-$scenario" "$scenario"
-        done
-        sheet A ;;
+            shot "$p-$scenario" "$scenario" LOOK="$look"
+        done ;;
     B)
         schemes=${SCHEMES:-BreezeLight BreezeDark}
         if [ "$schemes" = all ]; then
@@ -61,33 +64,31 @@ for s in $sections; do
         fi
         for scheme in $schemes; do
             for scenario in list q-provider finished fail-keyring; do
-                shot "B-$scheme-$scenario" "$scenario" SCHEME="$scheme"
+                shot "$p-$scheme-$scenario" "$scenario" LOOK="$look" SCHEME="$scheme"
             done
-        done
-        sheet B ;;
+        done ;;
     C)
         # Kyu's minimum is 18x25 grid units; the window manager keeps it there.
         for size in 300x420 400x600 1280x720 1920x1080 420x1000; do
             for scenario in list-long q-provider finished; do
-                shot "C-$size-$scenario" "$scenario" SIZE="$size"
+                shot "$p-$size-$scenario" "$scenario" LOOK="$look" SIZE="$size"
             done
-        done
-        sheet C ;;
+        done ;;
     D)
         for pt in 8 12 16 20; do
             for scenario in list-long finished; do
-                shot "D-${pt}pt-$scenario" "$scenario" FONT_PT="$pt"
+                shot "$p-${pt}pt-$scenario" "$scenario" LOOK="$look" FONT_PT="$pt"
             done
-        done
-        sheet D ;;
+        done ;;
     E)
         for scale in 1.25 1.5 2; do
             for scenario in list-long finished; do
-                shot "E-x$scale-$scenario" "$scenario" SCALE="$scale"
+                shot "$p-x$scale-$scenario" "$scenario" LOOK="$look" SCALE="$scale"
             done
-        done
-        sheet E ;;
+        done ;;
     esac
+    sheet "$p"
+  done
 done
 echo "screenshots in $out ($failed failed)"
 [ "$failed" -eq 0 ]

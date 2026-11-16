@@ -286,6 +286,20 @@ To repeat: `SIZE=270x375 OUT=out.png tools/kyu-demo.sh list-long` (also `FONT_PT
   - Found while testing: the result message elided an empty line, and with the 3-line cap hid "2 Flatpaks updated". The update result is now shown in full.
 - **Not verified (no KF6 here):** `KStatusNotifierItem::providedToken()`, `KWindowSystem::setCurrentXdgActivationToken`/`activateWindow`, `Kirigami.Theme.fixedWidthFont`, how qqc2-desktop-style draws `highlighted` buttons, and running offscreen with the KDE platform theme.
 
+**First real-system run, and two looks (after the test kit).** The owner ran `tools/kyu-test-all.sh` on Manjaro (Plasma 6.7.5, KF 6.30, Qt 6.11.2, flatpak 1.18, Wayland). Everything compiled, including the KF6 tray and window activation. Fixed from that run:
+- A system Flatpak installation with no repository (nothing installed) made kyu-check and kyu-flatpak fail, because newer libflatpak cannot open it and asks its root helper to create it. Installations without a repository are now skipped (`Kyu::flatpakInstallations`, test).
+- `test_panel` assumed C number formatting; the panel is right to show "165,0 MiB" in German. The test pins the locale.
+- Output was coloured by stream, so libflatpak's normal stderr chatter showed as warnings. Lines are now coloured by what they say (`OutputModel::levelOf`, test).
+- "Update failed" when only the Flatpaks failed: the title is now "N upgraded · Flatpak update failed" (`outcome` property, test).
+- Large fonts broke fixed row heights. All heights now come from the content, and the window size from the font actually in use.
+- The demo showed the checkout path under the home directory; it now runs copies of the binaries.
+
+The owner found the UI "quite average". Fable and I agreed (no focal point, a wall of small grey monospace, primary buttons that Breeze draws like any other). Three directions were sketched; the owner chose to have both the native one and the full-terminal one:
+- **Plasma look** (`qml/plasma`, default): header with a status icon and the one fact that matters, problems as notices (`Notice`: the scheme's negative, neutral, positive and active colours), news as an information strip, two-line rows on a View surface, an empty state, one accent "Update all" (`PrimaryButton`: Breeze ignores `highlighted`), the commands one menu item away, a progress bar, the output folded into one line, the outcome first after an update, `ButtonPair` (a Flow, so buttons never run past the window).
+- **Terminal look** (`qml/terminal`): everything in the fixed-width font on the View background, a status line, a key line (`KeyButton`), bordered boxes, aligned columns with ✓ ▸ · marks, a block progress bar, the live output. Accents use the link colour (readable on light schemes) and fills the selection colour, so it follows the scheme.
+- The look is `Panel.style`, saved in `~/.config/kyurc` (`[Panel] Style=`), switched from the menu, or `--look` for one run (QApplication takes `--style`). The pages and keys are shared. `tools/kyu-screens.sh` captures both looks.
+- Fable reviewed each look. Fixed: buttons that overflowed narrow windows, the accent used for information, icon sizes, the disabled main button, notices cut at three lines, words split mid-word. Qt 6.4 lessons: an eliding label's `implicitWidth` is unreliable (measure with `TextMetrics`); a fixed-width item's minimum pushes on its parent layouts; a layout that changes its columns from its own width leaves stale positions; `-1` is not "no maximum" (use `Infinity`).
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n.
 - Milestone 8 (dry run, watched packages, AUR, settings) is not started.

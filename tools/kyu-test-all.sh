@@ -8,7 +8,7 @@
 #   tools/kyu-test-all.sh                  writes ~/kyu-test.zip
 #   tools/kyu-test-all.sh /path/name.zip   writes that zip
 #
-# Takes about 10 minutes. Windows open and close by themselves while the
+# Takes about 20 minutes. Windows open and close by themselves while the
 # screenshots run: leave the desktop alone. Your home directory, user name
 # and the checkout's path are replaced in the logs. Environment: SCHEMES (see
 # tools/kyu-screens.sh), BUILD (build directory, default ./build),
@@ -71,7 +71,7 @@ if [ "$status" = ok ]; then
     ctest --test-dir "$build" --output-on-failure >"$out/ctest.log" 2>&1 || status="tests failed"
     tail -n 4 "$out/ctest.log"
 
-    step "Screenshots (screens/, about 8 minutes; one line per screenshot)"
+    step "Screenshots of both looks (screens/, about 15 minutes; one line per screenshot)"
     BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
         "$src/tools/kyu-screens.sh" "$out/screens" 2>&1 | tee "$out/screens.log"
     if grep -q FAILED "$out/screens.log"; then

@@ -12,10 +12,10 @@ After installing the dependencies and getting the branch (the first commands in 
 tools/kyu-test-all.sh
 ```
 
-It takes about 10 minutes:
+It takes about 20 minutes:
 
 1. It builds Kyu and runs the automated tests.
-2. It screenshots every screen of the panel through the simulated system of part 3, across colour schemes, window sizes, fonts and scale factors. Windows open and close by themselves meanwhile; leave the desktop alone.
+2. It screenshots every screen of the panel, in both looks (Plasma and terminal), through the simulated system of part 3, across colour schemes, window sizes, fonts and scale factors. Windows open and close by themselves meanwhile; leave the desktop alone.
 3. It notes the versions of the relevant packages.
 4. It writes everything to `~/kyu-test.zip`. Send that file back.
 
@@ -99,10 +99,16 @@ Scenarios that run an update start it by themselves. Close the window to end the
 | Failures | `fail-network`, `fail-mirror`, `fail-keyring`, `fail-files`, `fail-disk`, `fail-deps` |
 | Pages after an update | `page-output`, `page-changes`, `page-configs`, `page-diff`, `page-processes` |
 
-Theme, fonts, scale and size apply to this panel only, through a private copy of your `kdeglobals`. Your desktop does not change.
+The panel has two looks: Plasma (the default) and terminal. Pick one in the panel ("More" > "Terminal look", or "more" > "Plasma look" in the terminal one; it is remembered in `~/.config/kyurc`), or for one run:
 
 ```bash
-SCHEME=BreezeDark tools/kyu-demo.sh finished
+LOOK=terminal tools/kyu-demo.sh running
+```
+
+Theme, fonts, scale and size apply to this panel only, through a private copy of your `kdeglobals`. Your desktop does not change. Both looks take every colour from the colour scheme, so try the terminal look with several:
+
+```bash
+LOOK=terminal SCHEME=BreezeDark tools/kyu-demo.sh finished
 ```
 
 ```bash
@@ -134,7 +140,7 @@ Things to try by hand:
 tools/kyu-screens.sh ~/kyu-screens
 ```
 
-Windows open and close by themselves for about five minutes. Leave the desktop alone while they do. The script takes these sections:
+Windows open and close by themselves for about 15 minutes. Leave the desktop alone while they do. The script takes these sections, each in both looks (`LOOKS="plasma"` or `LOOKS="terminal"` for one):
 
 | Section | What |
 |---|---|
