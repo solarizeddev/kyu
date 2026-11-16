@@ -37,12 +37,14 @@ struct PacmanRun {
     bool transactionCompleted = false;
     QStringList changed; // packages upgraded, installed, removed or downgraded
     QStringList upgraded; // names only
+    QStringList updated; // upgraded, downgraded or reinstalled: a new build is on disk
     QStringList configs; // "/etc/x.pacnew", "/etc/y.pacsave"
 };
 
 PacmanRun parsePacmanLog(const QString &appendedText);
 
 // Whether the run replaced something only a restart brings into use, besides
-// the kernel: systemd (PID 1 cannot be inspected without root) or glibc.
+// the kernel: systemd (PID 1 cannot be inspected without root), glibc, or the
+// NVIDIA driver (its kernel module and libraries must match).
 QString restartPackage(const PacmanRun &run);
 }

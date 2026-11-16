@@ -96,12 +96,12 @@ FailureText describeFailure(const QJsonObject &failure)
         t.items = files;
     } else if (kind == QLatin1String("disk")) {
         t.title = QStringLiteral("Not enough disk space");
-        t.text = QStringLiteral("pacman needs more free space than there is (see below). Removing old package versions from "
+        t.text = QStringLiteral("pacman needs more free space than there is (in pacman's messages). Removing old package versions from "
                                 "pacman's cache often frees enough.");
         t.command = QStringLiteral("sudo paccache -r");
     } else if (kind == QLatin1String("dependencies")) {
         t.title = QStringLiteral("Dependencies cannot be satisfied");
-        t.text = QStringLiteral("pacman cannot resolve the update's dependencies (see below). This often involves a package from "
+        t.text = QStringLiteral("pacman cannot resolve the update's dependencies (in pacman's messages). This often involves a package from "
                                 "outside the repos, such as the AUR, or a package held back with IgnorePkg.");
     } else if (kind == QLatin1String("lock")) {
         t.title = QStringLiteral("pacman's database is locked");

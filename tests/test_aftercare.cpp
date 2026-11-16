@@ -45,6 +45,25 @@ private Q_SLOTS:
         QCOMPARE(k.installed, QStringLiteral("6.18.22-1-MANJARO")); // the same package, by pkgbase
     }
 
+    void kernelManjaroLayout()
+    {
+        // Manjaro: the image is named by kernelbase ("vmlinuz-6.18-x86_64").
+        QTemporaryDir dir;
+        const QString proc = dir.filePath(QStringLiteral("proc")), modules = dir.filePath(QStringLiteral("modules"));
+        write(proc + QStringLiteral("/sys/kernel/osrelease"), "6.18.20-1-MANJARO\n");
+        write(proc + QStringLiteral("/cmdline"), "BOOT_IMAGE=/boot/vmlinuz-6.18-x86_64 rw\n");
+        write(modules + QStringLiteral("/6.18.22-1-MANJARO/vmlinuz"), "");
+        write(modules + QStringLiteral("/6.18.22-1-MANJARO/pkgbase"), "linux618\n");
+        write(modules + QStringLiteral("/6.18.22-1-MANJARO/kernelbase"), "6.18-x86_64\n");
+        write(modules + QStringLiteral("/6.12.60-1-MANJARO/vmlinuz"), "");
+        write(modules + QStringLiteral("/6.12.60-1-MANJARO/kernelbase"), "6.12-x86_64\n");
+        // Leftover DKMS modules of the running kernel, without its image.
+        write(modules + QStringLiteral("/6.18.20-1-MANJARO/extramodules/nvidia.ko"), "");
+        const KernelState k = kernelState(proc, modules);
+        QVERIFY(k.replaced);
+        QCOMPARE(k.installed, QStringLiteral("6.18.22-1-MANJARO"));
+    }
+
     void kernelCurrentOrUnknown()
     {
         QTemporaryDir dir;

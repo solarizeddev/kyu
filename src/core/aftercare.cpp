@@ -40,7 +40,9 @@ KernelState kernelState(const QString &procDir, const QString &modulesDir)
         return k;
     }
     k.known = true;
-    if (QFileInfo(modulesDir + QLatin1Char('/') + k.running).isDir()) {
+    // Still installed: its directory has a kernel image (a directory with
+    // only leftover DKMS modules does not count).
+    if (dirs.contains(k.running)) {
         k.installed = k.running;
         return k;
     }
@@ -55,13 +57,17 @@ KernelState kernelState(const QString &procDir, const QString &modulesDir)
             }
         }
     }
+    // The image name is "vmlinuz-<pkgbase>" on Arch ("vmlinuz-linux") and
+    // "vmlinuz-<kernelbase>" on Manjaro ("vmlinuz-6.18-x86_64").
     if (!pkgbase.isEmpty()) {
         for (const QString &dir : dirs) {
-            if (readTrimmed(modulesDir + QLatin1Char('/') + dir + QStringLiteral("/pkgbase")) == pkgbase) {
+            const QString base = modulesDir + QLatin1Char('/') + dir;
+            if (readTrimmed(base + QStringLiteral("/pkgbase")) == pkgbase || readTrimmed(base + QStringLiteral("/kernelbase")) == pkgbase) {
                 k.installed = dir;
             }
         }
-    } else if (dirs.size() == 1) {
+    }
+    if (k.installed.isEmpty() && dirs.size() == 1) {
         k.installed = dirs.first();
     }
     return k;
@@ -125,7 +131,7 @@ PacmanRun parsePacmanLog(const QString &appendedText)
     // [2026-11-16T14:10:23+0100] [ALPM] upgraded linux618 (6.18.20-1 -> 6.18.22-1)
     // [2026-11-16T14:10:23+0100] [ALPM] warning: /etc/sddm.conf installed as /etc/sddm.conf.pacnew
     static const QRegularExpression change(QStringLiteral("^\\[[^]]*\\] \\[ALPM\\] (upgraded|installed|removed|downgraded|reinstalled) (\\S+) "));
-    static const QRegularExpression config(QStringLiteral("^\\[[^]]*\\] \\[ALPM\\] warning: \\S+ (?:installed|saved) as (\\S+\\.pac(?:new|save))\\s*$"));
+    static const QRegularExpression config(QStringLiteral("^\\[[^]]*\\] \\[ALPM\\] warning: .+ (?:installed|saved) as (/.+\\.pac(?:new|save))\\s*$"));
     PacmanRun run;
     for (const QString &line : appendedText.split(QLatin1Char('\n'))) {
         if (line.contains(QLatin1String("] [ALPM] transaction started"))) {
@@ -136,6 +142,9 @@ PacmanRun parsePacmanLog(const QString &appendedText)
             run.changed.append(m.captured(2));
             if (m.captured(1) == QLatin1String("upgraded")) {
                 run.upgraded.append(m.captured(2));
+            }
+            if (m.captured(1) != QLatin1String("removed") && m.captured(1) != QLatin1String("installed")) {
+                run.updated.append(m.captured(2));
             }
         } else if (const auto c = config.match(line); c.hasMatch()) {
             if (!run.configs.contains(c.captured(1))) {
@@ -149,7 +158,12 @@ PacmanRun parsePacmanLog(const QString &appendedText)
 QString restartPackage(const PacmanRun &run)
 {
     for (const QString &name : {QStringLiteral("systemd"), QStringLiteral("systemd-libs"), QStringLiteral("glibc")}) {
-        if (run.upgraded.contains(name)) {
+        if (run.updated.contains(name)) {
+            return name;
+        }
+    }
+    for (const QString &name : run.updated) {
+        if (name.startsWith(QLatin1String("nvidia"))) {
             return name;
         }
     }

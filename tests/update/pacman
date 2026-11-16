@@ -1,7 +1,8 @@
 #!/bin/sh
 # Stands in for pacman in tests/kyu_update_test.sh. Prints what pacman -Syu
 # prints, asks "Proceed?" on the terminal, and appends what pacman would to
-# the fake pacman.log. KYU_FAKE_MODE: normal | keyring | decline | slow.
+# the fake pacman.log. KYU_FAKE_MODE: normal | keyring | slow | systemd
+# (upgrades systemd) | nothing | midfail (fails after one package) | german.
 [ "$*" = "-Syu" ] || { echo "fake pacman: unexpected arguments: $*" >&2; exit 2; }
 log=$KYU_FAKE_DIR/pacman.log
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
@@ -10,13 +11,22 @@ echo "[$(now)] [PACMAN] Running 'pacman -Syu'" >>"$log"
 echo ":: Synchronizing package databases..."
 echo ":: Starting full system upgrade..."
 echo "[$(now)] [PACMAN] starting full system upgrade" >>"$log"
+if [ "${KYU_FAKE_MODE:-}" = nothing ]; then
+    echo " there is nothing to do"
+    exit 0
+fi
+if [ "${KYU_FAKE_MODE:-}" = german ]; then
+    echo "Fehler: Konnte Datei 'core.db' nicht von mirror.example.org übertragen" >&2
+    echo "Fehler: Konnte nicht alle Datenbanken aktualisieren" >&2
+    exit 1
+fi
 echo "resolving dependencies..."
 echo "looking for conflicting packages..."
 echo ""
 echo "Packages (2) linux618-6.18.22-1  mesa-1:26.2.3-1"
 echo ""
 printf ':: Proceed with installation? [Y/n] '
-read -r answer
+read -r answer || exit 1 # no answer: as if interrupted
 case "$answer" in n|N) exit 1 ;; esac
 [ "${KYU_FAKE_MODE:-}" = slow ] && sleep 3
 echo ":: Retrieving packages..."
@@ -28,8 +38,19 @@ if [ "${KYU_FAKE_MODE:-}" = keyring ]; then
     exit 1
 fi
 echo "[$(now)] [ALPM] transaction started" >>"$log"
+if [ "${KYU_FAKE_MODE:-}" = systemd ]; then
+    echo "(1/1) upgrading systemd"
+    echo "[$(now)] [ALPM] upgraded systemd (258.1-1 -> 258.2-1)" >>"$log"
+    echo "[$(now)] [ALPM] transaction completed" >>"$log"
+    exit 0
+fi
 echo "(1/2) upgrading linux618"
 echo "[$(now)] [ALPM] upgraded linux618 (6.18.20-1 -> 6.18.22-1)" >>"$log"
+if [ "${KYU_FAKE_MODE:-}" = midfail ]; then
+    echo "error: could not extract /usr/lib/mesa/x.so (Write error)" >&2
+    echo "[$(now)] [ALPM] transaction failed" >>"$log"
+    exit 1
+fi
 echo "(2/2) upgrading mesa"
 echo "[$(now)] [ALPM] upgraded mesa (1:26.2.1-1 -> 1:26.2.3-1)" >>"$log"
 echo "warning: /etc/sddm.conf installed as /etc/sddm.conf.pacnew"
