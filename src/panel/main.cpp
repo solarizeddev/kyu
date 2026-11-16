@@ -3,6 +3,7 @@
 // it again picks the update up from the helper's log.
 
 #include "checkscheduler.h"
+#include "flatpakfollower.h"
 #include "helperclient.h"
 #include "panelcontroller.h"
 #include "singleinstance.h"
@@ -68,9 +69,11 @@ int main(int argc, char **argv)
     watcher.reload();
     CheckScheduler scheduler;
     HelperClient helper(parser.isSet(session) ? HelperClient::Bus::Session : HelperClient::Bus::System);
+    FlatpakFollower flatpak;
     PanelController panel;
     panel.setStateWatcher(&watcher);
     panel.setCheckScheduler(&scheduler);
+    panel.setFlatpakFollower(&flatpak);
     panel.setHelper(&helper, parser.isSet(session));
     panel.attach();
     QObject::connect(&instance, &SingleInstance::activated, &panel, &PanelController::activateRequested);

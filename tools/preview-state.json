@@ -59,11 +59,18 @@
  ],
  "flatpaks": [
   {
-   "name": "org.mozilla.firefox",
+   "name": "org.kyu.Test.App",
    "kind": "app",
    "branch": "stable",
    "origin": "flathub",
-   "installation": "system"
+   "installation": "user"
+  },
+  {
+   "name": "org.kyu.Test.Runtime",
+   "kind": "runtime",
+   "branch": "stable",
+   "origin": "flathub",
+   "installation": "user"
   }
  ]
 }

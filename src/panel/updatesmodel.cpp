@@ -123,40 +123,50 @@ void UpdatesModel::setStatus(int row, const QString &status)
     Q_EMIT dataChanged(i, i, {StatusRole, ActionRole});
 }
 
-void UpdatesModel::beginTransaction()
+void UpdatesModel::beginTransaction(bool includeFlatpak)
 {
     m_working = -1;
     m_nextOrder = 0;
     for (int i = 0; i < m_rows.size(); ++i) {
         m_rows[i].order = -1;
         m_rows[i].action.clear();
-        // Flatpaks are not part of pacman's transaction.
-        setStatus(i, m_rows[i].kind == QLatin1String("pacman") ? QStringLiteral("waiting") : QStringLiteral("pending"));
+        const bool part = m_rows[i].kind == QLatin1String("pacman") || includeFlatpak;
+        setStatus(i, part ? QStringLiteral("waiting") : QStringLiteral("pending"));
     }
 }
 
-void UpdatesModel::applyProgress(const QString &action, const QString &package)
+void UpdatesModel::includeFlatpak()
+{
+    for (int i = 0; i < m_rows.size(); ++i) {
+        if (m_rows[i].kind == QLatin1String("flatpak") && m_rows[i].status == QLatin1String("pending")) {
+            setStatus(i, QStringLiteral("waiting"));
+        }
+    }
+}
+
+void UpdatesModel::applyProgress(const QString &action, const QString &package, const QString &kind)
 {
     if (m_working >= 0) {
         setStatus(m_working, QStringLiteral("done"));
     }
     int row = -1;
     for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].kind == QLatin1String("pacman") && m_rows[i].name == package) {
+        if (m_rows[i].kind == kind && m_rows[i].name == package) {
             row = i;
             break;
         }
     }
     if (row < 0) {
-        // Insert after the last pacman row, so Flatpaks stay at the end.
+        // pacman rows: after the last pacman row, so Flatpaks stay at the
+        // end. Flatpak rows (related refs, new runtimes): at the very end.
         int at = 0;
         for (int i = 0; i < m_rows.size(); ++i) {
-            if (m_rows[i].kind == QLatin1String("pacman")) {
+            if (m_rows[i].kind == QLatin1String("pacman") || kind == QLatin1String("flatpak")) {
                 at = i + 1;
             }
         }
         beginInsertRows({}, at, at);
-        Row added = makeRow(package, extraGroup(), QStringLiteral("pacman"), QString(), QString(), -1);
+        Row added = makeRow(package, extraGroup(), kind, QString(), QString(), -1);
         added.status = QStringLiteral("waiting");
         m_rows.insert(at, added);
         endInsertRows();
@@ -174,16 +184,16 @@ void UpdatesModel::applyProgress(const QString &action, const QString &package)
     Q_EMIT dataChanged(index(row), index(row), {ActionRole});
 }
 
-void UpdatesModel::finishTransaction(bool success)
+void UpdatesModel::finishKind(const QString &kind, bool success)
 {
-    if (m_working >= 0) {
+    if (m_working >= 0 && m_rows[m_working].kind == kind) {
         setStatus(m_working, success ? QStringLiteral("done") : QStringLiteral("failed"));
         m_working = -1;
         Q_EMIT workingRowChanged();
     }
     for (int i = 0; i < m_rows.size(); ++i) {
-        if (m_rows[i].status == QLatin1String("waiting")) {
-            // pacman finished without touching it.
+        if (m_rows[i].kind == kind && m_rows[i].status == QLatin1String("waiting")) {
+            // Finished without touching it.
             setStatus(i, QStringLiteral("unchanged"));
         }
     }

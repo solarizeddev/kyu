@@ -1,8 +1,10 @@
 #!/bin/sh
 # Screenshots the panel without KF6 or root, for development.
 #
-# Needs a build configured with -DKYU_PREVIEW=ON (Kirigami stand-in). Runs
-# kyu-helper on a private session bus with tests/helper/fake-pacman and the
+# Needs a build configured with -DKYU_PREVIEW=ON (Kirigami stand-in) and the
+# flatpak command. Runs kyu-helper on a private session bus with
+# tests/helper/fake-pacman, a real local Flatpak repository (remote named
+# "flathub", see tests/flatpak/make-repo.sh) with two pending updates, and the
 # sample update list in tools/preview-state.json.
 #
 #   tools/preview-panel.sh OUT.png [kyu preview options...]
@@ -26,6 +28,11 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work/state/kyu" "$work/fake"
+export FLATPAK_USER_DIR="$work/flatpak-user" FLATPAK_SYSTEM_DIR="$work/flatpak-system"
+. "$src/tests/flatpak/make-repo.sh"
+make_repo "$work" flathub
+publish "$work" org.kyu.Test.App 2
+publish "$work" "$KYU_TEST_RUNTIME" 2
 cp "$src/tools/preview-state.json" "$work/state/kyu/updates.json"
 cp "$src/tests/helper/fake-pacman" "$work/fake/pacman"
 echo "${MODE:-normal}" >"$work/fake/mode"

@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QVariantList>
 
+class FlatpakFollower;
 class HelperClient;
 class StateWatcher;
 class CheckScheduler;
@@ -71,6 +72,7 @@ public:
     void setStateWatcher(StateWatcher *watcher);
     void setHelper(HelperClient *helper, bool sessionBus);
     void setCheckScheduler(CheckScheduler *scheduler);
+    void setFlatpakFollower(FlatpakFollower *follower);
 
     // Picks up a transaction that is already running (panel opened late or
     // restarted). Returns false if the helper could not be reached.
@@ -109,9 +111,9 @@ public:
 
     QString commandLine() const { return m_commandLine; }
     QString processLine() const;
-    QString logPath() const { return m_logPath; }
+    QString logPath() const;
 
-    bool success() const { return m_success; }
+    bool success() const;
     QString resultTitle() const;
     QString resultText() const;
     QString resultDetails() const;
@@ -123,6 +125,10 @@ public Q_SLOTS:
     void handleStartFinished(const QString &transaction, const QString &errorName, const QString &errorMessage);
     void handleHelperLost(const QString &logPath);
     void handleReplyFinished(const QString &errorName, const QString &errorMessage);
+    // kyu-flatpak's records ("source": "flatpak").
+    void handleFlatpakRecord(const QJsonObject &record);
+    void handleFlatpakLost(const QString &logPath);
+    void handleFlatpakStartFailed(const QString &message);
 
     Q_INVOKABLE void updateAll();
     Q_INVOKABLE void checkAgain();
@@ -139,11 +145,15 @@ Q_SIGNALS:
 
 private:
     void setScreen(const QString &screen);
+    void beginRun();
+    void finishRun();
+    void partFinished();
     void reloadFromWatcher();
 
     StateWatcher *m_watcher = nullptr;
     HelperClient *m_helper = nullptr;
     CheckScheduler *m_scheduler = nullptr;
+    FlatpakFollower *m_flatpak = nullptr;
     bool m_sessionBus = false;
     bool m_helperReachable = true;
 
@@ -158,7 +168,23 @@ private:
     bool m_starting = false;
     QString m_message;
 
-    // transaction
+    // the run: pacman part (kyu-helper), then Flatpak part (kyu-flatpak)
+    bool m_inRun = false;
+    bool m_pacmanRun = false;
+    bool m_pacmanDone = false;
+    bool m_fpRun = false;
+    bool m_fpDone = false;
+    bool m_fpSuccess = false;
+    bool m_fpSkipped = false;
+    QString m_fpSummary;
+    QString m_fpStage;
+    QString m_fpAction;
+    QString m_fpLog;
+    qint64 m_fpPid = 0;
+    int m_fpCurrent = 0;
+    int m_fpTotal = 0;
+
+    // pacman part
     QString m_tx;
     QString m_commandLine;
     qint64 m_pid = 0;

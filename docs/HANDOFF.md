@@ -110,7 +110,6 @@ Colour roles used in the sketches and their Kirigami equivalents:
 
 - Manjaro specifics: branches, `pacman-mirrors`, and whether `checkupdates` behaves on Manjaro mirrors.
 - How to answer pacman's interactive prompts reliably when driving the binary (pty and output parsing vs a `--print`/dry-run pre-pass to detect questions up front). See "Helper requirements" above.
-- Order of pacman and Flatpak in one run: the log sketch runs Flatpak first, the running sketch runs it after pacman.
 
 ## Status
 
@@ -165,6 +164,23 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - `kyu-update` asks the same questions on the terminal.
 - Tests: the parser against each pacman question format; the answer rules (wrong uid, wrong value, stale or repeated answers, root); end-to-end runs with a fake pacman for every type and path; and the panel answering and cancelling (preview screenshots).
 - Not done: pacman versions are not pinned. A question whose wording changes in a future pacman falls into "unrecognised" and stops the update with nothing changed, rather than being answered wrongly. The parser is in `helper/src/parse.rs`, with a test per format.
+
+**Milestone 5 (Flatpak in the same list): done.**
+
+- `kyu-flatpak` (C++, libflatpak) updates every Flatpak with an update, in every system installation and the user installation, as the user, with no Kyu helper. System installations go through flatpak's own system helper and polkit rules.
+- Like kyu-helper, it is a separate process with a JSON-lines log (`$XDG_STATE_HOME/kyu/flatpak/`) and a lock, so closing the panel does not stop it and a new panel reattaches to it.
+- **Order:** pacman first, then Flatpaks (the running sketch's "flatpak next"). The panel starts `kyu-flatpak --after <pacman tx>` as soon as pacman's transaction exists, and kyu-flatpak waits for pacman by itself. So the Flatpaks still update if the panel closes during the pacman part.
+- Flatpaks are skipped if the pacman update was cancelled or stopped at a question. They still update if pacman failed for other reasons, since the two are independent. With only Flatpak updates pending, "Update all" runs just kyu-flatpak.
+- **Panel:** one run spanning both parts.
+  - Flatpak rows tick off after the pacman rows.
+  - "upgrading 4 of 9 · Flatpaks next", then "updating Flatpak 1 of 3".
+  - The percentage covers both parts.
+  - The output view interleaves both logs, and both log paths are shown.
+  - The result combines both summaries ("3 upgraded · 2 Flatpaks updated"); on failure, both parts' results are listed.
+- **Tray:** checks again when kyu-helper finishes a transaction (it listens for the helper's signals); kyu-flatpak runs kyu-check when it finishes.
+- **Fixed on the way:** libflatpak treats an unreachable remote as non-fatal and reports "no updates" for it. Both kyu-check (since milestone 1) and kyu-flatpak now capture libflatpak's messages and report a failed check or update instead, quoting the error.
+- **Tests:** `flatpak_update` runs kyu-flatpak against real libflatpak with a local repository and a throwaway installation built by `flatpak build-export`. It covers updates of apps and runtimes, nothing to do, an unreachable remote (updater and checker), the lock, `--after` ordering, and the skip after a cancelled pacman update. `test_panel` covers combined runs, Flatpak-only runs, cancel-and-skip, and a lost kyu-flatpak. The preview script now uses the same real repository, so the screenshots show a real Flatpak update.
+- Not done: Flatpak updates have no cancel button (pacman's cancel is only at questions, and stopping between Flatpak refs has not been needed). "Follow in Konsole" (`kyu-update --attach`) shows the pacman part only. The test runs the user installation; system installations use the same code, through flatpak's system helper, which the container cannot run.
 
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.

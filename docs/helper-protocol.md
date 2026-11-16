@@ -123,6 +123,21 @@ pacman prints questions on stderr without a newline and waits on stdin. The help
 
 pacman waits up to 30 minutes for an answer (`--question-timeout`). After that the helper stops it, the same as a cancel. Only the uid that started the transaction, or root, may answer or cancel. A client that attaches while pacman waits sees the `question` record in the log replay, and can answer it.
 
+## kyu-flatpak's log
+
+`kyu-flatpak` writes the same record format to `$XDG_STATE_HOME/kyu/flatpak/<tx>.jsonl` (newest 30 kept), with `"source": "flatpak"` on every record. It holds `$XDG_STATE_HOME/kyu/flatpak.lock` while it runs, so there is one at a time, and a panel finds the running one through that lock's pid.
+
+| kind | Fields | When |
+|---|---|---|
+| `started` | `pid`, `uid`, `command`, `log`, `after` | first record |
+| `stage` | `stage`: `waiting` (for pacman, with `--after`) or `flatpak` | |
+| `output` | `stream`, `text` | Kyu's own lines and libflatpak's messages, verbatim |
+| `packages` | `total` | operations to run (refs with updates; more once related refs are resolved) |
+| `progress` | `action` (`updating`, `installing`, `removing`), `package`, `ref`, `installation`, `current`, `total` | before each operation |
+| `finished` | `success`, `changed`, `summary`, `skipped` | last record |
+
+With `--after TX` it follows that kyu-helper transaction to its end. It skips the Flatpaks (`skipped: true`, exit code 2) when the pacman update was cancelled, timed out, or stopped at a question Kyu does not recognise. Otherwise it updates them even if pacman failed: the two are independent. Each Flatpak ref is deployed atomically, so stopping kyu-flatpak (at logout, say) leaves every app on either its old or its new version. kyu-flatpak does not add remotes or switch end-of-life apps to their replacements; it logs both. An unreadable remote counts as a failure. libflatpak itself treats one as "no updates".
+
 ## Lifetime
 
 - SIGHUP is ignored.

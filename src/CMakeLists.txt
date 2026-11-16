@@ -1,5 +1,8 @@
 add_subdirectory(core)
 add_subdirectory(client)
 add_subdirectory(checker)
+if(KYU_FLATPAK)
+    add_subdirectory(flatpak)
+endif()
 add_subdirectory(tray)
 add_subdirectory(panel)

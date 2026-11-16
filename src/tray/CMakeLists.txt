@@ -1,9 +1,10 @@
 add_executable(kyu-tray
     main.cpp
     badge.cpp
+    helperwatcher.cpp
     trayicon.cpp
 )
-target_link_libraries(kyu-tray PRIVATE kyucore Qt6::Gui Qt6::Widgets)
+target_link_libraries(kyu-tray PRIVATE kyucore Qt6::Gui Qt6::Widgets Qt6::DBus)
 target_compile_definitions(kyu-tray PRIVATE
     KYU_VERSION="${PROJECT_VERSION}"
     KYU_APP_ID="${KYU_APP_ID}"

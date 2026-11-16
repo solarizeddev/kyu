@@ -1,6 +1,7 @@
 #include "panelcontroller.h"
 
 #include "checkscheduler.h"
+#include "flatpakfollower.h"
 #include "helperclient.h"
 #include "statewatcher.h"
 #include "statustext.h"
@@ -92,8 +93,21 @@ void PanelController::setCheckScheduler(CheckScheduler *scheduler)
     m_scheduler = scheduler;
 }
 
+void PanelController::setFlatpakFollower(FlatpakFollower *follower)
+{
+    m_flatpak = follower;
+    connect(follower, &FlatpakFollower::record, this, &PanelController::handleFlatpakRecord);
+    connect(follower, &FlatpakFollower::runnerLost, this, &PanelController::handleFlatpakLost);
+    connect(follower, &FlatpakFollower::startFailed, this, &PanelController::handleFlatpakStartFailed);
+}
+
 bool PanelController::attach()
 {
+    // A running kyu-flatpak first: if pacman is running too, the run spans
+    // both, and the list should show the Flatpaks as part of it.
+    if (m_flatpak && m_flatpak->attach()) {
+        m_fpRun = true;
+    }
     if (!m_helper) {
         return false;
     }
@@ -178,29 +192,53 @@ QString PanelController::flatpakNote() const
     if (m_updates.flatpakCount() == 0) {
         return {};
     }
-    return QStringLiteral("Update all runs pacman -Syu. Flatpaks are listed but not updated yet.");
+    if (m_updates.pacmanCount() == 0) {
+        return QStringLiteral("Update all updates the Flatpaks (system and user installations).");
+    }
+    return QStringLiteral("Update all runs pacman -Syu, then updates the Flatpaks.");
 }
 
 bool PanelController::canUpdate() const
 {
-    return m_screen == QLatin1String("list") && !m_starting && m_helperReachable && m_updates.pacmanCount() > 0;
+    if (m_screen != QLatin1String("list") || m_starting) {
+        return false;
+    }
+    if (m_updates.pacmanCount() > 0) {
+        return m_helperReachable;
+    }
+    return m_updates.flatpakCount() > 0 && m_flatpak;
 }
 
 void PanelController::updateAll()
 {
-    if (!canUpdate() || !m_helper) {
+    if (!canUpdate() || (m_updates.pacmanCount() > 0 && !m_helper)) {
         return;
     }
     m_starting = true;
     m_message.clear();
+    m_pacmanRun = false;
+    m_pacmanDone = false;
+    m_fpRun = m_updates.flatpakCount() > 0 && m_flatpak;
+    m_fpDone = false;
     Q_EMIT changed();
-    m_helper->startUpdate();
+    if (m_updates.pacmanCount() > 0) {
+        m_helper->startUpdate(); // kyu-flatpak starts once pacman's transaction has an id
+    } else {
+        m_flatpak->start(QString(), m_sessionBus);
+    }
 }
 
-void PanelController::handleStartFinished(const QString &, const QString &errorName, const QString &errorMessage)
+void PanelController::handleStartFinished(const QString &transaction, const QString &errorName, const QString &errorMessage)
 {
     m_starting = false;
-    if (!errorName.isEmpty()) {
+    if (errorName.isEmpty()) {
+        // kyu-flatpak waits for this pacman transaction by itself, so the
+        // Flatpaks update even if this panel closes in the meantime.
+        if (m_fpRun && m_flatpak) {
+            m_flatpak->start(transaction, m_sessionBus);
+        }
+    } else {
+        m_fpRun = false;
         const QString kind = errorName.section(QLatin1Char('.'), -1);
         if (kind == QLatin1String("Busy") && m_helper) {
             // Someone else started one: follow it.
@@ -238,6 +276,11 @@ void PanelController::handleRecord(const QJsonObject &r)
 {
     const QString kind = r.value(QStringLiteral("kind")).toString();
     if (kind == QLatin1String("started")) {
+        if (!m_inRun) {
+            beginRun();
+        }
+        m_pacmanRun = true;
+        m_pacmanDone = false;
         m_tx = r.value(QStringLiteral("tx")).toString();
         QStringList command;
         for (const auto &v : r.value(QStringLiteral("command")).toArray()) {
@@ -247,7 +290,6 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_pid = r.value(QStringLiteral("pid")).toInteger();
         m_uid = r.value(QStringLiteral("uid")).toInteger(-1);
         m_startedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
-        m_finishedAt = {};
         m_logPath = m_helper ? m_helper->logPath() : QString();
         m_stage.clear();
         m_action.clear();
@@ -259,14 +301,7 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_stoppedBy.clear();
         m_summary.clear();
         m_haveExitCode = false;
-        m_message.clear();
-        m_output.clear();
         m_output.append(QStringLiteral("$ ") + m_commandLine, QStringLiteral("kyu"));
-        if (m_screen == QLatin1String("finished")) {
-            m_updates.setState(m_state);
-        }
-        m_updates.beginTransaction();
-        setScreen(QStringLiteral("running"));
     } else if (kind == QLatin1String("output")) {
         m_output.append(r.value(QStringLiteral("text")).toString(), r.value(QStringLiteral("stream")).toString());
         return; // no property changed
@@ -321,10 +356,9 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_finishedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
         m_pending = {};
         m_replying = false;
-        m_updates.finishTransaction(m_success);
-        setScreen(QStringLiteral("finished"));
-        // The tray and the next list should reflect the new system state.
-        checkAgain();
+        m_pacmanDone = true;
+        m_updates.finishKind(QStringLiteral("pacman"), m_success);
+        partFinished();
     } else {
         return;
     }
@@ -339,30 +373,195 @@ void PanelController::handleHelperLost(const QString &logPath)
                     .arg(logPath);
     m_haveExitCode = false;
     m_finishedAt = QDateTime::currentDateTimeUtc();
-    m_updates.finishTransaction(false);
+    m_pacmanDone = true;
+    m_updates.finishKind(QStringLiteral("pacman"), false);
+    partFinished();
+    Q_EMIT changed();
+}
+
+void PanelController::beginRun()
+{
+    m_inRun = true;
+    m_finishedAt = {};
+    m_startedAt = {};
+    m_message.clear();
+    m_output.clear();
+    m_stoppedBy.clear();
+    m_success = false;
+    m_summary.clear();
+    m_fpDone = false;
+    m_fpSuccess = false;
+    m_fpSkipped = false;
+    m_fpSummary.clear();
+    m_fpStage.clear();
+    m_fpCurrent = 0;
+    m_fpTotal = 0;
+    m_fpLog.clear();
+    m_fpPid = 0;
+    m_current = 0;
+    m_total = 0;
+    m_stage.clear();
+    if (m_screen == QLatin1String("finished")) {
+        m_updates.setState(m_state);
+    }
+    m_updates.beginTransaction(m_fpRun);
+    setScreen(QStringLiteral("running"));
+}
+
+void PanelController::partFinished()
+{
+    const bool pacmanPending = m_pacmanRun && !m_pacmanDone;
+    const bool flatpakPending = m_fpRun && !m_fpDone;
+    if (!pacmanPending && !flatpakPending) {
+        finishRun();
+    } else if (m_screen == QLatin1String("question")) {
+        setScreen(QStringLiteral("running"));
+    }
+}
+
+void PanelController::finishRun()
+{
+    m_inRun = false;
+    m_starting = false;
+    if (!m_finishedAt.isValid()) {
+        m_finishedAt = QDateTime::currentDateTimeUtc();
+    }
+    m_pending = {};
+    m_replying = false;
     setScreen(QStringLiteral("finished"));
+    // The tray and the next list should reflect the new system state.
+    checkAgain();
+}
+
+void PanelController::handleFlatpakRecord(const QJsonObject &r)
+{
+    const QString kind = r.value(QStringLiteral("kind")).toString();
+    if (kind == QLatin1String("started")) {
+        m_fpRun = true;
+        m_starting = false;
+        if (!m_inRun) {
+            beginRun(); // a Flatpak-only run
+            m_startedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
+        } else {
+            m_updates.includeFlatpak();
+        }
+        m_fpPid = r.value(QStringLiteral("pid")).toInteger();
+        m_fpLog = r.value(QStringLiteral("log")).toString();
+        QStringList command;
+        for (const auto &v : r.value(QStringLiteral("command")).toArray()) {
+            command.append(v.toString());
+        }
+        m_output.append(QStringLiteral("$ ") + command.join(QLatin1Char(' ')), QStringLiteral("kyu"));
+        m_output.append(QStringLiteral("(updates the Flatpaks through libflatpak: the same operations as flatpak update)"), QStringLiteral("kyu"));
+    } else if (kind == QLatin1String("output")) {
+        m_output.append(r.value(QStringLiteral("text")).toString(), r.value(QStringLiteral("stream")).toString());
+        return;
+    } else if (kind == QLatin1String("stage")) {
+        m_fpStage = r.value(QStringLiteral("stage")).toString();
+    } else if (kind == QLatin1String("packages")) {
+        m_fpTotal = r.value(QStringLiteral("total")).toInt();
+    } else if (kind == QLatin1String("progress")) {
+        m_fpCurrent = r.value(QStringLiteral("current")).toInt();
+        m_fpTotal = qMax(m_fpTotal, r.value(QStringLiteral("total")).toInt());
+        m_fpAction = r.value(QStringLiteral("action")).toString();
+        m_updates.applyProgress(m_fpAction, r.value(QStringLiteral("package")).toString(), QStringLiteral("flatpak"));
+    } else if (kind == QLatin1String("finished")) {
+        m_fpDone = true;
+        m_fpSuccess = r.value(QStringLiteral("success")).toBool();
+        m_fpSkipped = r.value(QStringLiteral("skipped")).toBool();
+        m_fpSummary = r.value(QStringLiteral("summary")).toString();
+        m_finishedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
+        m_updates.finishKind(QStringLiteral("flatpak"), m_fpSuccess);
+        partFinished();
+    } else {
+        return;
+    }
+    Q_EMIT changed();
+}
+
+void PanelController::handleFlatpakLost(const QString &logPath)
+{
+    m_fpDone = true;
+    m_fpSuccess = false;
+    m_fpSummary = QStringLiteral("kyu-flatpak stopped before it finished. The log ends without a result: %1").arg(logPath);
+    m_finishedAt = QDateTime::currentDateTimeUtc();
+    m_updates.finishKind(QStringLiteral("flatpak"), false);
+    partFinished();
+    Q_EMIT changed();
+}
+
+void PanelController::handleFlatpakStartFailed(const QString &message)
+{
+    m_starting = false;
+    if (m_inRun) {
+        m_fpDone = true;
+        m_fpSuccess = false;
+        m_fpSummary = message;
+        m_updates.finishKind(QStringLiteral("flatpak"), false);
+        partFinished();
+    } else {
+        m_fpRun = false;
+        m_message = message;
+    }
     Q_EMIT changed();
 }
 
 int PanelController::percent() const
 {
-    // Share of package operations completed: the one pacman is working on
-    // does not count until the next one starts (or the hooks run).
-    if (m_screen == QLatin1String("finished") || m_stage == QLatin1String("hooks")) {
+    // Share of operations completed across both parts: the one in progress
+    // does not count until the next one starts.
+    if (m_screen == QLatin1String("finished")) {
         return 100;
     }
-    if (m_total <= 0) {
-        return 0;
+    int total = 0;
+    int done = 0;
+    if (m_pacmanRun) {
+        const int t = m_total > 0 ? m_total : m_updates.pacmanCount();
+        total += t;
+        done += (m_pacmanDone || m_stage == QLatin1String("hooks")) ? t : qMax(0, m_current - 1);
     }
-    return qBound(0, qMax(0, m_current - 1) * 100 / m_total, 100);
+    if (m_fpRun) {
+        const int t = m_fpTotal > 0 ? m_fpTotal : m_updates.flatpakCount();
+        total += t;
+        done += m_fpDone ? t : qMax(0, m_fpCurrent - 1);
+    }
+    return total > 0 ? qBound(0, done * 100 / total, 100) : 0;
 }
 
 QString PanelController::progressText() const
 {
-    if (m_current > 0 && m_stage != QLatin1String("hooks")) {
-        return QStringLiteral("%1 %2 of %3").arg(m_action).arg(m_current).arg(m_total);
+    if (m_pacmanRun && !m_pacmanDone) {
+        QString text = (m_current > 0 && m_stage != QLatin1String("hooks")) ? QStringLiteral("%1 %2 of %3").arg(m_action).arg(m_current).arg(m_total)
+                                                                            : stageText(m_stage);
+        if (m_fpRun) {
+            text += QStringLiteral(" · Flatpaks next");
+        }
+        return text;
+    }
+    if (m_fpRun && !m_fpDone) {
+        if (m_fpCurrent > 0) {
+            return QStringLiteral("%1 Flatpak %2 of %3").arg(m_fpAction).arg(m_fpCurrent).arg(m_fpTotal);
+        }
+        return m_fpStage == QLatin1String("waiting") ? QStringLiteral("Waiting for pacman") : QStringLiteral("Checking Flatpak remotes");
     }
     return stageText(m_stage);
+}
+
+QString PanelController::logPath() const
+{
+    QStringList paths;
+    if (!m_logPath.isEmpty()) {
+        paths.append(m_logPath);
+    }
+    if (!m_fpLog.isEmpty()) {
+        paths.append(m_fpLog);
+    }
+    return paths.join(QStringLiteral(" and "));
+}
+
+bool PanelController::success() const
+{
+    return (!m_pacmanRun || m_success) && (!m_fpRun || m_fpSuccess);
 }
 
 QString PanelController::processLine() const
@@ -375,6 +574,12 @@ QString PanelController::processLine() const
                               : QStringLiteral("running as root via polkit"));
     if (m_uid >= 0) {
         parts.append(QStringLiteral("started by uid %1").arg(m_uid));
+    }
+    if (m_fpPid > 0) {
+        parts.append(QStringLiteral("kyu-flatpak pid %1 in your session").arg(m_fpPid));
+    }
+    if (!m_pacmanRun) {
+        parts.removeAt(m_pid > 0 ? 1 : 0); // no root involved
     }
     return parts.join(QStringLiteral(" · "));
 }
@@ -600,8 +805,15 @@ void PanelController::handleReplyFinished(const QString &errorName, const QStrin
 
 QString PanelController::resultTitle() const
 {
-    if (m_success) {
-        return m_summary;
+    if (success()) {
+        QStringList parts;
+        if (m_pacmanRun) {
+            parts.append(m_summary);
+        }
+        if (m_fpRun) {
+            parts.append(m_fpSummary);
+        }
+        return parts.join(QStringLiteral(" · "));
     }
     if (m_stoppedBy == QLatin1String("cancelled")) {
         return QStringLiteral("Update cancelled");
@@ -617,7 +829,18 @@ QString PanelController::resultTitle() const
 
 QString PanelController::resultText() const
 {
-    return m_success ? QString() : m_summary;
+    if (success()) {
+        return {};
+    }
+    // Both parts' results, so it is clear what did happen.
+    QStringList lines;
+    if (m_pacmanRun) {
+        lines.append(m_summary);
+    }
+    if (m_fpRun) {
+        lines.append(m_fpSummary);
+    }
+    return lines.join(QLatin1Char('\n'));
 }
 
 QString PanelController::resultDetails() const
@@ -629,7 +852,7 @@ QString PanelController::resultDetails() const
     if (m_startedAt.isValid() && m_finishedAt.isValid()) {
         parts.append(QStringLiteral("took %1").arg(duration(m_startedAt.secsTo(m_finishedAt))));
     }
-    if (m_haveExitCode) {
+    if (m_pacmanRun && m_haveExitCode) {
         parts.append(QStringLiteral("pacman exit code %1").arg(m_exitCode));
     }
     return parts.join(QStringLiteral(" · "));

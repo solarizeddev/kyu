@@ -6,6 +6,7 @@
 #endif
 
 #include "flatpakcheck.h"
+#include "flatpakwarnings.h"
 
 #include <QStringList>
 
@@ -62,6 +63,7 @@ FlatpakResult checkFlatpak()
 {
     FlatpakResult result;
     QStringList errors;
+    const FlatpakWarnings warnings;
 
     GError *error = nullptr;
     GPtrArray *system = flatpak_get_system_installations(nullptr, &error);
@@ -86,6 +88,8 @@ FlatpakResult checkFlatpak()
         g_clear_error(&error);
     }
 
+    // A remote that could not be read is not "no updates".
+    errors.append(warnings.fetchErrors());
     result.ok = errors.isEmpty();
     result.error = errors.join(QLatin1Char('\n'));
     return result;

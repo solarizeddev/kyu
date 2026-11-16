@@ -102,7 +102,7 @@ ColumnLayout {
     Item { Layout.fillHeight: true }
 
     QQC2.Button {
-        text: "Show pacman output"
+        text: "Show technical details"
         icon.name: "utilities-terminal"
         onClicked: showOutput()
         Layout.fillWidth: true

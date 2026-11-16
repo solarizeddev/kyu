@@ -2,7 +2,7 @@
 
 A KDE-native updater for Arch-based systems: a tray icon showing the number of pending repo and Flatpak updates, and (in later milestones) a panel that applies them through a privileged helper. Design and milestones: [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
-Current state: milestone 4. The tray icon shows pending updates, and clicking it opens the update panel: the list grouped by repo, "Update all", live progress per package, and pacman's output. A privileged helper runs `pacman -Syu`. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting the update, and picks it up again when reopened, including a question still waiting for an answer.
+Current state: milestone 5. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer.
 
 | List | Updating | Question | pacman output | Done |
 |---|---|---|---|---|
@@ -18,13 +18,16 @@ The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stan
 | `src/tray` | `kyu-tray`: StatusNotifierItem with the update count; reads the state file. |
 | `src/core` | Shared code: parsers, state file, checks. |
 | `helper` | `kyu-helper` (Rust): the only code that runs as root. D-Bus service behind polkit; runs `pacman -Syu`, streams progress, writes `/var/log/kyu/*.jsonl`. Protocol: [`docs/helper-protocol.md`](docs/helper-protocol.md). |
-| `src/client` | `HelperClient` (Qt) and `kyu-update`, a terminal client that starts an update or reattaches to one. |
+| `src/flatpak` | `kyu-flatpak`: updates every Flatpak with an update (system and user installations) through libflatpak, in the user's session, writing `$XDG_STATE_HOME/kyu/flatpak/*.jsonl`. With `--after TX` it waits for that pacman transaction first. |
+| `src/client` | `HelperClient` (Qt) and `kyu-update`, a terminal client that starts a pacman update or reattaches to one (pacman only; Flatpaks go through the panel or `kyu-flatpak`). |
 | `src/panel` | `kyu`: the update panel (Qt Quick, Kirigami). `PanelController` holds the state and actions; `qml/` only lays them out. Single instance: starting it again raises the open one. |
 | `data` | systemd units, XDG autostart entry, D-Bus activation and bus policy, polkit action, interface XML. |
 
 ## Dependencies
 
 Runtime: `pacman-contrib` (for `checkupdates`), `flatpak` (libflatpak), Qt 6 (with Qt Quick Controls), KF6 StatusNotifierItem, Kirigami, the Plasma Qt Quick Controls style (`qqc2-desktop-style`), polkit and a polkit agent (Plasma has one).
+
+Tests also use `dbus-run-session`, `gdbus` and the `flatpak` command; tests whose tools are missing are left out.
 
 Build: CMake ≥ 3.22, a C++20 compiler, Qt 6 (Core, Gui, Widgets, DBus, Quick, QuickControls2, Test), libflatpak, KF6StatusNotifierItem, Rust ≥ 1.89 with cargo, Corrosion (fetched from GitHub if not installed). `-DKYU_HELPER=OFF` builds without the helper.
 
@@ -74,6 +77,8 @@ The helper test (`helper_session`) runs `kyu-helper --session` with a fake pacma
 - pacman failures
 - SIGTERM during an update
 - a helper killed mid-update
+
+The Flatpak test (`flatpak_update`) uses real libflatpak: it builds a local repository and a throwaway installation with the `flatpak` command, then covers updating apps and runtimes, nothing to do, an unreachable remote (reported as a failure, not as "no updates"), one runner at a time, waiting for pacman with `--after`, and skipping the Flatpaks when the pacman update is cancelled.
 
 `kyu-update` asks pacman's questions on the terminal: type an answer, press Enter for pacman's default, or type `c` to cancel.
 

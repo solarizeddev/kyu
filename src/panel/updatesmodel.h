@@ -38,10 +38,12 @@ public:
 
     void setState(const Kyu::UpdateState &state);
 
-    // Transaction tracking.
-    void beginTransaction();
-    void applyProgress(const QString &action, const QString &package);
-    void finishTransaction(bool success);
+    // Transaction tracking. kind is "pacman" or "flatpak"; pacman runs
+    // first, then Flatpak, never both at once.
+    void beginTransaction(bool includeFlatpak);
+    void includeFlatpak(); // Flatpak part added to a running transaction
+    void applyProgress(const QString &action, const QString &package, const QString &kind = QStringLiteral("pacman"));
+    void finishKind(const QString &kind, bool success);
 
     Q_INVOKABLE int countInGroup(const QString &group) const;
     int pacmanCount() const;

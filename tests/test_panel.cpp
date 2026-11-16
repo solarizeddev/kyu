@@ -287,6 +287,105 @@ private Q_SLOTS:
         QCOMPARE(c.resultTitle(), QStringLiteral("Update cancelled"));
     }
 
+    void pacmanThenFlatpaks()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        auto *m = c.updates();
+        startTransaction(c);
+        auto fp = [&c](const char *kind, QJsonObject fields = {}) {
+            fields.insert(QStringLiteral("source"), QStringLiteral("flatpak"));
+            fields.insert(QStringLiteral("kind"), QString::fromLatin1(kind));
+            c.handleFlatpakRecord(fields);
+        };
+        fp("started", {{QStringLiteral("pid"), 77}, {QStringLiteral("log"), QStringLiteral("/state/kyu/flatpak/x.jsonl")},
+                       {QStringLiteral("command"), QJsonArray{QStringLiteral("kyu-flatpak"), QStringLiteral("--after"), QStringLiteral("tx")}}});
+        fp("stage", {{QStringLiteral("stage"), QStringLiteral("waiting")}});
+        QCOMPARE(status(m, QStringLiteral("org.mozilla.firefox")), QStringLiteral("waiting"));
+        c.handleRecord(rec("packages", {{QStringLiteral("total"), 4}}));
+        QVERIFY(c.progressText().endsWith(QStringLiteral(" · Flatpaks next")));
+        QVERIFY(c.processLine().contains(QStringLiteral("kyu-flatpak pid 77")));
+        QCOMPARE(c.logPath(), QStringLiteral("/state/kyu/flatpak/x.jsonl")); // no helper here, so no pacman log
+
+        for (int i = 1; i <= 4; ++i) {
+            const char *names[] = {"glibc", "linux618", "kwin", "mesa"};
+            c.handleRecord(rec("progress", {{QStringLiteral("action"), QStringLiteral("upgrading")},
+                                            {QStringLiteral("package"), QString::fromLatin1(names[i - 1])},
+                                            {QStringLiteral("current"), i},
+                                            {QStringLiteral("total"), 4}}));
+        }
+        // 3 of 4 pacman operations done, Flatpak part (1) not started.
+        QCOMPARE(c.percent(), 60);
+        c.handleRecord(rec("finished", {{QStringLiteral("success"), true}, {QStringLiteral("summary"), QStringLiteral("4 upgraded")}}));
+        QCOMPARE(c.screen(), QStringLiteral("running")); // Flatpaks still to come
+        QCOMPARE(status(m, QStringLiteral("mesa")), QStringLiteral("done"));
+        QCOMPARE(c.percent(), 80);
+
+        fp("stage", {{QStringLiteral("stage"), QStringLiteral("flatpak")}});
+        fp("packages", {{QStringLiteral("total"), 1}});
+        fp("progress", {{QStringLiteral("action"), QStringLiteral("updating")}, {QStringLiteral("package"), QStringLiteral("org.mozilla.firefox")},
+                        {QStringLiteral("current"), 1}, {QStringLiteral("total"), 1}});
+        QCOMPARE(c.progressText(), QStringLiteral("updating Flatpak 1 of 1"));
+        QCOMPARE(status(m, QStringLiteral("org.mozilla.firefox")), QStringLiteral("working"));
+        fp("finished", {{QStringLiteral("success"), true}, {QStringLiteral("changed"), 1}, {QStringLiteral("summary"), QStringLiteral("1 Flatpak updated")}});
+        QCOMPARE(c.screen(), QStringLiteral("finished"));
+        QVERIFY(c.success());
+        QCOMPARE(c.resultTitle(), QStringLiteral("4 upgraded · 1 Flatpak updated"));
+        QCOMPARE(status(m, QStringLiteral("org.mozilla.firefox")), QStringLiteral("done"));
+        QCOMPARE(c.changes().size(), 5);
+    }
+
+    void flatpakOnly()
+    {
+        UpdateState s = sample();
+        s.packages.clear();
+        PanelController c;
+        c.setUpdateState(s);
+        QVERIFY(c.flatpakNote().startsWith(QStringLiteral("Update all updates the Flatpaks")));
+        QJsonObject started{{QStringLiteral("kind"), QStringLiteral("started")}, {QStringLiteral("source"), QStringLiteral("flatpak")},
+                            {QStringLiteral("pid"), 5}, {QStringLiteral("command"), QJsonArray{QStringLiteral("kyu-flatpak")}}};
+        c.handleFlatpakRecord(started);
+        QCOMPARE(c.screen(), QStringLiteral("running"));
+        QVERIFY(!c.processLine().contains(QStringLiteral("root")));
+        c.handleFlatpakRecord({{QStringLiteral("kind"), QStringLiteral("finished")}, {QStringLiteral("success"), true},
+                               {QStringLiteral("summary"), QStringLiteral("1 Flatpak updated")}});
+        QCOMPARE(c.screen(), QStringLiteral("finished"));
+        QCOMPARE(c.resultTitle(), QStringLiteral("1 Flatpak updated"));
+    }
+
+    void cancelledPacmanSkipsFlatpaks()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleFlatpakRecord({{QStringLiteral("kind"), QStringLiteral("started")}, {QStringLiteral("pid"), 5}});
+        c.handleRecord(rec("question", {{QStringLiteral("id"), 1}, {QStringLiteral("handled"), true}, {QStringLiteral("type"), QStringLiteral("conflict")}}));
+        c.handleRecord(rec("cancelled", {{QStringLiteral("id"), 1}, {QStringLiteral("uid"), 1000}}));
+        c.handleRecord(rec("finished", {{QStringLiteral("success"), false}, {QStringLiteral("summary"), QStringLiteral("Cancelled at ...")}}));
+        QCOMPARE(c.screen(), QStringLiteral("running"));
+        c.handleFlatpakRecord({{QStringLiteral("kind"), QStringLiteral("finished")}, {QStringLiteral("success"), false},
+                               {QStringLiteral("skipped"), true},
+                               {QStringLiteral("summary"), QStringLiteral("Flatpaks not updated: the pacman update was stopped at a question")}});
+        QCOMPARE(c.screen(), QStringLiteral("finished"));
+        QCOMPARE(c.resultTitle(), QStringLiteral("Update cancelled"));
+        QVERIFY(c.resultText().contains(QStringLiteral("Flatpaks not updated")));
+        QCOMPARE(status(c.updates(), QStringLiteral("org.mozilla.firefox")), QStringLiteral("unchanged"));
+    }
+
+    void flatpakFailureAfterPacman()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleFlatpakRecord({{QStringLiteral("kind"), QStringLiteral("started")}, {QStringLiteral("pid"), 5}});
+        c.handleRecord(rec("finished", {{QStringLiteral("success"), true}, {QStringLiteral("summary"), QStringLiteral("4 upgraded")}}));
+        c.handleFlatpakLost(QStringLiteral("/state/kyu/flatpak/x.jsonl"));
+        QCOMPARE(c.screen(), QStringLiteral("finished"));
+        QCOMPARE(c.resultTitle(), QStringLiteral("Update failed"));
+        QCOMPARE(c.resultText().split(QLatin1Char('\n')).first(), QStringLiteral("4 upgraded"));
+        QVERIFY(c.resultText().contains(QStringLiteral("kyu-flatpak stopped before it finished")));
+    }
+
     void startErrorsAreQuoted()
     {
         PanelController c;

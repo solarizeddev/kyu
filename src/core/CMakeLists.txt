@@ -7,6 +7,8 @@ add_library(kyucore STATIC
     updatestate.cpp
     statewatcher.cpp
     checkscheduler.cpp
+    jsonlog.cpp
+    flatpakwarnings.cpp
 )
 target_include_directories(kyucore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(kyucore PUBLIC Qt6::Core)
