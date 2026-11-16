@@ -9,10 +9,13 @@
 #   tools/kyu-test-all.sh                  writes ~/kyu-test.zip
 #   tools/kyu-test-all.sh /path/name.zip   writes that zip
 #
-# Takes about 5 minutes (PANEL=1 adds the old panel's screenshots, 15 more). Windows open and close by themselves while the
-# screenshots run: leave the desktop alone. Your home directory, user name
-# and the checkout's path are replaced in the logs. Environment: SCHEMES (see
-# tools/kyu-screens.sh), BUILD (build directory, default ./build),
+# Takes about 6 minutes. Turn on Do Not Disturb first, then leave the
+# desktop alone: Konsole windows open and close by themselves and each
+# screenshot is of the active window. Look through screens/ before you send
+# the zip. Your home directory, user name and the checkout's path are
+# replaced in the text files. Environment: BUILD (build directory, default
+# ./build), KONSOLE_SCHEMES (see tools/kyu-update-screens.sh), PANEL=1 (also
+# the old panel's screenshots, 15 minutes more; SCHEMES for those),
 # KYU_CMAKE_ARGS (configure options, default -DKYU_REQUIRE_KSNI=ON).
 set -u
 src=$(cd "$(dirname "$0")/.." && pwd)
@@ -96,12 +99,13 @@ if [ "$status" = ok ]; then
     done
     tail -n 1 "$out/transcripts/test.log"
 
-    step "kyu-update in Konsole (screens/, about 4 minutes; one line per screenshot)"
+    step "kyu-update in Konsole (screens/, about 5 minutes; one line per screenshot)"
     BUILD="$build" "$src/tools/kyu-update-screens.sh" "$out/screens" 2>&1 | tee "$out/screens-run.log"
     if ! grep -q '^done:' "$out/screens/screens.log" 2>/dev/null || grep -q FAILED "$out/screens/screens.log"; then
         [ "$status" = ok ] && status="screenshots failed" || status="$status, screenshots failed"
     fi
 
+    echo "Look through $out/screens before you send the zip: each picture should be a Konsole window."
     if [ -n "${PANEL:-}" ]; then
         step "Screenshots of the old panel (panel-screens/, about 15 minutes)"
         BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
@@ -113,7 +117,7 @@ echo "result: $status" >>"$out/system.txt"
 # Your home directory, user name and the checkout's path stay out of the
 # zip's text files. (Literal replacements: no regex characters involved.)
 user=$(id -un)
-for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log "$out"/screens/*.json "$out"/transcripts/*; do
+for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log "$out"/screens/*.json "$out"/screens/*.txt "$out"/transcripts/*; do
     [ -f "$f" ] || continue
     KYU_SRC="$src" KYU_HOME="$HOME" KYU_USER="$user" awk '
         function swap(s, from, to,   i, r) {

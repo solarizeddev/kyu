@@ -278,6 +278,11 @@ int main(int argc, char **argv)
     // The end: the lock goes first (the tray's card stops saying "Updating"),
     // then the window waits, so a printed command can still be typed: Enter
     // closes it, "s" opens a shell here.
+    // The exit status says what happened (0 done, 1 pacman failed, 3 already
+    // running, 4 stopped at the news, 5 flatpak failed) only without the wait
+    // (--no-wait, or no terminal): after it the person has read the result,
+    // last-run.json has it, and a non-zero status would only make Konsole
+    // post a "Program exited with status" notification.
     auto finish = [&](int code) {
         lock.unlock();
         if (!parser.isSet(noWait) && stdinIsTerminal()) {
@@ -287,6 +292,7 @@ int main(int argc, char **argv)
                 const QString shell = qEnvironmentVariable("SHELL", QStringLiteral("/bin/sh"));
                 runInTerminal(shell, {});
             }
+            return 0;
         }
         return code;
     };
@@ -298,7 +304,7 @@ int main(int argc, char **argv)
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
         out.kyu(QStringLiteral("An update is already running (pid %1).").arg(pid), Tone::Warn);
-        return parser.isSet(noWait) || !stdinIsTerminal() ? 3 : (out.prompt(QStringLiteral("Press Enter to close. ")), readAnswer(), 3);
+        return parser.isSet(noWait) || !stdinIsTerminal() ? 3 : (out.prompt(QStringLiteral("Press Enter to close. ")), readAnswer(), 0);
     }
 
     // --- Before pacman ----------------------------------------------------
