@@ -48,6 +48,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 mkdir -p "$out" "$work/bin"
 cp "$build/bin/kyu-update" "$work/bin/"
+[ -x "$build/bin/kyu-window" ] && cp "$build/bin/kyu-window" "$work/bin/"
 : >"$out/screens.log"
 log() { echo "$*" | tee -a "$out/screens.log"; }
 failed=0
@@ -69,6 +70,12 @@ screen_text_plain() {
 # or "unknown" where the window does not say.
 active() {
     local r
+    # Kyu's window says it in a file (KYU_WINDOW_ACTIVE_FILE).
+    if [ -n "${WINDOW:-}" ]; then
+        [ -f "$d/active" ] || { echo unknown; return; }
+        [ "$(cat "$d/active")" = 1 ] && echo yes || echo no
+        return
+    fi
     r=$(busctl --user get-property "$service" /konsole/MainWindow_1 org.qtproject.Qt.QWidget isActiveWindow 2>/dev/null) || { echo unknown; return; }
     [ "$r" = "b true" ] && echo yes || echo no
 }
@@ -134,18 +141,39 @@ shot() {
     exec 3<>"$d/answers"
     # Konsole gets the fake state directory too: no remembered window size
     # overrides the columns, and your Konsole's saved state is not touched.
-    env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
-        XDG_STATE_HOME="$d/state" \
-        konsole --separate --hide-menubar --hide-tabbar --workdir "$d" "${profile[@]}" \
-        -e sh -c 'exec script -q -e -c "$0" /dev/null <"$1"' "$work/bin/kyu-update $(fake_args "$d")" "$d/answers" \
-        >>"$work/konsole.log" 2>&1 &
-    pid=$!
-    service=org.kde.konsole-$pid
-    for i in $(seq 75); do
-        busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1 && break
-        sleep 0.2
-    done
-    if ! busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1; then
+    if [ -n "${WINDOW:-}" ]; then
+        # Kyu's own window: kyu-update in Konsole's terminal part, the
+        # answers typed in from the pipe by the window itself.
+        # shellcheck disable=SC2046 # fake_args is a word list without spaces
+        env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
+            XDG_STATE_HOME="$d/state" KYU_WINDOW_ANSWERS="$d/answers" KYU_WINDOW_ACTIVE_FILE="$d/active" \
+            "$work/bin/kyu-window" $(fake_args "$d") >>"$work/konsole.log" 2>&1 &
+        pid=$!
+        # The terminal's session is on the window's own bus connection.
+        service=
+        for i in $(seq 75); do
+            service=$(busctl --user list --no-legend 2>/dev/null | awk -v p="$pid" '$2 == p && $1 ~ /^:/ { print $1; exit }')
+            [ -n "$service" ] && busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1 && break
+            sleep 0.2
+        done
+    else
+        env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
+            XDG_STATE_HOME="$d/state" \
+            konsole --separate --hide-menubar --hide-tabbar --workdir "$d" "${profile[@]}" \
+            -e sh -c 'exec script -q -e -c "$0" /dev/null <"$1"' "$work/bin/kyu-update $(fake_args "$d")" "$d/answers" \
+            >>"$work/konsole.log" 2>&1 &
+        pid=$!
+        service=org.kde.konsole-$pid
+        for i in $(seq 75); do
+            busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1 && break
+            sleep 0.2
+        done
+    fi
+    if [ -n "${WINDOW:-}" ] && ! busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1 && kill -0 "$pid" 2>/dev/null; then
+        # The window is up but its terminal is not on D-Bus: no screen text,
+        # timed waits instead.
+        log "note $name: the terminal's text is not readable over D-Bus"
+    elif ! busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1; then
         log "FAILED $name: Konsole did not appear on D-Bus"
         failed=$((failed + 1))
         close
@@ -288,6 +316,16 @@ for s in $schemes; do
     shot "B-$s-keyring" "$s" normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
     shot "B-$s-news" "$s" normal normal "2 1 1" "until Continue?" shot
 done
+
+log "== Kyu's own window (kyu-window)"
+if [ -x "$work/bin/kyu-window" ]; then
+    WINDOW=1 shot W-01-done - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
+    WINDOW=1 shot W-02-news - normal normal "2 1 1" "until Continue?" shot "type y" "until Proceed with" "type y" "until [Enter] close" shot
+    WINDOW=1 shot W-03-downloading - normal slow - "until Proceed with" "type y" "wait 1" shot "until [Enter] close"
+    WINDOW=1 shot W-04-keyring - normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
+else
+    log "skip: kyu-window was not built (KF6 Parts missing)"
+fi
 
 log "== narrow (60 columns) and wide (160 columns)"
 for z in narrow wide; do

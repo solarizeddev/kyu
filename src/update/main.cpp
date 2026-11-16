@@ -64,6 +64,12 @@ public:
             std::fputs("\x1b]0;Kyu\x07", stdout);
         }
     }
+    // On a light background yellow and green text is hard to read (bold
+    // makes it the scheme's pale "intense" colour): only the marks get colour.
+    void setLightBackground(bool light)
+    {
+        m_light = light;
+    }
     // "Kyu · 8 updates: …", once at the top.
     void header(const QString &text)
     {
@@ -72,12 +78,13 @@ public:
     // A heading for what follows ("Arch Linux news since your last update").
     void heading(const QString &text, Tone tone)
     {
-        print(text, tone, true);
+        print(text, readable(tone), true);
     }
     // "▸ Packages   sudo pacman -Syu": what runs next.
     void step(const QString &name, const QString &detail)
     {
-        print(sym("▸", ">") + QLatin1Char(' ') + name.leftJustified(10) + QLatin1Char(' ') + detail, Tone::Good, true);
+        // Blue: green is for "done" only.
+        marked(sym("▸", ">"), name.leftJustified(10) + QLatin1Char(' ') + detail, Tone::Info);
     }
     // The same, for what happens without Kyu running anything.
     void quietStep(const QString &name, const QString &detail)
@@ -86,15 +93,15 @@ public:
     }
     void good(const QString &text)
     {
-        print(sym("✓", "ok") + QLatin1Char(' ') + text, Tone::Good, true);
+        marked(sym("✓", "ok"), text, Tone::Good);
     }
     void warn(const QString &text)
     {
-        print(QStringLiteral("! ") + text, Tone::Warn, true);
+        marked(QStringLiteral("!"), text, Tone::Warn);
     }
     void bad(const QString &text)
     {
-        print(sym("✗", "x") + QLatin1Char(' ') + text, Tone::Bad, true);
+        marked(sym("✗", "x"), text, Tone::Bad);
     }
     // An indented line under one of the above.
     void note(const QString &text, Tone tone = Tone::Plain)
@@ -107,11 +114,26 @@ public:
     }
     void prompt(const QString &text, Tone tone)
     {
-        write(text, tone, true);
+        write(text, readable(tone), true);
         std::fflush(stdout);
     }
 
 private:
+    Tone readable(Tone tone) const
+    {
+        return m_light && (tone == Tone::Good || tone == Tone::Warn) ? Tone::Plain : tone;
+    }
+    // "✓ text": all in the tone's colour, or on a light background the mark
+    // in colour and the text in the normal text colour, bold.
+    void marked(const QString &mark, const QString &text, Tone tone)
+    {
+        if (readable(tone) == tone) {
+            print(mark + QLatin1Char(' ') + text, tone, true);
+            return;
+        }
+        write(mark, tone, false);
+        print(QLatin1Char(' ') + text, Tone::Plain, true);
+    }
     QString sym(const char *utf8, const char *ascii) const
     {
         return QString::fromUtf8(m_utf8 ? utf8 : ascii);
@@ -142,7 +164,53 @@ private:
     }
     bool m_color;
     bool m_utf8;
+    bool m_light = false;
 };
+
+// Asks the terminal for its background colour (OSC 11, answered by Konsole,
+// xterm, VTE, kitty, foot and others): true for a light one. No answer within
+// a moment: false.
+bool lightBackground()
+{
+    if (!::isatty(STDIN_FILENO) || !::isatty(STDOUT_FILENO)) {
+        return false;
+    }
+    termios old{};
+    if (::tcgetattr(STDIN_FILENO, &old) != 0) {
+        return false;
+    }
+    termios raw = old;
+    raw.c_lflag &= ~(ICANON | ECHO);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 2; // tenths of a second per read
+    ::tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+    std::fputs("\x1b]11;?\x1b\\", stdout);
+    std::fflush(stdout);
+    QByteArray reply;
+    char c = 0;
+    // The reply ends with BEL or ST (ESC \\); give up after a few empty reads.
+    for (int empty = 0; empty < 2 && reply.size() < 64;) {
+        if (::read(STDIN_FILENO, &c, 1) != 1) {
+            ++empty;
+            continue;
+        }
+        reply.append(c);
+        if (c == '\a' || reply.endsWith("\x1b\\")) {
+            break;
+        }
+    }
+    ::tcsetattr(STDIN_FILENO, TCSANOW, &old);
+    static const QRegularExpression rgb(QStringLiteral("rgb:([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})"));
+    const QRegularExpressionMatch m = rgb.match(QString::fromLatin1(reply));
+    if (!m.hasMatch()) {
+        return false;
+    }
+    auto channel = [&m](int i) {
+        const QString hex = m.captured(i);
+        return hex.toInt(nullptr, 16) / double((1 << (4 * hex.size())) - 1);
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(2) + 0.0722 * channel(3) > 0.5;
+}
 
 bool stdinIsTerminal()
 {
@@ -405,6 +473,7 @@ int main(int argc, char **argv)
     parser.process(app);
 
     Out out(utf8);
+    out.setLightBackground(qEnvironmentVariableIsEmpty("NO_COLOR") && lightBackground());
     out.windowTitle();
     QDir().mkpath(Kyu::Paths::stateDir());
     QLockFile lock(Kyu::Paths::stateDir() + QStringLiteral("/update.lock"));
@@ -584,7 +653,10 @@ int main(int argc, char **argv)
         out.header(QStringLiteral("Kyu · %1: %2").arg(plural(state->total(), QStringLiteral("update"), QStringLiteral("updates")),
                                                      parts.join(QStringLiteral(", "))));
     }
-    out.note(QStringLiteral("Keep this window open until Kyu says it is done."), Tone::Dim);
+    // Kyu's own window asks before it closes during an update.
+    if (qEnvironmentVariableIsEmpty("KYU_WINDOW")) {
+        out.note(QStringLiteral("Keep this window open until Kyu says it is done."), Tone::Dim);
+    }
 
     if (state && !state->news.items.isEmpty() && !parser.isSet(newsRead)) {
         out.blank();

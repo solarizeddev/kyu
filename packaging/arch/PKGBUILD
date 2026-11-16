@@ -21,6 +21,8 @@ depends=(
     gcc-libs
     glibc
     kirigami
+    konsole
+    kparts
     kstatusnotifieritem
     kwindowsystem
     pacman

@@ -31,6 +31,17 @@ else()
     message(WARNING "KF6StatusNotifierItem not found, falling back to QSystemTrayIcon")
 endif()
 
+# kyu-window embeds Konsole's terminal part (KF6 Parts; Konsole at run time).
+find_package(KF6 QUIET COMPONENTS Parts CoreAddons)
+option(KYU_REQUIRE_WINDOW "Fail the build if KF6 Parts (for kyu-window) is missing" OFF)
+if(KF6Parts_FOUND)
+    message(STATUS "kyu-window: with Konsole's terminal part")
+elseif(KYU_REQUIRE_WINDOW)
+    message(FATAL_ERROR "KF6 Parts not found (needed for kyu-window)")
+else()
+    message(WARNING "KF6 Parts not found: kyu-window is not built (kyu-update opens in Konsole instead)")
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()

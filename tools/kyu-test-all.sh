@@ -16,7 +16,8 @@
 # replaced in the text files. Environment: BUILD (build directory, default
 # ./build), KONSOLE_SCHEMES and UNCHECKED (see tools/kyu-update-screens.sh), PANEL=1 (also
 # the old panel's screenshots, 15 minutes more; SCHEMES for those),
-# KYU_CMAKE_ARGS (configure options, default -DKYU_REQUIRE_KSNI=ON).
+# KYU_CMAKE_ARGS (configure options, default -DKYU_REQUIRE_KSNI=ON
+# -DKYU_REQUIRE_WINDOW=ON).
 set -u
 src=$(cd "$(dirname "$0")/.." && pwd)
 zipfile=$(realpath -m "${1:-$HOME/kyu-test.zip}")
@@ -78,7 +79,7 @@ step "Build (build.log)"
 generator=
 [ -f "$build/CMakeCache.txt" ] || generator="-G Ninja"
 # shellcheck disable=SC2086 # word lists
-if cmake -S "$src" -B "$build" $generator ${KYU_CMAKE_ARGS--DKYU_REQUIRE_KSNI=ON} >"$out/build.log" 2>&1 &&
+if cmake -S "$src" -B "$build" $generator ${KYU_CMAKE_ARGS--DKYU_REQUIRE_KSNI=ON -DKYU_REQUIRE_WINDOW=ON} >"$out/build.log" 2>&1 &&
     cmake --build "$build" >>"$out/build.log" 2>&1; then
     tail -n 3 "$out/build.log"
 else
