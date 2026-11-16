@@ -1,0 +1,8 @@
+#!/bin/sh
+# Stands in for flatpak in tests/kyu_update_test.sh.
+[ "$1" = update ] || { echo "fake flatpak: unexpected arguments: $*" >&2; exit 2; }
+touch "$KYU_FAKE_DIR/flatpak-ran"
+echo "Looking for updates…"
+echo " 1. [✓] org.mozilla.firefox   stable  u  flathub  72.1 MB / 80.3 MB"
+echo "Updates complete."
+exit "${KYU_FAKE_FLATPAK_EXIT:-0}"

@@ -43,7 +43,7 @@ start_helper() {
         "$@" 2>>"$work/helper.err" &
     helper_pid=$!
     i=0
-    until "$bin/kyu-update" --session --state >/dev/null 2>&1; do
+    until "$bin/kyu-helper-cli" --session --state >/dev/null 2>&1; do
         i=$((i + 1)); [ $i -lt 50 ] || fail "helper did not come up"; sleep 0.1
     done
 }
@@ -53,7 +53,7 @@ start_helper() {
 update() {
     name=$1; shift
     set +e
-    printf "${INPUT:-}" | timeout 30 "$bin/kyu-update" --session "$@" >"$work/$name.out" 2>&1
+    printf "${INPUT:-}" | timeout 30 "$bin/kyu-helper-cli" --session "$@" >"$work/$name.out" 2>&1
     code=$?
     set -e
     return $code
@@ -68,7 +68,7 @@ expect_code() {
 absent() { grep -qF -- "$2" "$work/$1.out" && fail "$1: unexpected '$2'"; true; }
 
 current_tx() {
-    "$bin/kyu-update" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1
+    "$bin/kyu-helper-cli" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1
 }
 
 helper_call() {
@@ -127,7 +127,7 @@ tail -n 1 "$log" | grep -q '"success":true' || fail "log does not record success
 
 echo "killing the UI mid-update does not stop the update; --attach picks it up"
 delay 1
-"$bin/kyu-update" --session >"$work/killed.out" 2>&1 &
+"$bin/kyu-helper-cli" --session >"$work/killed.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/killed.out" 'upgrading kwin...'
 kill -9 "$ui_pid"
@@ -147,7 +147,7 @@ contains quiet '[3/3] upgrading mesa'
 
 echo "second start while running is refused"
 delay 1
-"$bin/kyu-update" --session >"$work/first.out" 2>&1 &
+"$bin/kyu-helper-cli" --session >"$work/first.out" 2>&1 &
 first=$!
 wait_for "$work/first.out" 'kyu: running'
 expect_code 3 second
@@ -237,12 +237,12 @@ absent hooktail 'stopping it'
 
 echo "the D-Bus API: answers from another client, refusals"
 mode provider
-"$bin/kyu-update" --session </dev/null >"$work/remote.out" 2>&1 &
+"$bin/kyu-helper-cli" --session </dev/null >"$work/remote.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/remote.out" 'kyu: type'
 tx=$(current_tx)
 [ -n "$tx" ] || fail "no transaction id in GetState"
-"$bin/kyu-update" --session --state | grep -q '"type": "provider"' || fail "GetState lacks the pending question"
+"$bin/kyu-helper-cli" --session --state | grep -q '"type": "provider"' || fail "GetState lacks the pending question"
 # gdbus parses arguments as GVariant text: strings need their own quotes.
 helper_call Answer "'$tx'" 1 "'9'" | grep -q 'Error.InvalidAnswer' || fail "invalid answer accepted"
 helper_call Answer "'$tx'" 2 "'1'" | grep -q 'Error.NoQuestion' || fail "answer to a question never asked accepted"
@@ -254,7 +254,7 @@ grep -qF 'installing vulkan-intel...' "$work/remote.out" || fail "D-Bus answer n
 helper_call Cancel "'$tx'" | grep -q 'Error.NoQuestion' || fail "cancel accepted with no question pending"
 
 echo "a client started while pacman waits sees the question and can answer it"
-"$bin/kyu-update" --session </dev/null >"$work/first-ui.out" 2>&1 &
+"$bin/kyu-helper-cli" --session </dev/null >"$work/first-ui.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/first-ui.out" 'kyu: type'
 kill -9 "$ui_pid"; wait "$ui_pid" 2>/dev/null || true
@@ -298,7 +298,7 @@ rm -r "$work/proc/77"
 expect_code 0 stale-remove --remove-stale-lock
 contains stale-remove 'removed'
 [ ! -e "$work/db.lck" ] || fail "stale lock not removed"
-"$bin/kyu-update" --session --state | grep -q '"exists": false' || fail "GetState lock info"
+"$bin/kyu-helper-cli" --session --state | grep -q '"exists": false' || fail "GetState lock info"
 
 echo "nothing to do"
 mode nothing
@@ -312,7 +312,7 @@ contains replay 'kyu: Nothing to do'
 
 echo "SIGTERM during an update waits for pacman"
 mode normal; delay 1
-"$bin/kyu-update" --session >"$work/term.out" 2>&1 &
+"$bin/kyu-helper-cli" --session >"$work/term.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/term.out" 'upgrading kwin...'
 kill -TERM "$helper_pid"
@@ -339,7 +339,7 @@ mode normal
 
 echo "a helper killed mid-update leaves the transaction marked interrupted"
 delay 1
-"$bin/kyu-update" --session >"$work/crash.out" 2>&1 &
+"$bin/kyu-helper-cli" --session >"$work/crash.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/crash.out" 'upgrading kwin...'
 kill -9 "$helper_pid"
@@ -356,7 +356,7 @@ echo "SIGTERM while pacman waits for an answer cancels at that safe point"
 kill -9 "$helper_pid"; wait "$helper_pid" 2>/dev/null || true
 start_helper
 mode provider
-"$bin/kyu-update" --session </dev/null >"$work/term-question.out" 2>&1 &
+"$bin/kyu-helper-cli" --session </dev/null >"$work/term-question.out" 2>&1 &
 ui_pid=$!
 wait_for "$work/term-question.out" 'kyu: type'
 kill -TERM "$helper_pid"

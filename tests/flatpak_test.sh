@@ -81,17 +81,17 @@ echo "only one kyu-flatpak at a time"
 "$bin/kyu-helper" --session --pacman "$here/helper/fake-pacman" --db-lock "$work/db.lck" \
     --log-dir "$work/helper-logs" 2>/dev/null &
 helper_pid=$!
-i=0; until "$bin/kyu-update" --session --state >/dev/null 2>&1; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper not up"; sleep 0.1; done
+i=0; until "$bin/kyu-helper-cli" --session --state >/dev/null 2>&1; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper not up"; sleep 0.1; done
 cp "$here/helper/fake-pacman" "$work/pacman"
 kill -9 "$helper_pid"; wait "$helper_pid" 2>/dev/null || true
 "$bin/kyu-helper" --session --pacman "$work/pacman" --db-lock "$work/db.lck" --log-dir "$work/helper-logs" 2>/dev/null &
 helper_pid=$!
-i=0; until "$bin/kyu-update" --session --state >/dev/null 2>&1; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper not up"; sleep 0.1; done
+i=0; until "$bin/kyu-helper-cli" --session --state >/dev/null 2>&1; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper not up"; sleep 0.1; done
 echo normal >"$work/mode"; echo 1 >"$work/delay"
 
-"$bin/kyu-update" --session </dev/null >"$work/pacman.out" 2>&1 &
+"$bin/kyu-helper-cli" --session </dev/null >"$work/pacman.out" 2>&1 &
 pacman_ui=$!
-i=0; until tx=$("$bin/kyu-update" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1); [ -n "$tx" ]; do
+i=0; until tx=$("$bin/kyu-helper-cli" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1); [ -n "$tx" ]; do
     i=$((i + 1)); [ $i -lt 50 ] || fail "no pacman transaction"; sleep 0.1
 done
 "$bin/kyu-flatpak" --no-check --session-bus --after "$tx" >"$work/after.out" 2>&1 &
@@ -112,10 +112,10 @@ has "$log" '"summary":"1 Flatpak updated"'
 echo "--after skips Flatpaks when the pacman update is cancelled at a question"
 publish "$work" org.kyu.Test.App 3
 echo conflict >"$work/mode"
-"$bin/kyu-update" --session </dev/null >"$work/cancel.out" 2>&1 &
+"$bin/kyu-helper-cli" --session </dev/null >"$work/cancel.out" 2>&1 &
 pacman_ui=$!
 i=0; until grep -q 'kyu: type' "$work/cancel.out"; do i=$((i + 1)); [ $i -lt 100 ] || fail "no question"; sleep 0.1; done
-tx=$("$bin/kyu-update" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1)
+tx=$("$bin/kyu-helper-cli" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1)
 "$bin/kyu-flatpak" --no-check --session-bus --after "$tx" >"$work/skipped.out" 2>&1 &
 after=$!
 sleep 0.5

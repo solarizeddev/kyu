@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stands in for sudo in tests/kyu_update_test.sh: runs the command as is.
+exec "$@"

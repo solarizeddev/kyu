@@ -1,0 +1,37 @@
+#!/bin/sh
+# Stands in for pacman in tests/kyu_update_test.sh. Prints what pacman -Syu
+# prints, asks "Proceed?" on the terminal, and appends what pacman would to
+# the fake pacman.log. KYU_FAKE_MODE: normal | keyring | decline | slow.
+[ "$*" = "-Syu" ] || { echo "fake pacman: unexpected arguments: $*" >&2; exit 2; }
+log=$KYU_FAKE_DIR/pacman.log
+now() { date +%Y-%m-%dT%H:%M:%S%z; }
+touch "$KYU_FAKE_DIR/pacman-ran"
+echo "[$(now)] [PACMAN] Running 'pacman -Syu'" >>"$log"
+echo ":: Synchronizing package databases..."
+echo ":: Starting full system upgrade..."
+echo "[$(now)] [PACMAN] starting full system upgrade" >>"$log"
+echo "resolving dependencies..."
+echo "looking for conflicting packages..."
+echo ""
+echo "Packages (2) linux618-6.18.22-1  mesa-1:26.2.3-1"
+echo ""
+printf ':: Proceed with installation? [Y/n] '
+read -r answer
+case "$answer" in n|N) exit 1 ;; esac
+[ "${KYU_FAKE_MODE:-}" = slow ] && sleep 3
+echo ":: Retrieving packages..."
+if [ "${KYU_FAKE_MODE:-}" = keyring ]; then
+    echo "(2/2) checking keys in keyring"
+    echo "error: mesa: signature from \"Someone <s@example.org>\" is unknown trust" >&2
+    echo "error: failed to commit transaction (invalid or corrupted package (PGP signature))" >&2
+    echo "Errors occurred, no packages were upgraded." >&2
+    exit 1
+fi
+echo "[$(now)] [ALPM] transaction started" >>"$log"
+echo "(1/2) upgrading linux618"
+echo "[$(now)] [ALPM] upgraded linux618 (6.18.20-1 -> 6.18.22-1)" >>"$log"
+echo "(2/2) upgrading mesa"
+echo "[$(now)] [ALPM] upgraded mesa (1:26.2.1-1 -> 1:26.2.3-1)" >>"$log"
+echo "warning: /etc/sddm.conf installed as /etc/sddm.conf.pacnew"
+echo "[$(now)] [ALPM] warning: /etc/sddm.conf installed as /etc/sddm.conf.pacnew" >>"$log"
+echo "[$(now)] [ALPM] transaction completed" >>"$log"

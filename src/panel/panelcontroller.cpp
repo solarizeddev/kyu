@@ -793,13 +793,14 @@ void PanelController::copyLog()
 
 void PanelController::followInTerminal()
 {
-    // kyu-update --attach prints the same output live, from the same log.
-    QStringList args{QStringLiteral("-e"), siblingBinary(QStringLiteral("kyu-update")), QStringLiteral("--attach")};
+    // The old helper's client prints the same output live, from the same log
+    // (until the panel is replaced: docs/TERMINAL-FIRST.md).
+    QStringList args{QStringLiteral("-e"), siblingBinary(QStringLiteral("kyu-helper-cli")), QStringLiteral("--attach")};
     if (m_sessionBus) {
         args.append(QStringLiteral("--session-bus"));
     }
     if (QStandardPaths::findExecutable(QStringLiteral("konsole")).isEmpty() || !QProcess::startDetached(QStringLiteral("konsole"), args)) {
-        m_message = QStringLiteral("Could not start Konsole. In a terminal, run: kyu-update --attach");
+        m_message = QStringLiteral("Could not start Konsole. In a terminal, run: kyu-helper-cli --attach");
         Q_EMIT changed();
     }
 }
