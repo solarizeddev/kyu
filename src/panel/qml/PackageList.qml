@@ -11,6 +11,8 @@ ListView {
 
     clip: true
     model: Panel.updates
+    // Always room for a couple of rows, whatever else is on screen.
+    Layout.minimumHeight: Math.round(Kirigami.Units.gridUnit * 3.2)
     boundsBehavior: Flickable.StopAtBounds
     QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
     Accessible.name: tracking ? "Packages being updated" : "Pending updates"

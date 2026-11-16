@@ -112,20 +112,30 @@ ColumnLayout {
                             color: Kirigami.Theme.disabledTextColor
                             Accessible.ignored: true
                         }
+                        // The name is what the person picks: it keeps one line
+                        // (up to 60% of the row) and the detail wraps first.
+                        TextMetrics { id: labelMetrics; font: optionLabel.font; text: optionLabel.text }
                         QQC2.Label {
+                            id: optionLabel
                             text: option.modelData.label
                             font.family: Kirigami.Theme.fixedWidthFont.family
                             wrapMode: Text.Wrap
                             Layout.fillWidth: true
+                            Layout.minimumWidth: Math.min(Math.ceil(labelMetrics.advanceWidth) + 1, optionRow.width * 0.6)
                         }
+                        TextMetrics { id: detailMetrics; font: optionDetail.font; text: optionDetail.text }
                         QQC2.Label {
+                            id: optionDetail
                             text: option.modelData.detail
                             visible: text.length > 0
                             font: Kirigami.Theme.smallFont
                             color: Kirigami.Theme.disabledTextColor
                             horizontalAlignment: Text.AlignRight
                             wrapMode: Text.Wrap
-                            Layout.maximumWidth: Kirigami.Units.gridUnit * 10
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: Math.min(Math.ceil(detailMetrics.advanceWidth) + 1, Kirigami.Units.gridUnit * 10)
+                            Layout.maximumWidth: Layout.preferredWidth
+                            Layout.minimumWidth: Math.min(Layout.preferredWidth, Kirigami.Units.gridUnit * 3)
                         }
                     }
                     Kirigami.Separator {

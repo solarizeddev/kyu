@@ -220,17 +220,24 @@ QCommandLineOption answer(QStringLiteral("answer"), QStringLiteral("Preview: ans
 QCommandLineOption press(QStringLiteral("press"),
                          QStringLiteral("Preview: press KEY (Qt key name, e.g. Return, L, Escape) after MS: KEY@MS, repeatable."),
                          QStringLiteral("key@ms"));
+QCommandLineOption size(QStringLiteral("size"), QStringLiteral("Preview: window size WxH in logical pixels."), QStringLiteral("WxH"));
+QCommandLineOption fontSize(QStringLiteral("font-size"), QStringLiteral("Preview: default font size in points."), QStringLiteral("pt"));
 QCommandLineOption pageDelay(QStringLiteral("page-delay"), QStringLiteral("Preview: delay for --page."), QStringLiteral("ms"), QStringLiteral("500"));
 }
 
 void addOptions(QCommandLineParser &parser)
 {
-    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer, press});
+    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer, press, size, fontSize});
 }
 
 void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
 {
     g_dark = parser.isSet(dark);
+    if (parser.isSet(fontSize)) {
+        QFont font = QApplication::font();
+        font.setPointSizeF(parser.value(fontSize).toDouble());
+        QApplication::setFont(font);
+    }
     // Without a desktop platform theme Qt only searches :/icons.
     QStringList iconPaths = QIcon::themeSearchPaths();
     const QString dataDirs = qEnvironmentVariable("XDG_DATA_DIRS", QStringLiteral("/usr/local/share:/usr/share"));
@@ -270,6 +277,13 @@ void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
 void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelController &panel)
 {
     QObject *root = engine.rootObjects().constFirst();
+    if (parser.isSet(size)) {
+        const QStringList wh = parser.value(size).split(QLatin1Char('x'));
+        if (wh.size() == 2) {
+            root->setProperty("width", wh[0].toInt());
+            root->setProperty("height", wh[1].toInt());
+        }
+    }
     // The window's palette (a QQuickPalette) is what the controls read.
     if (auto *palette = root->property("palette").value<QObject *>()) {
         const QPalette pal = QApplication::palette();

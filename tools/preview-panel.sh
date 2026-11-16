@@ -17,10 +17,14 @@
 #   MODE=provider tools/preview-panel.sh question.png --start-update --delay 1800
 #   MODE=provider tools/preview-panel.sh answered.png --start-update --answer 3 --delay 4000
 #   MODE=conflict tools/preview-panel.sh cancelled.png --start-update --answer cancel --delay 3000
+#   STATE=$PWD/tools/preview-state-long.json tools/preview-panel.sh small.png --size 270x375
+#   STATE=$PWD/tools/preview-state-long.json tools/preview-panel.sh big-font.png --font-size 18
+#   STATE=$PWD/tools/preview-state-long.json QT_SCALE_FACTOR=2 tools/preview-panel.sh hidpi.png
 #
 # MODE (see tests/helper/fake-pacman) and DELAY (seconds per package) set the
-# fake pacman's behaviour. STALE_LOCK=1 leaves a db.lck that no process holds;
-# INTERRUPTED=1 seeds a helper log that ends without a result. BUILD defaults
+# fake pacman's behaviour. STATE=FILE uses another update list (for example
+# tools/preview-state-long.json, to test long names and many packages).
+# STALE_LOCK=1 leaves a db.lck that no process holds; INTERRUPTED=1 seeds a helper log that ends without a result. BUILD defaults
 # to ./build.
 set -eu
 out=$(realpath -m "$1"); shift
@@ -35,7 +39,7 @@ export FLATPAK_USER_DIR="$work/flatpak-user" FLATPAK_SYSTEM_DIR="$work/flatpak-s
 make_repo "$work" flathub
 publish "$work" org.kyu.Test.App 2
 publish "$work" "$KYU_TEST_RUNTIME" 2
-cp "$src/tools/preview-state.json" "$work/state/kyu/updates.json"
+cp "${STATE:-$src/tools/preview-state.json}" "$work/state/kyu/updates.json"
 cp "$src/tests/helper/fake-pacman" "$work/fake/pacman"
 # Restart facts: the running kernel 6.18.20 was replaced by 6.18.22, and
 # plasmashell maps a replaced library (a fake /proc and /usr/lib/modules).

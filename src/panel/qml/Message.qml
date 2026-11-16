@@ -8,12 +8,23 @@ Rectangle {
     id: message
     property alias text: label.text
     property string iconName: "dialog-warning"
+    // Long messages (an error with a whole URL) take three lines until
+    // clicked, so they never push the list and buttons off the window.
+    property bool expanded: false
 
     visible: text.length > 0
     color: Kirigami.Theme.neutralBackgroundColor
     radius: Kirigami.Units.smallSpacing
     implicitHeight: row.implicitHeight + Kirigami.Units.largeSpacing * 2
     Layout.fillWidth: true
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: label.truncated || message.expanded
+        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onClicked: message.expanded = !message.expanded
+    }
+    Accessible.name: label.text
 
     RowLayout {
         id: row
@@ -30,6 +41,8 @@ Rectangle {
             id: label
             Layout.fillWidth: true
             wrapMode: Text.Wrap
+            maximumLineCount: message.expanded ? 1000 : 3
+            elide: Text.ElideRight
             color: Kirigami.Theme.textColor
         }
     }

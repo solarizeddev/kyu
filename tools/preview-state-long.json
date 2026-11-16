@@ -1,0 +1,1135 @@
+{
+ "formatVersion": 1,
+ "checkedAt": "2026-11-16T10:30:00Z",
+ "pacman": {
+  "checked": true,
+  "ok": false,
+  "error": "==> ERROR: Cannot fetch updates: failed retrieving file 'cachyos-extra-znver4.db' from mirror.cachyos.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds",
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T09:30:00Z"
+ },
+ "flatpak": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "lastSuccessAt": "2026-11-16T10:30:00Z"
+ },
+ "packages": [
+  {
+   "name": "linux-cachyos",
+   "repo": "cachyos-core-v3",
+   "oldVersion": "6.18.20-2",
+   "newVersion": "6.18.22-1",
+   "size": 157286400,
+   "restart": true
+  },
+  {
+   "name": "python-scikit-learn-intelex-extension-with-a-very-long-name",
+   "repo": "cachyos-extra-znver4",
+   "oldVersion": "2026.1.0-1",
+   "newVersion": "2026.2.0-1",
+   "size": 12582912
+  },
+  {
+   "name": "git",
+   "repo": "cachyos-extra-znver4",
+   "oldVersion": "1:2.52.0.r142.g1a2b3c4d5e-1",
+   "newVersion": "1:2.52.0.r160.g9f8e7d6c5b-1",
+   "size": 8388608
+  },
+  {
+   "name": "mesa-git",
+   "repo": "chaotic-aur",
+   "oldVersion": "1:26.3.0_devel.214533.0f8b2c1e7a9d-1",
+   "newVersion": "1:26.3.0_devel.214611.3c7d9e2a1b4f-1",
+   "size": 40054374
+  },
+  {
+   "name": "libxpackage-000",
+   "repo": "core",
+   "oldVersion": "0.0.0-1",
+   "newVersion": "0.0.1-1",
+   "size": 102400
+  },
+  {
+   "name": "libqtpackage-001",
+   "repo": "extra",
+   "oldVersion": "1.1.1-1",
+   "newVersion": "1.1.2-1",
+   "size": 3891200
+  },
+  {
+   "name": "libkfpackage-002",
+   "repo": "multilib",
+   "oldVersion": "2.2.2-1",
+   "newVersion": "2.2.3-1",
+   "size": 7680000
+  },
+  {
+   "name": "libgstpackage-003",
+   "repo": "core",
+   "oldVersion": "3.3.3-1",
+   "newVersion": "3.3.4-1",
+   "size": 11468800
+  },
+  {
+   "name": "libpypackage-004",
+   "repo": "extra",
+   "oldVersion": "4.4.4-1",
+   "newVersion": "4.4.5-1",
+   "size": 15257600
+  },
+  {
+   "name": "libxpackage-005",
+   "repo": "multilib",
+   "oldVersion": "5.5.5-1",
+   "newVersion": "5.5.6-1",
+   "size": 19046400
+  },
+  {
+   "name": "libqtpackage-006",
+   "repo": "core",
+   "oldVersion": "6.6.6-1",
+   "newVersion": "6.6.7-1",
+   "size": 22835200
+  },
+  {
+   "name": "libkfpackage-007",
+   "repo": "extra",
+   "oldVersion": "7.0.7-1",
+   "newVersion": "7.0.8-1",
+   "size": 26624000
+  },
+  {
+   "name": "libgstpackage-008",
+   "repo": "multilib",
+   "oldVersion": "8.1.8-1",
+   "newVersion": "8.1.9-1",
+   "size": 30412800
+  },
+  {
+   "name": "libpypackage-009",
+   "repo": "core",
+   "oldVersion": "0.2.9-1",
+   "newVersion": "0.2.10-1",
+   "size": 34201600
+  },
+  {
+   "name": "libxpackage-010",
+   "repo": "extra",
+   "oldVersion": "1.3.10-1",
+   "newVersion": "1.3.11-1",
+   "size": 37990400
+  },
+  {
+   "name": "libqtpackage-011",
+   "repo": "multilib",
+   "oldVersion": "2.4.11-1",
+   "newVersion": "2.4.12-1",
+   "size": 819200
+  },
+  {
+   "name": "libkfpackage-012",
+   "repo": "core",
+   "oldVersion": "3.5.12-1",
+   "newVersion": "3.5.13-1",
+   "size": 4608000
+  },
+  {
+   "name": "libgstpackage-013",
+   "repo": "extra",
+   "oldVersion": "4.6.13-1",
+   "newVersion": "4.6.14-1",
+   "size": 8396800
+  },
+  {
+   "name": "libpypackage-014",
+   "repo": "multilib",
+   "oldVersion": "5.0.14-1",
+   "newVersion": "5.0.15-1",
+   "size": 12185600
+  },
+  {
+   "name": "libxpackage-015",
+   "repo": "core",
+   "oldVersion": "6.1.15-1",
+   "newVersion": "6.1.16-1",
+   "size": 15974400
+  },
+  {
+   "name": "libqtpackage-016",
+   "repo": "extra",
+   "oldVersion": "7.2.16-1",
+   "newVersion": "7.2.17-1",
+   "size": 19763200
+  },
+  {
+   "name": "libkfpackage-017",
+   "repo": "multilib",
+   "oldVersion": "8.3.17-1",
+   "newVersion": "8.3.18-1",
+   "size": 23552000
+  },
+  {
+   "name": "libgstpackage-018",
+   "repo": "core",
+   "oldVersion": "0.4.18-1",
+   "newVersion": "0.4.19-1",
+   "size": 27340800
+  },
+  {
+   "name": "libpypackage-019",
+   "repo": "extra",
+   "oldVersion": "1.5.19-1",
+   "newVersion": "1.5.20-1",
+   "size": 31129600
+  },
+  {
+   "name": "libxpackage-020",
+   "repo": "multilib",
+   "oldVersion": "2.6.20-1",
+   "newVersion": "2.6.21-1",
+   "size": 34918400
+  },
+  {
+   "name": "libqtpackage-021",
+   "repo": "core",
+   "oldVersion": "3.0.21-1",
+   "newVersion": "3.0.22-1",
+   "size": 38707200
+  },
+  {
+   "name": "libkfpackage-022",
+   "repo": "extra",
+   "oldVersion": "4.1.22-1",
+   "newVersion": "4.1.23-1",
+   "size": 1536000
+  },
+  {
+   "name": "libgstpackage-023",
+   "repo": "multilib",
+   "oldVersion": "5.2.23-1",
+   "newVersion": "5.2.24-1",
+   "size": 5324800
+  },
+  {
+   "name": "libpypackage-024",
+   "repo": "core",
+   "oldVersion": "6.3.24-1",
+   "newVersion": "6.3.25-1",
+   "size": 9113600
+  },
+  {
+   "name": "libxpackage-025",
+   "repo": "extra",
+   "oldVersion": "7.4.25-1",
+   "newVersion": "7.4.26-1",
+   "size": 12902400
+  },
+  {
+   "name": "libqtpackage-026",
+   "repo": "multilib",
+   "oldVersion": "8.5.26-1",
+   "newVersion": "8.5.27-1",
+   "size": 16691200
+  },
+  {
+   "name": "libkfpackage-027",
+   "repo": "core",
+   "oldVersion": "0.6.27-1",
+   "newVersion": "0.6.28-1",
+   "size": 20480000
+  },
+  {
+   "name": "libgstpackage-028",
+   "repo": "extra",
+   "oldVersion": "1.0.28-1",
+   "newVersion": "1.0.29-1",
+   "size": 24268800
+  },
+  {
+   "name": "libpypackage-029",
+   "repo": "multilib",
+   "oldVersion": "2.1.29-1",
+   "newVersion": "2.1.30-1",
+   "size": 28057600
+  },
+  {
+   "name": "libxpackage-030",
+   "repo": "core",
+   "oldVersion": "3.2.30-1",
+   "newVersion": "3.2.31-1",
+   "size": 31846400
+  },
+  {
+   "name": "libqtpackage-031",
+   "repo": "extra",
+   "oldVersion": "4.3.31-1",
+   "newVersion": "4.3.32-1",
+   "size": 35635200
+  },
+  {
+   "name": "libkfpackage-032",
+   "repo": "multilib",
+   "oldVersion": "5.4.32-1",
+   "newVersion": "5.4.33-1",
+   "size": 39424000
+  },
+  {
+   "name": "libgstpackage-033",
+   "repo": "core",
+   "oldVersion": "6.5.33-1",
+   "newVersion": "6.5.34-1",
+   "size": 2252800
+  },
+  {
+   "name": "libpypackage-034",
+   "repo": "extra",
+   "oldVersion": "7.6.34-1",
+   "newVersion": "7.6.35-1",
+   "size": 6041600
+  },
+  {
+   "name": "libxpackage-035",
+   "repo": "multilib",
+   "oldVersion": "8.0.35-1",
+   "newVersion": "8.0.36-1",
+   "size": 9830400
+  },
+  {
+   "name": "libqtpackage-036",
+   "repo": "core",
+   "oldVersion": "0.1.36-1",
+   "newVersion": "0.1.37-1",
+   "size": 13619200
+  },
+  {
+   "name": "libkfpackage-037",
+   "repo": "extra",
+   "oldVersion": "1.2.37-1",
+   "newVersion": "1.2.38-1",
+   "size": 17408000
+  },
+  {
+   "name": "libgstpackage-038",
+   "repo": "multilib",
+   "oldVersion": "2.3.38-1",
+   "newVersion": "2.3.39-1",
+   "size": 21196800
+  },
+  {
+   "name": "libpypackage-039",
+   "repo": "core",
+   "oldVersion": "3.4.39-1",
+   "newVersion": "3.4.40-1",
+   "size": 24985600
+  },
+  {
+   "name": "libxpackage-040",
+   "repo": "extra",
+   "oldVersion": "4.5.40-1",
+   "newVersion": "4.5.41-1",
+   "size": 28774400
+  },
+  {
+   "name": "libqtpackage-041",
+   "repo": "multilib",
+   "oldVersion": "5.6.41-1",
+   "newVersion": "5.6.42-1",
+   "size": 32563200
+  },
+  {
+   "name": "libkfpackage-042",
+   "repo": "core",
+   "oldVersion": "6.0.42-1",
+   "newVersion": "6.0.43-1",
+   "size": 36352000
+  },
+  {
+   "name": "libgstpackage-043",
+   "repo": "extra",
+   "oldVersion": "7.1.43-1",
+   "newVersion": "7.1.44-1",
+   "size": 40140800
+  },
+  {
+   "name": "libpypackage-044",
+   "repo": "multilib",
+   "oldVersion": "8.2.44-1",
+   "newVersion": "8.2.45-1",
+   "size": 2969600
+  },
+  {
+   "name": "libxpackage-045",
+   "repo": "core",
+   "oldVersion": "0.3.45-1",
+   "newVersion": "0.3.46-1",
+   "size": 6758400
+  },
+  {
+   "name": "libqtpackage-046",
+   "repo": "extra",
+   "oldVersion": "1.4.46-1",
+   "newVersion": "1.4.47-1",
+   "size": 10547200
+  },
+  {
+   "name": "libkfpackage-047",
+   "repo": "multilib",
+   "oldVersion": "2.5.47-1",
+   "newVersion": "2.5.48-1",
+   "size": 14336000
+  },
+  {
+   "name": "libgstpackage-048",
+   "repo": "core",
+   "oldVersion": "3.6.48-1",
+   "newVersion": "3.6.49-1",
+   "size": 18124800
+  },
+  {
+   "name": "libpypackage-049",
+   "repo": "extra",
+   "oldVersion": "4.0.49-1",
+   "newVersion": "4.0.50-1",
+   "size": 21913600
+  },
+  {
+   "name": "libxpackage-050",
+   "repo": "multilib",
+   "oldVersion": "5.1.50-1",
+   "newVersion": "5.1.51-1",
+   "size": 25702400
+  },
+  {
+   "name": "libqtpackage-051",
+   "repo": "core",
+   "oldVersion": "6.2.51-1",
+   "newVersion": "6.2.52-1",
+   "size": 29491200
+  },
+  {
+   "name": "libkfpackage-052",
+   "repo": "extra",
+   "oldVersion": "7.3.52-1",
+   "newVersion": "7.3.53-1",
+   "size": 33280000
+  },
+  {
+   "name": "libgstpackage-053",
+   "repo": "multilib",
+   "oldVersion": "8.4.53-1",
+   "newVersion": "8.4.54-1",
+   "size": 37068800
+  },
+  {
+   "name": "libpypackage-054",
+   "repo": "core",
+   "oldVersion": "0.5.54-1",
+   "newVersion": "0.5.55-1",
+   "size": 40857600
+  },
+  {
+   "name": "libxpackage-055",
+   "repo": "extra",
+   "oldVersion": "1.6.55-1",
+   "newVersion": "1.6.56-1",
+   "size": 3686400
+  },
+  {
+   "name": "libqtpackage-056",
+   "repo": "multilib",
+   "oldVersion": "2.0.56-1",
+   "newVersion": "2.0.57-1",
+   "size": 7475200
+  },
+  {
+   "name": "libkfpackage-057",
+   "repo": "core",
+   "oldVersion": "3.1.57-1",
+   "newVersion": "3.1.58-1",
+   "size": 11264000
+  },
+  {
+   "name": "libgstpackage-058",
+   "repo": "extra",
+   "oldVersion": "4.2.58-1",
+   "newVersion": "4.2.59-1",
+   "size": 15052800
+  },
+  {
+   "name": "libpypackage-059",
+   "repo": "multilib",
+   "oldVersion": "5.3.59-1",
+   "newVersion": "5.3.60-1",
+   "size": 18841600
+  },
+  {
+   "name": "libxpackage-060",
+   "repo": "core",
+   "oldVersion": "6.4.60-1",
+   "newVersion": "6.4.61-1",
+   "size": 22630400
+  },
+  {
+   "name": "libqtpackage-061",
+   "repo": "extra",
+   "oldVersion": "7.5.61-1",
+   "newVersion": "7.5.62-1",
+   "size": 26419200
+  },
+  {
+   "name": "libkfpackage-062",
+   "repo": "multilib",
+   "oldVersion": "8.6.62-1",
+   "newVersion": "8.6.63-1",
+   "size": 30208000
+  },
+  {
+   "name": "libgstpackage-063",
+   "repo": "core",
+   "oldVersion": "0.0.63-1",
+   "newVersion": "0.0.64-1",
+   "size": 33996800
+  },
+  {
+   "name": "libpypackage-064",
+   "repo": "extra",
+   "oldVersion": "1.1.64-1",
+   "newVersion": "1.1.65-1",
+   "size": 37785600
+  },
+  {
+   "name": "libxpackage-065",
+   "repo": "multilib",
+   "oldVersion": "2.2.65-1",
+   "newVersion": "2.2.66-1",
+   "size": 614400
+  },
+  {
+   "name": "libqtpackage-066",
+   "repo": "core",
+   "oldVersion": "3.3.66-1",
+   "newVersion": "3.3.67-1",
+   "size": 4403200
+  },
+  {
+   "name": "libkfpackage-067",
+   "repo": "extra",
+   "oldVersion": "4.4.67-1",
+   "newVersion": "4.4.68-1",
+   "size": 8192000
+  },
+  {
+   "name": "libgstpackage-068",
+   "repo": "multilib",
+   "oldVersion": "5.5.68-1",
+   "newVersion": "5.5.69-1",
+   "size": 11980800
+  },
+  {
+   "name": "libpypackage-069",
+   "repo": "core",
+   "oldVersion": "6.6.69-1",
+   "newVersion": "6.6.70-1",
+   "size": 15769600
+  },
+  {
+   "name": "libxpackage-070",
+   "repo": "extra",
+   "oldVersion": "7.0.70-1",
+   "newVersion": "7.0.71-1",
+   "size": 19558400
+  },
+  {
+   "name": "libqtpackage-071",
+   "repo": "multilib",
+   "oldVersion": "8.1.71-1",
+   "newVersion": "8.1.72-1",
+   "size": 23347200
+  },
+  {
+   "name": "libkfpackage-072",
+   "repo": "core",
+   "oldVersion": "0.2.72-1",
+   "newVersion": "0.2.73-1",
+   "size": 27136000
+  },
+  {
+   "name": "libgstpackage-073",
+   "repo": "extra",
+   "oldVersion": "1.3.73-1",
+   "newVersion": "1.3.74-1",
+   "size": 30924800
+  },
+  {
+   "name": "libpypackage-074",
+   "repo": "multilib",
+   "oldVersion": "2.4.74-1",
+   "newVersion": "2.4.75-1",
+   "size": 34713600
+  },
+  {
+   "name": "libxpackage-075",
+   "repo": "core",
+   "oldVersion": "3.5.75-1",
+   "newVersion": "3.5.76-1",
+   "size": 38502400
+  },
+  {
+   "name": "libqtpackage-076",
+   "repo": "extra",
+   "oldVersion": "4.6.76-1",
+   "newVersion": "4.6.77-1",
+   "size": 1331200
+  },
+  {
+   "name": "libkfpackage-077",
+   "repo": "multilib",
+   "oldVersion": "5.0.77-1",
+   "newVersion": "5.0.78-1",
+   "size": 5120000
+  },
+  {
+   "name": "libgstpackage-078",
+   "repo": "core",
+   "oldVersion": "6.1.78-1",
+   "newVersion": "6.1.79-1",
+   "size": 8908800
+  },
+  {
+   "name": "libpypackage-079",
+   "repo": "extra",
+   "oldVersion": "7.2.79-1",
+   "newVersion": "7.2.80-1",
+   "size": 12697600
+  },
+  {
+   "name": "libxpackage-080",
+   "repo": "multilib",
+   "oldVersion": "8.3.80-1",
+   "newVersion": "8.3.81-1",
+   "size": 16486400
+  },
+  {
+   "name": "libqtpackage-081",
+   "repo": "core",
+   "oldVersion": "0.4.81-1",
+   "newVersion": "0.4.82-1",
+   "size": 20275200
+  },
+  {
+   "name": "libkfpackage-082",
+   "repo": "extra",
+   "oldVersion": "1.5.82-1",
+   "newVersion": "1.5.83-1",
+   "size": 24064000
+  },
+  {
+   "name": "libgstpackage-083",
+   "repo": "multilib",
+   "oldVersion": "2.6.83-1",
+   "newVersion": "2.6.84-1",
+   "size": 27852800
+  },
+  {
+   "name": "libpypackage-084",
+   "repo": "core",
+   "oldVersion": "3.0.84-1",
+   "newVersion": "3.0.85-1",
+   "size": 31641600
+  },
+  {
+   "name": "libxpackage-085",
+   "repo": "extra",
+   "oldVersion": "4.1.85-1",
+   "newVersion": "4.1.86-1",
+   "size": 35430400
+  },
+  {
+   "name": "libqtpackage-086",
+   "repo": "multilib",
+   "oldVersion": "5.2.86-1",
+   "newVersion": "5.2.87-1",
+   "size": 39219200
+  },
+  {
+   "name": "libkfpackage-087",
+   "repo": "core",
+   "oldVersion": "6.3.87-1",
+   "newVersion": "6.3.88-1",
+   "size": 2048000
+  },
+  {
+   "name": "libgstpackage-088",
+   "repo": "extra",
+   "oldVersion": "7.4.88-1",
+   "newVersion": "7.4.89-1",
+   "size": 5836800
+  },
+  {
+   "name": "libpypackage-089",
+   "repo": "multilib",
+   "oldVersion": "8.5.89-1",
+   "newVersion": "8.5.90-1",
+   "size": 9625600
+  },
+  {
+   "name": "libxpackage-090",
+   "repo": "core",
+   "oldVersion": "0.6.90-1",
+   "newVersion": "0.6.91-1",
+   "size": 13414400
+  },
+  {
+   "name": "libqtpackage-091",
+   "repo": "extra",
+   "oldVersion": "1.0.91-1",
+   "newVersion": "1.0.92-1",
+   "size": 17203200
+  },
+  {
+   "name": "libkfpackage-092",
+   "repo": "multilib",
+   "oldVersion": "2.1.92-1",
+   "newVersion": "2.1.93-1",
+   "size": 20992000
+  },
+  {
+   "name": "libgstpackage-093",
+   "repo": "core",
+   "oldVersion": "3.2.93-1",
+   "newVersion": "3.2.94-1",
+   "size": 24780800
+  },
+  {
+   "name": "libpypackage-094",
+   "repo": "extra",
+   "oldVersion": "4.3.94-1",
+   "newVersion": "4.3.95-1",
+   "size": 28569600
+  },
+  {
+   "name": "libxpackage-095",
+   "repo": "multilib",
+   "oldVersion": "5.4.95-1",
+   "newVersion": "5.4.96-1",
+   "size": 32358400
+  },
+  {
+   "name": "libqtpackage-096",
+   "repo": "core",
+   "oldVersion": "6.5.96-1",
+   "newVersion": "6.5.97-1",
+   "size": 36147200
+  },
+  {
+   "name": "libkfpackage-097",
+   "repo": "extra",
+   "oldVersion": "7.6.97-1",
+   "newVersion": "7.6.98-1",
+   "size": 39936000
+  },
+  {
+   "name": "libgstpackage-098",
+   "repo": "multilib",
+   "oldVersion": "8.0.98-1",
+   "newVersion": "8.0.99-1",
+   "size": 2764800
+  },
+  {
+   "name": "libpypackage-099",
+   "repo": "core",
+   "oldVersion": "0.1.99-1",
+   "newVersion": "0.1.100-1",
+   "size": 6553600
+  },
+  {
+   "name": "libxpackage-100",
+   "repo": "extra",
+   "oldVersion": "1.2.100-1",
+   "newVersion": "1.2.101-1",
+   "size": 10342400
+  },
+  {
+   "name": "libqtpackage-101",
+   "repo": "multilib",
+   "oldVersion": "2.3.101-1",
+   "newVersion": "2.3.102-1",
+   "size": 14131200
+  },
+  {
+   "name": "libkfpackage-102",
+   "repo": "core",
+   "oldVersion": "3.4.102-1",
+   "newVersion": "3.4.103-1",
+   "size": 17920000
+  },
+  {
+   "name": "libgstpackage-103",
+   "repo": "extra",
+   "oldVersion": "4.5.103-1",
+   "newVersion": "4.5.104-1",
+   "size": 21708800
+  },
+  {
+   "name": "libpypackage-104",
+   "repo": "multilib",
+   "oldVersion": "5.6.104-1",
+   "newVersion": "5.6.105-1",
+   "size": 25497600
+  },
+  {
+   "name": "libxpackage-105",
+   "repo": "core",
+   "oldVersion": "6.0.105-1",
+   "newVersion": "6.0.106-1",
+   "size": 29286400
+  },
+  {
+   "name": "libqtpackage-106",
+   "repo": "extra",
+   "oldVersion": "7.1.106-1",
+   "newVersion": "7.1.107-1",
+   "size": 33075200
+  },
+  {
+   "name": "libkfpackage-107",
+   "repo": "multilib",
+   "oldVersion": "8.2.107-1",
+   "newVersion": "8.2.108-1",
+   "size": 36864000
+  },
+  {
+   "name": "libgstpackage-108",
+   "repo": "core",
+   "oldVersion": "0.3.108-1",
+   "newVersion": "0.3.109-1",
+   "size": 40652800
+  },
+  {
+   "name": "libpypackage-109",
+   "repo": "extra",
+   "oldVersion": "1.4.109-1",
+   "newVersion": "1.4.110-1",
+   "size": 3481600
+  },
+  {
+   "name": "libxpackage-110",
+   "repo": "multilib",
+   "oldVersion": "2.5.110-1",
+   "newVersion": "2.5.111-1",
+   "size": 7270400
+  },
+  {
+   "name": "libqtpackage-111",
+   "repo": "core",
+   "oldVersion": "3.6.111-1",
+   "newVersion": "3.6.112-1",
+   "size": 11059200
+  },
+  {
+   "name": "libkfpackage-112",
+   "repo": "extra",
+   "oldVersion": "4.0.112-1",
+   "newVersion": "4.0.113-1",
+   "size": 14848000
+  },
+  {
+   "name": "libgstpackage-113",
+   "repo": "multilib",
+   "oldVersion": "5.1.113-1",
+   "newVersion": "5.1.114-1",
+   "size": 18636800
+  },
+  {
+   "name": "libpypackage-114",
+   "repo": "core",
+   "oldVersion": "6.2.114-1",
+   "newVersion": "6.2.115-1",
+   "size": 22425600
+  },
+  {
+   "name": "libxpackage-115",
+   "repo": "extra",
+   "oldVersion": "7.3.115-1",
+   "newVersion": "7.3.116-1",
+   "size": 26214400
+  },
+  {
+   "name": "libqtpackage-116",
+   "repo": "multilib",
+   "oldVersion": "8.4.116-1",
+   "newVersion": "8.4.117-1",
+   "size": 30003200
+  },
+  {
+   "name": "libkfpackage-117",
+   "repo": "core",
+   "oldVersion": "0.5.117-1",
+   "newVersion": "0.5.118-1",
+   "size": 33792000
+  },
+  {
+   "name": "libgstpackage-118",
+   "repo": "extra",
+   "oldVersion": "1.6.118-1",
+   "newVersion": "1.6.119-1",
+   "size": 37580800
+  },
+  {
+   "name": "libpypackage-119",
+   "repo": "multilib",
+   "oldVersion": "2.0.119-1",
+   "newVersion": "2.0.120-1",
+   "size": 409600
+  },
+  {
+   "name": "libxpackage-120",
+   "repo": "core",
+   "oldVersion": "3.1.120-1",
+   "newVersion": "3.1.121-1",
+   "size": 4198400
+  },
+  {
+   "name": "libqtpackage-121",
+   "repo": "extra",
+   "oldVersion": "4.2.121-1",
+   "newVersion": "4.2.122-1",
+   "size": 7987200
+  },
+  {
+   "name": "libkfpackage-122",
+   "repo": "multilib",
+   "oldVersion": "5.3.122-1",
+   "newVersion": "5.3.123-1",
+   "size": 11776000
+  },
+  {
+   "name": "libgstpackage-123",
+   "repo": "core",
+   "oldVersion": "6.4.123-1",
+   "newVersion": "6.4.124-1",
+   "size": 15564800
+  },
+  {
+   "name": "libpypackage-124",
+   "repo": "extra",
+   "oldVersion": "7.5.124-1",
+   "newVersion": "7.5.125-1",
+   "size": 19353600
+  },
+  {
+   "name": "libxpackage-125",
+   "repo": "multilib",
+   "oldVersion": "8.6.125-1",
+   "newVersion": "8.6.126-1",
+   "size": 23142400
+  },
+  {
+   "name": "libqtpackage-126",
+   "repo": "core",
+   "oldVersion": "0.0.126-1",
+   "newVersion": "0.0.127-1",
+   "size": 26931200
+  },
+  {
+   "name": "libkfpackage-127",
+   "repo": "extra",
+   "oldVersion": "1.1.127-1",
+   "newVersion": "1.1.128-1",
+   "size": 30720000
+  },
+  {
+   "name": "libgstpackage-128",
+   "repo": "multilib",
+   "oldVersion": "2.2.128-1",
+   "newVersion": "2.2.129-1",
+   "size": 34508800
+  },
+  {
+   "name": "libpypackage-129",
+   "repo": "core",
+   "oldVersion": "3.3.129-1",
+   "newVersion": "3.3.130-1",
+   "size": 38297600
+  },
+  {
+   "name": "libxpackage-130",
+   "repo": "extra",
+   "oldVersion": "4.4.130-1",
+   "newVersion": "4.4.131-1",
+   "size": 1126400
+  },
+  {
+   "name": "libqtpackage-131",
+   "repo": "multilib",
+   "oldVersion": "5.5.131-1",
+   "newVersion": "5.5.132-1",
+   "size": 4915200
+  },
+  {
+   "name": "libkfpackage-132",
+   "repo": "core",
+   "oldVersion": "6.6.132-1",
+   "newVersion": "6.6.133-1",
+   "size": 8704000
+  },
+  {
+   "name": "libgstpackage-133",
+   "repo": "extra",
+   "oldVersion": "7.0.133-1",
+   "newVersion": "7.0.134-1",
+   "size": 12492800
+  },
+  {
+   "name": "libpypackage-134",
+   "repo": "multilib",
+   "oldVersion": "8.1.134-1",
+   "newVersion": "8.1.135-1",
+   "size": 16281600
+  },
+  {
+   "name": "libxpackage-135",
+   "repo": "core",
+   "oldVersion": "0.2.135-1",
+   "newVersion": "0.2.136-1",
+   "size": 20070400
+  },
+  {
+   "name": "libqtpackage-136",
+   "repo": "extra",
+   "oldVersion": "1.3.136-1",
+   "newVersion": "1.3.137-1",
+   "size": 23859200
+  },
+  {
+   "name": "libkfpackage-137",
+   "repo": "multilib",
+   "oldVersion": "2.4.137-1",
+   "newVersion": "2.4.138-1",
+   "size": 27648000
+  },
+  {
+   "name": "libgstpackage-138",
+   "repo": "core",
+   "oldVersion": "3.5.138-1",
+   "newVersion": "3.5.139-1",
+   "size": 31436800
+  },
+  {
+   "name": "libpypackage-139",
+   "repo": "extra",
+   "oldVersion": "4.6.139-1",
+   "newVersion": "4.6.140-1",
+   "size": 35225600
+  },
+  {
+   "name": "libxpackage-140",
+   "repo": "multilib",
+   "oldVersion": "5.0.140-1",
+   "newVersion": "5.0.141-1",
+   "size": 39014400
+  },
+  {
+   "name": "libqtpackage-141",
+   "repo": "core",
+   "oldVersion": "6.1.141-1",
+   "newVersion": "6.1.142-1",
+   "size": 1843200
+  },
+  {
+   "name": "libkfpackage-142",
+   "repo": "extra",
+   "oldVersion": "7.2.142-1",
+   "newVersion": "7.2.143-1",
+   "size": 5632000
+  },
+  {
+   "name": "libgstpackage-143",
+   "repo": "multilib",
+   "oldVersion": "8.3.143-1",
+   "newVersion": "8.3.144-1",
+   "size": 9420800
+  },
+  {
+   "name": "libpypackage-144",
+   "repo": "core",
+   "oldVersion": "0.4.144-1",
+   "newVersion": "0.4.145-1",
+   "size": 13209600
+  },
+  {
+   "name": "libxpackage-145",
+   "repo": "extra",
+   "oldVersion": "1.5.145-1",
+   "newVersion": "1.5.146-1",
+   "size": 16998400
+  },
+  {
+   "name": "libqtpackage-146",
+   "repo": "multilib",
+   "oldVersion": "2.6.146-1",
+   "newVersion": "2.6.147-1",
+   "size": 20787200
+  },
+  {
+   "name": "libkfpackage-147",
+   "repo": "core",
+   "oldVersion": "3.0.147-1",
+   "newVersion": "3.0.148-1",
+   "size": 24576000
+  },
+  {
+   "name": "libgstpackage-148",
+   "repo": "extra",
+   "oldVersion": "4.1.148-1",
+   "newVersion": "4.1.149-1",
+   "size": 28364800
+  },
+  {
+   "name": "libpypackage-149",
+   "repo": "multilib",
+   "oldVersion": "5.2.149-1",
+   "newVersion": "5.2.150-1",
+   "size": 32153600
+  }
+ ],
+ "flatpaks": [
+  {
+   "name": "com.github.tchx84.Flatseal.Locale.with.a.long.identifier",
+   "kind": "runtime",
+   "branch": "stable",
+   "origin": "flathub-beta-mirror",
+   "installation": "user"
+  },
+  {
+   "name": "org.kyu.Test.App",
+   "kind": "app",
+   "branch": "stable",
+   "origin": "flathub",
+   "installation": "user"
+  }
+ ],
+ "news": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "source": "Arch Linux news",
+  "url": "https://archlinux.org/feeds/news/",
+  "since": "2026-11-10T19:30:00Z",
+  "items": [
+   {
+    "title": "Sample news item: manual intervention required for the linux-firmware split into several packages before upgrading, read this first",
+    "link": "https://archlinux.org/news/",
+    "published": "2026-11-14T10:00:00Z"
+   },
+   {
+    "title": "Sample news item: bar replaced by baz",
+    "link": "https://archlinux.org/news/",
+    "published": "2026-11-12T10:00:00Z"
+   }
+  ],
+  "page": "https://archlinux.org/news/"
+ }
+}

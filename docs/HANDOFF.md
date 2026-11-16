@@ -261,6 +261,16 @@ The sketches in `docs/sketches/` show the earlier card look; the screenshots in 
 - **Other distributions:** no news.
 - **The panel:** shows one row above the list only when pacman updates are pending and there is something to show. It reads "Arch Linux news · N since your last upgrade" above the newest title, which gets the full width because it is often the warning itself. Clicking opens that post, or the news page if there are several. A failed fetch is one muted line ("Arch Linux news not checked: …"). The bordered box, the per-distro feed table and the title list are gone. A plain "open news" button was rejected because it states no fact: someone who never clicks it learns nothing.
 
+**Scaling and resizing (after the news change).** Tested offscreen with `tools/preview-state-long.json` (154 updates, long names, git snapshot versions, a restart, a long check error, a long news title). Sizes: the minimum window, the default, 1200×700, fonts at 14 and 18 pt, and `QT_SCALE_FACTOR=2`; list, updating, question and finished screens. Fixes:
+
+- **Window:** the default and minimum sizes are clamped to 90% of the screen's free area, so a large font cannot push the buttons off a small screen. The minimum is 18×25 grid units. On wide windows the content stays a centred column of at most 44 grid units.
+- **Package rows:** column widths come from the text measured in its own fixed-width font (`TextMetrics`); the old widths came from the default font and elided short names. With room, the name and versions show in full. When short of space, the name keeps at least 4 grid units and ends in "…", and the versions are cut from the left, so the new version stays visible. The restart chip is never covered. Below 22 grid units the size column hides. Hovering a cut row shows the full text.
+- **Messages:** a long error shows 3 lines; clicking it shows the rest. The list keeps at least two rows visible, and the footer buttons are always visible.
+- **Questions:** the option name stays on one line (up to 60% of the row); the detail ("extra · pacman's default") wraps first.
+- **News row:** the source sits on its own line so the title gets the full width.
+
+To repeat: `STATE=$PWD/tools/preview-state-long.json tools/preview-panel.sh out.png --size 270x375` (also `--font-size 18`, or `QT_SCALE_FACTOR=2` in the environment). Not tested: a real Plasma session, fractional scaling under Wayland, right-to-left languages.
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").

@@ -4,15 +4,20 @@
 // literals (HANDOFF.md rule 6).
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 
 QQC2.ApplicationWindow {
     id: root
 
-    width: Kirigami.Units.gridUnit * 24
-    height: Kirigami.Units.gridUnit * 36
-    minimumWidth: Kirigami.Units.gridUnit * 18
-    minimumHeight: Kirigami.Units.gridUnit * 20
+    // Sized from the font (grid unit), never larger than the screen allows.
+    readonly property int availableWidth: Screen.desktopAvailableWidth > 0 ? Screen.desktopAvailableWidth : 100000
+    readonly property int availableHeight: Screen.desktopAvailableHeight > 0 ? Screen.desktopAvailableHeight : 100000
+    width: Math.min(Kirigami.Units.gridUnit * 24, Math.round(availableWidth * 0.9))
+    height: Math.min(Kirigami.Units.gridUnit * 36, Math.round(availableHeight * 0.9))
+    // Tall enough for the header, a message, a few rows and the buttons.
+    minimumWidth: Math.min(Kirigami.Units.gridUnit * 18, availableWidth)
+    minimumHeight: Math.min(Kirigami.Units.gridUnit * 25, availableHeight)
     visible: true
     title: "Updates"
     color: Kirigami.Theme.backgroundColor
@@ -107,7 +112,12 @@ QQC2.ApplicationWindow {
 
     QQC2.StackView {
         id: stack
-        anchors.fill: parent
+        // On a wide window, a readable column in the middle rather than a
+        // name at one edge and its version at the other.
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width, Kirigami.Units.gridUnit * 44)
         initialItem: Item {
             Loader {
                 anchors.fill: parent

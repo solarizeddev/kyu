@@ -122,7 +122,7 @@ cmake -S . -B build -DKYU_PREVIEW=ON
 tools/preview-panel.sh /tmp/running.png --start-update --delay 3300
 ```
 
-The script's header lists more examples (dark colours, output page, questions with `MODE=provider|conflict|replace|key`, `--answer VALUE`). Never package a preview build.
+The script's header lists more examples (dark colours, output page, questions with `MODE=provider|conflict|replace|key`, `--answer VALUE`, a long list with `STATE=$PWD/tools/preview-state-long.json`, window size with `--size WxH`, font size with `--font-size PT`). Never package a preview build.
 
 `kyu-check` exits 0 when every source was checked, 2 when one failed (the error is printed and stored in the state file), 1 when the state file could not be written.
 
