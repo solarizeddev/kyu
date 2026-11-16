@@ -79,7 +79,7 @@ Every record has `v`, `tx`, `seq` (1, 2, 3, … per transaction), `time` (UTC, R
 | `answered` | `id`, `question`, `answer`, `uid` | a user answered a relayed question |
 | `cancelled` | `id`, `uid` | a user cancelled at a question; pacman gets SIGINT |
 | `timeout` | `id`, `seconds` | nobody answered in time; pacman gets SIGINT |
-| `finished` | `success`, `exitCode`, `summary`, `changed` | last record |
+| `finished` | `success`, `exitCode`, `summary`, `changed`, `configs`, `restart` | last record; see After the update |
 
 `summary` states what happened. Examples:
 - `3 upgraded`
@@ -89,6 +89,30 @@ Every record has `v`, `tx`, `seq` (1, 2, 3, … per transaction), `time` (UTC, R
 - `Stopped at a question Kyu does not recognise: "…". No packages were changed.`
 
 "No packages were changed" is stated only when no package operation was seen in pacman's output.
+
+## After the update
+
+The `finished` record also says what the update leaves to do.
+
+**`configs`** lists the settings files pacman did not overwrite, taken from its own warnings (`warning: X installed as X.pacnew`, `warning: X saved as X.pacsave`): `[{kind: "pacnew"|"pacsave", path, saved}]`.
+
+**`restart`** is `null` when no package changed. Otherwise:
+
+```json
+{
+  "required": true,
+  "kernel": {"running": "6.18.20-1-MANJARO", "installed": "6.18.22-1-MANJARO", "replaced": true},
+  "systemd": false,
+  "processes": [{"pid": 1301, "name": "plasmashell", "libraries": ["/usr/lib/libQt6Core.so.6.10.1"]}],
+  "processCount": 1
+}
+```
+
+Everything here is derived from the running system (HANDOFF.md rule 7), never from package lists:
+
+- **`kernel`:** the running kernel (`/proc/sys/kernel/osrelease`) has been replaced when its `/usr/lib/modules/<release>` directory is gone. `installed` is the module directory whose `pkgbase` matches the running kernel's package; that package comes from `BOOT_IMAGE=/boot/vmlinuz-<pkgbase>` in `/proc/cmdline`. `kernel` is `null` when there is no modules directory at all, as in a container.
+- **`processes`:** processes whose `/proc/PID/maps` maps a shared library under `/usr/lib` or `/lib` that is marked `(deleted)`, meaning the update replaced it while they ran. At most 200 are listed; `processCount` is the full number.
+- **`required`:** the kernel was replaced, or `systemd` (PID 1) maps a replaced library.
 
 ## Following a transaction without gaps
 

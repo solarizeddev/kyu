@@ -19,6 +19,13 @@ pub enum LineInfo {
     NothingToDo,
     /// "error: ..." (pacman's own wording, quoted later in the summary).
     Error(String),
+    /// "warning: /etc/x installed as /etc/x.pacnew" (kind "pacnew") or
+    /// "warning: /etc/x saved as /etc/x.pacsave" (kind "pacsave").
+    Config {
+        kind: &'static str,
+        path: String,
+        saved: String,
+    },
     Other,
 }
 
@@ -81,6 +88,19 @@ pub fn classify(line: &str) -> LineInfo {
     let trimmed = line.trim();
     if trimmed == "there is nothing to do" {
         return LineInfo::NothingToDo;
+    }
+    if let Some(rest) = trimmed.strip_prefix("warning: ") {
+        for (marker, kind) in [(" installed as ", "pacnew"), (" saved as ", "pacsave")] {
+            if let Some((path, saved)) = rest.split_once(marker)
+                && saved.ends_with(&format!(".{kind}"))
+            {
+                return LineInfo::Config {
+                    kind,
+                    path: path.to_string(),
+                    saved: saved.to_string(),
+                };
+            }
+        }
     }
     if let Some(message) = trimmed.strip_prefix("error: ") {
         return LineInfo::Error(message.to_string());
@@ -427,6 +447,26 @@ mod tests {
         );
         assert_eq!(
             classify("(1/5) Arming ConditionNeedsUpdate..."),
+            LineInfo::Other
+        );
+        assert_eq!(
+            classify("warning: /etc/pacman.conf installed as /etc/pacman.conf.pacnew"),
+            LineInfo::Config {
+                kind: "pacnew",
+                path: "/etc/pacman.conf".into(),
+                saved: "/etc/pacman.conf.pacnew".into()
+            }
+        );
+        assert_eq!(
+            classify("warning: /etc/foo.conf saved as /etc/foo.conf.pacsave"),
+            LineInfo::Config {
+                kind: "pacsave",
+                path: "/etc/foo.conf".into(),
+                saved: "/etc/foo.conf.pacsave".into()
+            }
+        );
+        assert_eq!(
+            classify("warning: kwin: local (6.7.4-1) is newer than extra (6.7.3-1)"),
             LineInfo::Other
         );
     }

@@ -70,6 +70,8 @@ pub struct Config {
     pub log_dir: PathBuf,
     /// How long pacman may wait for an answer before the helper stops it.
     pub question_timeout: Duration,
+    /// Where restart detection looks (/proc, /usr/lib/modules).
+    pub roots: crate::aftercare::Roots,
 }
 
 #[derive(Default)]
@@ -414,8 +416,12 @@ mod tests {
             session: true,
             pacman: PathBuf::from("/bin/false"),
             db_lock: dir.join("db.lck"),
-            log_dir: dir,
+            log_dir: dir.clone(),
             question_timeout: Duration::from_secs(60),
+            roots: crate::aftercare::Roots {
+                proc_dir: dir.join("proc"),
+                modules_dir: dir.join("modules"),
+            },
         })
     }
 

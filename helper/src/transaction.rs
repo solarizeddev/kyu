@@ -20,6 +20,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
+use crate::aftercare;
 use crate::parse::{self, Action, LineInfo, Prompt, Question};
 use crate::state::{Reply, Shared};
 
@@ -66,6 +67,8 @@ struct Tally {
     stopped: Option<(Stop, String)>,
     recent: VecDeque<String>,
     questions: u64,
+    /// .pacnew/.pacsave files pacman reported.
+    configs: Vec<serde_json::Value>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -255,6 +258,7 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
     let status = child.wait().await;
     let (success, exit_code, summary) =
         summarize(&tally, &status, shared.config.question_timeout.as_secs());
+    let changed: u32 = tally.done.iter().map(|(_, n)| *n).sum();
     shared
         .emit(
             "finished",
@@ -262,7 +266,12 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
                 "success": success,
                 "exitCode": exit_code,
                 "summary": summary,
-                "changed": tally.done.iter().map(|(_, n)| *n).sum::<u32>(),
+                "changed": changed,
+                // Settings files pacman did not overwrite (.pacnew) or kept
+                // from removed packages (.pacsave).
+                "configs": tally.configs,
+                // Only when packages changed: what still runs old code.
+                "restart": if changed > 0 { aftercare::restart(&shared.config.roots) } else { serde_json::Value::Null },
             }),
         )
         .await;
@@ -374,6 +383,9 @@ async fn handle_line(shared: &Shared, tally: &mut Tally, stream: Stream, text: S
         }
         LineInfo::NothingToDo => tally.nothing_to_do = true,
         LineInfo::Error(message) => tally.last_error = Some(message),
+        LineInfo::Config { kind, path, saved } => tally
+            .configs
+            .push(json!({ "kind": kind, "path": path, "saved": saved })),
         LineInfo::Other => {}
     }
 }

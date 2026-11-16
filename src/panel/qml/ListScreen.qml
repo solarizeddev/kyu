@@ -65,6 +65,55 @@ ColumnLayout {
         Message { text: Panel.message; iconName: "dialog-error" }
     }
 
+    // The distro's news since the last full upgrade, before updating.
+    Card {
+        visible: Panel.newsTitle.length > 0
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.gridUnit
+        Layout.rightMargin: Kirigami.Units.gridUnit
+        implicitHeight: newsColumn.implicitHeight + Kirigami.Units.largeSpacing * 2
+        ColumnLayout {
+            id: newsColumn
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.largeSpacing
+            anchors.leftMargin: Kirigami.Units.largeSpacing * 2
+            spacing: Kirigami.Units.smallSpacing
+            QQC2.Label {
+                text: Panel.newsTitle
+                font: Kirigami.Theme.smallFont
+                color: Kirigami.Theme.disabledTextColor
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            Repeater {
+                model: Panel.newsItems.slice(0, 3)
+                delegate: QQC2.Label {
+                    required property var modelData
+                    text: "<a href=\"" + modelData.link + "\">" + modelData.title + "</a> · " + modelData.date
+                    textFormat: Text.StyledText
+                    linkColor: Kirigami.Theme.linkColor
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    onLinkActivated: link => Panel.openLink(link)
+                }
+            }
+            QQC2.Label {
+                visible: Panel.newsItems.length > 3
+                text: (Panel.newsItems.length - 3) + " more"
+                font: Kirigami.Theme.smallFont
+                color: Kirigami.Theme.disabledTextColor
+            }
+            QQC2.Label {
+                visible: text.length > 0
+                text: Panel.newsError
+                font: Kirigami.Theme.smallFont
+                color: Kirigami.Theme.disabledTextColor
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+        }
+    }
+
     PackageList {
         visible: Panel.updates.count > 0
         Layout.fillWidth: true

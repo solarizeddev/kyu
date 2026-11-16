@@ -2,7 +2,9 @@
 
 #include "updatestate.h"
 
+#include <QDir>
 #include <QFile>
+#include <QUrl>
 #include <QLockFile>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -39,6 +41,7 @@ private:
         QProcess p;
         p.start(QStringLiteral(KYU_CHECK_BIN),
                 {QStringLiteral("--no-flatpak"),
+                 QStringLiteral("--no-news"),
                  QStringLiteral("--state-file"), statePath(),
                  QStringLiteral("--db-path"), m_dir.filePath(QStringLiteral("db")),
                  QStringLiteral("--checkupdates"), checkupdates,
@@ -126,6 +129,53 @@ private Q_SLOTS:
         QVERIFY(state->packages.isEmpty());
         QVERIFY(state->pacman.ok);
         QVERIFY(state->pacman.error.isEmpty());
+    }
+
+    void restartFlagAndNews()
+    {
+        // The running kernel's modules directory names its package.
+        QDir().mkpath(m_dir.filePath(QStringLiteral("modules/6.18.20-1-MANJARO")));
+        QFile pkgbase(m_dir.filePath(QStringLiteral("modules/6.18.20-1-MANJARO/pkgbase")));
+        QVERIFY(pkgbase.open(QIODevice::WriteOnly));
+        pkgbase.write("linux618\n");
+        pkgbase.close();
+        const QString osRelease = writeScript(QStringLiteral("os-release"), "");
+        QFile os(osRelease);
+        QVERIFY(os.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        os.write("ID=arch\n");
+        os.close();
+        QFile log(m_dir.filePath(QStringLiteral("pacman.log")));
+        QVERIFY(log.open(QIODevice::WriteOnly));
+        log.write("[2026-11-10T20:30:00+0000] [PACMAN] starting full system upgrade\n");
+        log.close();
+        QFile feed(m_dir.filePath(QStringLiteral("feed.xml")));
+        QVERIFY(feed.open(QIODevice::WriteOnly));
+        feed.write("<rss><channel><item><title>New</title><link>n</link><pubDate>Sat, 14 Nov 2026 10:00:00 +0000</pubDate></item>"
+                   "<item><title>Old</title><link>o</link><pubDate>Sat, 07 Nov 2026 10:00:00 +0000</pubDate></item></channel></rss>");
+        feed.close();
+
+        const QString checkupdates = writeScript(QStringLiteral("checkupdates-kernel"),
+                                                 "echo 'linux618 6.18.20-1 -> 6.18.22-1'\n"
+                                                 "echo 'linux618-headers 6.18.20-1 -> 6.18.22-1'\n");
+        QProcess p;
+        p.start(QStringLiteral(KYU_CHECK_BIN),
+                {QStringLiteral("--no-flatpak"), QStringLiteral("--state-file"), statePath(), QStringLiteral("--db-path"),
+                 m_dir.filePath(QStringLiteral("db")), QStringLiteral("--checkupdates"), checkupdates, QStringLiteral("--pacman"),
+                 m_dir.filePath(QStringLiteral("pacman")), QStringLiteral("--modules-dir"), m_dir.filePath(QStringLiteral("modules")),
+                 QStringLiteral("--kernel-release"), QStringLiteral("6.18.20-1-MANJARO"), QStringLiteral("--os-release"), osRelease,
+                 QStringLiteral("--pacman-log"), m_dir.filePath(QStringLiteral("pacman.log")), QStringLiteral("--news-feed"),
+                 QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("feed.xml"))).toString()});
+        QVERIFY(p.waitForFinished(30000));
+        QCOMPARE(p.exitCode(), 0);
+        const auto state = UpdateState::load(statePath());
+        QVERIFY(state);
+        QVERIFY(state->restartNeeded());
+        QVERIFY(state->packages[0].restart); // linux618
+        QVERIFY(!state->packages[1].restart); // headers: not the running kernel
+        QVERIFY(state->news.ok);
+        QCOMPARE(state->news.source, QStringLiteral("Arch Linux news"));
+        QCOMPARE(state->news.items.size(), 1);
+        QCOMPARE(state->news.items[0].title, QStringLiteral("New"));
     }
 
     void runningCheckIsNotDuplicated()

@@ -11,6 +11,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickImageProvider>
 #include <QQuickItem>
+#include <QQmlContext>
 #include <QQuickWindow>
 #include <QTimer>
 #include <QUrlQuery>
@@ -210,7 +211,9 @@ QCommandLineOption dark(QStringLiteral("dark"), QStringLiteral("Preview: Breeze 
 QCommandLineOption screenshot(QStringLiteral("screenshot"), QStringLiteral("Preview: save the window to FILE and quit."), QStringLiteral("file"));
 QCommandLineOption delay(QStringLiteral("delay"), QStringLiteral("Preview: wait MS before the screenshot."), QStringLiteral("ms"), QStringLiteral("1500"));
 QCommandLineOption startUpdate(QStringLiteral("start-update"), QStringLiteral("Preview: press Update all after loading."));
-QCommandLineOption page(QStringLiteral("page"), QStringLiteral("Preview: open \"output\" or \"changes\" after MS (--page-delay)."), QStringLiteral("name"));
+QCommandLineOption page(QStringLiteral("page"),
+                        QStringLiteral("Preview: open \"output\", \"changes\", \"configs\", \"diff\" (the first settings file) or \"processes\" after MS (--page-delay)."),
+                        QStringLiteral("name"));
 QCommandLineOption answer(QStringLiteral("answer"), QStringLiteral("Preview: answer pacman's question with VALUE (\"cancel\" cancels)."), QStringLiteral("value"));
 QCommandLineOption pageDelay(QStringLiteral("page-delay"), QStringLiteral("Preview: delay for --page."), QStringLiteral("ms"), QStringLiteral("500"));
 }
@@ -295,7 +298,21 @@ void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelC
     if (parser.isSet(page)) {
         const QString name = parser.value(page);
         QTimer::singleShot(parser.value(pageDelay).toInt(), root, [root, name] {
-            QMetaObject::invokeMethod(root, name == QLatin1String("changes") ? "showChanges" : "showOutput");
+            if (name == QLatin1String("diff")) {
+                QObject *panel = qvariant_cast<QObject *>(qmlContext(root)->contextProperty(QStringLiteral("Panel")));
+                const QVariantList configs = panel ? panel->property("configs").toList() : QVariantList();
+                if (!configs.isEmpty()) {
+                    const QVariantMap first = configs.first().toMap();
+                    QMetaObject::invokeMethod(root, "showDiff", Q_ARG(QVariant, first.value(QStringLiteral("path"))),
+                                              Q_ARG(QVariant, first.value(QStringLiteral("saved"))));
+                }
+                return;
+            }
+            const char *method = name == QLatin1String("changes")     ? "showChanges"
+                               : name == QLatin1String("configs")     ? "showConfigs"
+                               : name == QLatin1String("processes")   ? "showProcesses"
+                                                                       : "showOutput";
+            QMetaObject::invokeMethod(root, method);
         });
     }
     if (parser.isSet(screenshot)) {

@@ -7,6 +7,11 @@
 #include "statustext.h"
 
 #include <QClipboard>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
+#include <QDesktopServices>
+#include <QFileInfo>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -174,6 +179,9 @@ QString PanelController::details() const
     if (size > 0) {
         parts.append(QLocale().formattedDataSize(size, 1, QLocale::DataSizeIecFormat));
     }
+    if (m_state.restartNeeded()) {
+        parts.append(QStringLiteral("restart needed"));
+    }
     if (m_checking) {
         parts.append(QStringLiteral("checking now"));
     } else if (m_state.checkedAt.isValid()) {
@@ -196,6 +204,54 @@ QString PanelController::flatpakNote() const
         return QStringLiteral("Update all updates the Flatpaks (system and user installations).");
     }
     return QStringLiteral("Update all runs pacman -Syu, then updates the Flatpaks.");
+}
+
+QString PanelController::newsTitle() const
+{
+    // News matters before a system upgrade: shown only with pacman updates.
+    if (m_updates.pacmanCount() == 0 || (m_state.news.items.isEmpty() && newsError().isEmpty())) {
+        return {};
+    }
+    if (m_state.news.items.isEmpty()) {
+        return m_state.news.source;
+    }
+    const QString since = m_state.news.since.isValid() ? QLocale().toString(m_state.news.since.toLocalTime().date(), QLocale::ShortFormat)
+                                                        : QString();
+    return since.isEmpty() ? m_state.news.source : QStringLiteral("%1 since your last update (%2)").arg(m_state.news.source, since);
+}
+
+QVariantList PanelController::newsItems() const
+{
+    QVariantList items;
+    if (m_updates.pacmanCount() == 0) {
+        return items;
+    }
+    for (const auto &item : m_state.news.items) {
+        items.append(QVariantMap{
+            {QStringLiteral("title"), item.title},
+            {QStringLiteral("link"), item.link},
+            {QStringLiteral("date"), QLocale().toString(item.published.toLocalTime().date(), QLocale::ShortFormat)},
+        });
+    }
+    return items;
+}
+
+QString PanelController::newsError() const
+{
+    if (!m_state.news.checked || m_state.news.ok || m_state.news.url.isEmpty()) {
+        return {};
+    }
+    return QStringLiteral("Could not fetch the news: %1").arg(m_state.news.error);
+}
+
+void PanelController::openLink(const QString &url)
+{
+    QDesktopServices::openUrl(QUrl(url));
+}
+
+void PanelController::copyText(const QString &text)
+{
+    QGuiApplication::clipboard()->setText(text);
 }
 
 bool PanelController::canUpdate() const
@@ -356,6 +412,8 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_finishedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
         m_pending = {};
         m_replying = false;
+        m_restart = r.value(QStringLiteral("restart")).toObject();
+        m_configs = r.value(QStringLiteral("configs")).toArray();
         m_pacmanDone = true;
         m_updates.finishKind(QStringLiteral("pacman"), m_success);
         partFinished();
@@ -389,6 +447,8 @@ void PanelController::beginRun()
     m_stoppedBy.clear();
     m_success = false;
     m_summary.clear();
+    m_restart = {};
+    m_configs = {};
     m_fpDone = false;
     m_fpSuccess = false;
     m_fpSkipped = false;
@@ -813,7 +873,11 @@ QString PanelController::resultTitle() const
         if (m_fpRun) {
             parts.append(m_fpSummary);
         }
-        return parts.join(QStringLiteral(" · "));
+        QString title = parts.join(QStringLiteral(" · "));
+        if (restartRequired()) {
+            title += QStringLiteral(", restart required");
+        }
+        return title;
     }
     if (m_stoppedBy == QLatin1String("cancelled")) {
         return QStringLiteral("Update cancelled");
@@ -846,6 +910,13 @@ QString PanelController::resultText() const
 QString PanelController::resultDetails() const
 {
     QStringList parts;
+    const QJsonObject kernel = m_restart.value(QStringLiteral("kernel")).toObject();
+    if (kernel.value(QStringLiteral("replaced")).toBool()) {
+        parts.append(QStringLiteral("running %1").arg(kernel.value(QStringLiteral("running")).toString()));
+        if (!kernel.value(QStringLiteral("installed")).toString().isEmpty()) {
+            parts.append(QStringLiteral("installed %1").arg(kernel.value(QStringLiteral("installed")).toString()));
+        }
+    }
     if (m_finishedAt.isValid()) {
         parts.append(QStringLiteral("finished %1").arg(Kyu::shortWhen(m_finishedAt, QDateTime::currentDateTime())));
     }
@@ -871,6 +942,114 @@ QVariantList PanelController::changes() const
         });
     }
     return list;
+}
+
+bool PanelController::restartRequired() const
+{
+    return m_restart.value(QStringLiteral("required")).toBool();
+}
+
+QString PanelController::restartReason() const
+{
+    QStringList reasons;
+    const QJsonObject kernel = m_restart.value(QStringLiteral("kernel")).toObject();
+    if (kernel.value(QStringLiteral("replaced")).toBool()) {
+        reasons.append(QStringLiteral("The running kernel was replaced; new kernel modules load only after a restart."));
+    }
+    if (m_restart.value(QStringLiteral("systemd")).toBool()) {
+        reasons.append(QStringLiteral("systemd (PID 1) still uses replaced libraries."));
+    }
+    return reasons.join(QLatin1Char(' '));
+}
+
+QVariantList PanelController::processes() const
+{
+    QVariantList list;
+    for (const auto &p : m_restart.value(QStringLiteral("processes")).toArray()) {
+        const QJsonObject o = p.toObject();
+        QStringList libraries;
+        for (const auto &l : o.value(QStringLiteral("libraries")).toArray()) {
+            libraries.append(l.toString());
+        }
+        list.append(QVariantMap{{QStringLiteral("pid"), o.value(QStringLiteral("pid")).toInteger()},
+                                {QStringLiteral("name"), o.value(QStringLiteral("name")).toString()},
+                                {QStringLiteral("libraries"), libraries.join(QLatin1Char('\n'))}});
+    }
+    return list;
+}
+
+int PanelController::processCount() const
+{
+    return m_restart.value(QStringLiteral("processCount")).toInt();
+}
+
+QVariantList PanelController::configs() const
+{
+    QVariantList list;
+    for (const auto &c : m_configs) {
+        list.append(c.toObject().toVariantMap());
+    }
+    return list;
+}
+
+QVariantList PanelController::diff(const QString &path, const QString &saved) const
+{
+    auto error = [](const QString &text) {
+        return QVariantList{QVariantMap{{QStringLiteral("text"), text}, {QStringLiteral("kind"), QStringLiteral("error")}}};
+    };
+    for (const QString &file : {path, saved}) {
+        if (!QFileInfo::exists(file)) {
+            return error(QStringLiteral("%1 does not exist (any more).").arg(file));
+        }
+        if (!QFileInfo(file).isReadable()) {
+            return error(QStringLiteral("%1 is readable only by root. Compare with: sudo pacdiff").arg(file));
+        }
+    }
+    QProcess process;
+    process.start(QStringLiteral("diff"), {QStringLiteral("-u"), path, saved});
+    if (!process.waitForFinished(10000) || process.exitCode() > 1) {
+        return error(QStringLiteral("diff failed: %1").arg(QString::fromLocal8Bit(process.readAllStandardError()).trimmed()));
+    }
+    QVariantList lines;
+    const QStringList output = QString::fromLocal8Bit(process.readAllStandardOutput()).split(QLatin1Char('\n'));
+    for (const QString &line : output) {
+        QString kind = QStringLiteral("context");
+        if (line.startsWith(QLatin1String("---")) || line.startsWith(QLatin1String("+++"))) {
+            kind = QStringLiteral("header");
+        } else if (line.startsWith(QLatin1String("@@"))) {
+            kind = QStringLiteral("hunk");
+        } else if (line.startsWith(QLatin1Char('+'))) {
+            kind = QStringLiteral("add");
+        } else if (line.startsWith(QLatin1Char('-'))) {
+            kind = QStringLiteral("remove");
+        }
+        lines.append(QVariantMap{{QStringLiteral("text"), line}, {QStringLiteral("kind"), kind}});
+    }
+    if (process.exitCode() == 0) {
+        return error(QStringLiteral("The two files are the same."));
+    }
+    return lines;
+}
+
+void PanelController::restartNow()
+{
+    // Plasma's own prompt first: it lets applications save their work.
+    auto session = QDBusConnection::sessionBus();
+    if (session.isConnected() && session.interface()->isServiceRegistered(QStringLiteral("org.kde.LogoutPrompt"))) {
+        session.call(QDBusMessage::createMethodCall(QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
+                                                    QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot")),
+                     QDBus::NoBlock);
+        return;
+    }
+    // Otherwise logind, which asks polkit if needed.
+    auto call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1"),
+                                               QStringLiteral("org.freedesktop.login1.Manager"), QStringLiteral("Reboot"));
+    call.setArguments({true});
+    const QDBusMessage reply = QDBusConnection::systemBus().call(call);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        m_message = QStringLiteral("Could not restart: %1").arg(reply.errorMessage());
+        Q_EMIT changed();
+    }
 }
 
 void PanelController::done()

@@ -9,7 +9,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include(GNUInstallDirs)
 include(CTest)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets DBus)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets DBus Network)
 
 # Flatpak updates are counted through libflatpak. Packagers can switch it off
 # to drop the dependency; the checker then reports Flatpak as not checked.

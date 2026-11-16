@@ -19,7 +19,8 @@
    "repo": "core",
    "oldVersion": "6.18.20-1",
    "newVersion": "6.18.22-1",
-   "size": 157286400
+   "size": 157286400,
+   "restart": true
   },
   {
    "name": "linux618-headers",
@@ -72,5 +73,25 @@
    "origin": "flathub",
    "installation": "user"
   }
- ]
+ ],
+ "news": {
+  "checked": true,
+  "ok": true,
+  "checkedAt": "2026-11-16T10:30:00Z",
+  "source": "Arch Linux news",
+  "url": "https://archlinux.org/feeds/news/",
+  "since": "2026-11-10T19:30:00Z",
+  "items": [
+   {
+    "title": "Sample news item: manual intervention for package foo",
+    "link": "https://archlinux.org/news/",
+    "published": "2026-11-14T10:00:00Z"
+   },
+   {
+    "title": "Sample news item: bar replaced by baz",
+    "link": "https://archlinux.org/news/",
+    "published": "2026-11-12T10:00:00Z"
+   }
+  ]
+ }
 }

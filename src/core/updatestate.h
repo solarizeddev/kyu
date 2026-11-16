@@ -1,10 +1,13 @@
 #pragma once
 
+#include "news.h"
+
 #include <QDateTime>
 #include <QJsonObject>
 #include <QList>
 #include <QString>
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
@@ -16,6 +19,9 @@ struct PackageUpdate {
     QString oldVersion;
     QString newVersion;
     qint64 size = -1; // package file size in bytes (pacman's %s); -1 = unknown
+    // The package that installed the running kernel: updating it means a
+    // restart (HANDOFF.md rule 7: derived, from /usr/lib/modules/<uname -r>/pkgbase).
+    bool restart = false;
 
     bool operator==(const PackageUpdate &) const = default;
 };
@@ -54,6 +60,20 @@ struct FlatpakResult {
     QList<FlatpakUpdate> updates;
 };
 
+// Distro news since the last full system upgrade.
+struct NewsState {
+    bool checked = false;
+    bool ok = false;
+    QString error;
+    QDateTime checkedAt;
+    QString source;
+    QString url;
+    QDateTime since;
+    QList<NewsItem> items;
+
+    bool operator==(const NewsState &) const = default;
+};
+
 struct UpdateState {
     static constexpr int FormatVersion = 1;
 
@@ -62,6 +82,7 @@ struct UpdateState {
     SourceStatus flatpak;
     QList<PackageUpdate> packages;
     QList<FlatpakUpdate> flatpaks;
+    NewsState news;
 
     int total() const
     {
@@ -69,6 +90,13 @@ struct UpdateState {
     }
     // Sum of known package sizes; -1 when none is known.
     qint64 totalSize() const;
+    bool restartNeeded() const
+    {
+        return std::any_of(packages.cbegin(), packages.cend(), [](const PackageUpdate &p) {
+            return p.restart;
+        });
+    }
+    // News failures are not counted: they do not affect what can be updated.
     bool hasError() const
     {
         return (pacman.checked && !pacman.ok) || (flatpak.checked && !flatpak.ok);
@@ -94,7 +122,8 @@ struct UpdateState {
     static UpdateState merge(const UpdateState &previous,
                              const std::optional<PacmanResult> &pacman,
                              const std::optional<FlatpakResult> &flatpak,
-                             const QDateTime &now);
+                             const QDateTime &now,
+                             const std::optional<NewsResult> &news = std::nullopt);
 
     bool operator==(const UpdateState &) const = default;
 };

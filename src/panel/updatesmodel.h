@@ -23,6 +23,7 @@ public:
         SizeRole,
         StatusRole, // pending, waiting, working, done, failed, unchanged
         ActionRole, // pacman's verb while working/done: upgrading, installing, ...
+        RestartRole, // the running kernel's package
     };
     Q_ENUM(Role)
 
@@ -70,6 +71,7 @@ private:
         QString status = QStringLiteral("pending");
         QString action;
         int order = -1; // position in the transaction, -1 if untouched
+        bool restart = false;
     };
     static Row makeRow(const QString &name, const QString &group, const QString &kind, const QString &oldVersion, const QString &newVersion, qint64 size);
     void setStatus(int row, const QString &status);

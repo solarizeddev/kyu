@@ -2,6 +2,7 @@
 // Runs as the user (from a systemd user timer or the tray); never needs root.
 
 #include "flatpakcheck.h"
+#include "news.h"
 #include "pacmancheck.h"
 #include "paths.h"
 #include "updatestate.h"
@@ -44,12 +45,25 @@ int main(int argc, char **argv)
                                     QStringLiteral("path"), QStringLiteral("checkupdates"));
     QCommandLineOption pacman(QStringLiteral("pacman"), QStringLiteral("pacman binary."), QStringLiteral("path"),
                               QStringLiteral("pacman"));
+    QCommandLineOption noNews(QStringLiteral("no-news"), QStringLiteral("Do not fetch the distro's news."));
+    QCommandLineOption newsFeed(QStringLiteral("news-feed"), QStringLiteral("News feed URL."), QStringLiteral("url"));
+    QCommandLineOption osRelease(QStringLiteral("os-release"), QStringLiteral("os-release file."), QStringLiteral("path"),
+                                 QStringLiteral("/etc/os-release"));
+    QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), QStringLiteral("pacman log."), QStringLiteral("path"),
+                                 QStringLiteral("/var/log/pacman.log"));
+    QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("Kernel modules directory."), QStringLiteral("path"),
+                                  QStringLiteral("/usr/lib/modules"));
+    QCommandLineOption kernelRelease(QStringLiteral("kernel-release"), QStringLiteral("Running kernel release."), QStringLiteral("release"));
+    for (auto *o : {&newsFeed, &osRelease, &pacmanLog, &modulesDir, &kernelRelease}) {
+        o->setFlags(QCommandLineOption::HiddenFromHelp);
+    }
     QCommandLineOption dbPath(QStringLiteral("db-path"),
                               QStringLiteral("Database copy for checkupdates (default: %1).").arg(Kyu::Paths::checkupDbDir()),
                               QStringLiteral("path"));
     checkupdates.setFlags(QCommandLineOption::HiddenFromHelp);
     pacman.setFlags(QCommandLineOption::HiddenFromHelp);
-    parser.addOptions({noPacman, noFlatpak, json, stateFile, checkupdates, pacman, dbPath});
+    parser.addOptions({noPacman, noFlatpak, json, stateFile, checkupdates, pacman, dbPath, noNews, newsFeed, osRelease, pacmanLog,
+                       modulesDir, kernelRelease});
     parser.process(app);
 
     QTextStream out(stdout);
@@ -90,6 +104,10 @@ int main(int argc, char **argv)
         if (!pacmanResult->ok) {
             err << "kyu-check: pacman: " << pacmanResult->error << Qt::endl;
         }
+        const QString kernel = Kyu::runningKernelPackage(parser.value(modulesDir), parser.value(kernelRelease));
+        for (auto &p : pacmanResult->packages) {
+            p.restart = !kernel.isEmpty() && p.name == kernel;
+        }
     }
 
     std::optional<Kyu::FlatpakResult> flatpakResult;
@@ -100,7 +118,22 @@ int main(int argc, char **argv)
         }
     }
 
-    const auto state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc());
+    std::optional<Kyu::NewsResult> newsResult;
+    if (!parser.isSet(noNews)) {
+        Kyu::NewsSource source = Kyu::newsSourceFor(parser.value(osRelease));
+        if (parser.isSet(newsFeed)) {
+            source.url = parser.value(newsFeed);
+            if (source.name.isEmpty()) {
+                source.name = QStringLiteral("News");
+            }
+        }
+        newsResult = Kyu::fetchNews(source, Kyu::lastFullUpgrade(parser.value(pacmanLog)));
+        if (!newsResult->ok) {
+            err << "kyu-check: news: " << newsResult->error << Qt::endl;
+        }
+    }
+
+    const auto state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult);
 
     QString saveError;
     if (!state.save(statePath, &saveError)) {

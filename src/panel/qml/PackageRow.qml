@@ -11,6 +11,7 @@ Rectangle {
     required property string newVersion
     required property string status
     required property string action
+    required property bool restart
     required property int index
     property bool tracking: false
 
@@ -66,9 +67,28 @@ Rectangle {
             font.family: Kirigami.Theme.fixedWidthFont.family
             font.weight: Font.Medium
             elide: Text.ElideRight
-            Layout.fillWidth: true
+            Layout.fillWidth: !row.restart
             color: row.status === "waiting" || row.status === "unchanged" || (row.tracking && row.status === "pending")
                    ? Kirigami.Theme.disabledTextColor : Kirigami.Theme.textColor
+        }
+        // Updating the running kernel's package means a restart.
+        Rectangle {
+            visible: row.restart
+            color: Kirigami.Theme.neutralBackgroundColor
+            radius: Kirigami.Units.smallSpacing
+            implicitWidth: chip.implicitWidth + Kirigami.Units.largeSpacing
+            implicitHeight: chip.implicitHeight + Kirigami.Units.smallSpacing / 2
+            QQC2.Label {
+                id: chip
+                anchors.centerIn: parent
+                text: "restart"
+                font: Kirigami.Theme.smallFont
+                color: Kirigami.Theme.textColor
+            }
+        }
+        Item {
+            visible: row.restart
+            Layout.fillWidth: true
         }
         QQC2.Label {
             text: row.detailText()

@@ -2,7 +2,9 @@
 
 #include "panelcontroller.h"
 
+#include <QFile>
 #include <QJsonArray>
+#include <QTemporaryDir>
 #include <QTest>
 
 using namespace Kyu;
@@ -384,6 +386,100 @@ private Q_SLOTS:
         QCOMPARE(c.resultTitle(), QStringLiteral("Update failed"));
         QCOMPARE(c.resultText().split(QLatin1Char('\n')).first(), QStringLiteral("4 upgraded"));
         QVERIFY(c.resultText().contains(QStringLiteral("kyu-flatpak stopped before it finished")));
+    }
+
+    void listShowsRestartAndNews()
+    {
+        UpdateState s = sample();
+        s.packages[2].restart = true; // linux618
+        s.news.checked = true;
+        s.news.ok = true;
+        s.news.source = QStringLiteral("Arch Linux news");
+        s.news.since = QDateTime(QDate(2026, 11, 10), QTime(12, 0), Qt::UTC);
+        s.news.items = {{QStringLiteral("Manual intervention for foo"), QStringLiteral("https://archlinux.org/news/foo/"),
+                         QDateTime(QDate(2026, 11, 14), QTime(12, 0), Qt::UTC)}};
+        PanelController c;
+        c.setUpdateState(s);
+        QVERIFY(c.details().contains(QStringLiteral("restart needed")));
+        QCOMPARE(c.updates()->index(1).data(UpdatesModel::NameRole).toString(), QStringLiteral("linux618"));
+        QVERIFY(c.updates()->index(1).data(UpdatesModel::RestartRole).toBool());
+        QVERIFY(!c.updates()->index(0).data(UpdatesModel::RestartRole).toBool());
+        QVERIFY(c.newsTitle().startsWith(QStringLiteral("Arch Linux news since your last update")));
+        QCOMPARE(c.newsItems().size(), 1);
+
+        // Only before a system upgrade: not with Flatpak updates alone.
+        s.packages.clear();
+        c.setUpdateState(s);
+        QVERIFY(c.newsTitle().isEmpty());
+        QVERIFY(c.newsItems().isEmpty());
+
+        // A failed fetch is shown as such.
+        s = sample();
+        s.news = {true, false, QStringLiteral("https://archlinux.org/feeds/news/: Host not found"), {}, QStringLiteral("Arch Linux news"),
+                  QStringLiteral("https://archlinux.org/feeds/news/"), {}, {}};
+        c.setUpdateState(s);
+        QVERIFY(c.newsError().contains(QStringLiteral("Host not found")));
+    }
+
+    void finishedWithRestartAndSettingsFiles()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleRecord(rec("finished",
+                           {{QStringLiteral("success"), true},
+                            {QStringLiteral("summary"), QStringLiteral("4 upgraded")},
+                            {QStringLiteral("configs"),
+                             QJsonArray{QJsonObject{{QStringLiteral("kind"), QStringLiteral("pacnew")},
+                                                    {QStringLiteral("path"), QStringLiteral("/etc/pacman.conf")},
+                                                    {QStringLiteral("saved"), QStringLiteral("/etc/pacman.conf.pacnew")}}}},
+                            {QStringLiteral("restart"),
+                             QJsonObject{{QStringLiteral("required"), true},
+                                         {QStringLiteral("systemd"), false},
+                                         {QStringLiteral("kernel"),
+                                          QJsonObject{{QStringLiteral("running"), QStringLiteral("6.18.20-1")},
+                                                      {QStringLiteral("installed"), QStringLiteral("6.18.22-1")},
+                                                      {QStringLiteral("replaced"), true}}},
+                                         {QStringLiteral("processes"),
+                                          QJsonArray{QJsonObject{{QStringLiteral("pid"), 42},
+                                                                 {QStringLiteral("name"), QStringLiteral("plasmashell")},
+                                                                 {QStringLiteral("libraries"), QJsonArray{QStringLiteral("/usr/lib/libQt6Core.so.6")}}}}},
+                                         {QStringLiteral("processCount"), 1}}}}));
+        QCOMPARE(c.screen(), QStringLiteral("finished"));
+        QCOMPARE(c.resultTitle(), QStringLiteral("4 upgraded, restart required"));
+        QVERIFY2(c.resultDetails().startsWith(QStringLiteral("running 6.18.20-1 · installed 6.18.22-1")), qPrintable(c.resultDetails()));
+        QVERIFY(c.restartReason().contains(QStringLiteral("kernel was replaced")));
+        QCOMPARE(c.processCount(), 1);
+        QCOMPARE(c.processes()[0].toMap().value(QStringLiteral("name")).toString(), QStringLiteral("plasmashell"));
+        QCOMPARE(c.configs().size(), 1);
+        QCOMPARE(c.configs()[0].toMap().value(QStringLiteral("saved")).toString(), QStringLiteral("/etc/pacman.conf.pacnew"));
+    }
+
+    void diffOfSettingsFiles()
+    {
+        QTemporaryDir dir;
+        auto write = [&dir](const char *name, const QByteArray &content) {
+            QFile f(dir.filePath(QString::fromLatin1(name)));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(content);
+        };
+        write("a.conf", "keep\nold value\n");
+        write("a.conf.pacnew", "keep\nnew value\n");
+        write("same.conf", "x\n");
+        write("same.conf.pacnew", "x\n");
+        PanelController c;
+        const auto lines = c.diff(dir.filePath(QStringLiteral("a.conf")), dir.filePath(QStringLiteral("a.conf.pacnew")));
+        QStringList kinds;
+        for (const auto &l : lines) {
+            kinds.append(l.toMap().value(QStringLiteral("kind")).toString());
+        }
+        QVERIFY(kinds.contains(QStringLiteral("remove")));
+        QVERIFY(kinds.contains(QStringLiteral("add")));
+        QVERIFY(kinds.contains(QStringLiteral("hunk")));
+        const auto same = c.diff(dir.filePath(QStringLiteral("same.conf")), dir.filePath(QStringLiteral("same.conf.pacnew")));
+        QCOMPARE(same[0].toMap().value(QStringLiteral("text")).toString(), QStringLiteral("The two files are the same."));
+        const auto missing = c.diff(dir.filePath(QStringLiteral("gone.conf")), dir.filePath(QStringLiteral("a.conf.pacnew")));
+        QCOMPARE(missing[0].toMap().value(QStringLiteral("kind")).toString(), QStringLiteral("error"));
     }
 
     void startErrorsAreQuoted()

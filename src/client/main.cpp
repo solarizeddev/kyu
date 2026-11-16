@@ -88,6 +88,35 @@ void printRecord(const QJsonObject &r, bool quiet)
         err() << "kyu: no answer within " << r.value(QStringLiteral("seconds")).toInteger() << " s; stopping pacman" << Qt::endl;
     } else if (kind == QLatin1String("finished")) {
         err() << "kyu: " << r.value(QStringLiteral("summary")).toString() << Qt::endl;
+        const QJsonObject restart = r.value(QStringLiteral("restart")).toObject();
+        const QJsonObject kernel = restart.value(QStringLiteral("kernel")).toObject();
+        if (kernel.value(QStringLiteral("replaced")).toBool()) {
+            err() << "kyu: restart required: running kernel " << kernel.value(QStringLiteral("running")).toString() << ", installed "
+                  << (kernel.value(QStringLiteral("installed")).toString().isEmpty() ? QStringLiteral("unknown")
+                                                                                     : kernel.value(QStringLiteral("installed")).toString())
+                  << Qt::endl;
+        }
+        if (restart.value(QStringLiteral("systemd")).toBool()) {
+            err() << "kyu: restart required: systemd (PID 1) uses replaced libraries" << Qt::endl;
+        }
+        if (const auto count = restart.value(QStringLiteral("processCount")).toInteger(); count > 0) {
+            QStringList names;
+            for (const auto &p : restart.value(QStringLiteral("processes")).toArray()) {
+                names.append(p.toObject().value(QStringLiteral("name")).toString());
+            }
+            names.removeDuplicates();
+            err() << "kyu: " << count << (count == 1 ? " program uses" : " programs use") << " replaced libraries: " << names.join(QStringLiteral(", "))
+                  << Qt::endl;
+        }
+        for (const auto &c : r.value(QStringLiteral("configs")).toArray()) {
+            const QJsonObject o = c.toObject();
+            err() << "kyu: " << o.value(QStringLiteral("saved")).toString()
+                  << (o.value(QStringLiteral("kind")).toString() == QLatin1String("pacnew") ? " has new default settings for " : " keeps the settings of removed ")
+                  << o.value(QStringLiteral("path")).toString() << Qt::endl;
+        }
+        if (!r.value(QStringLiteral("configs")).toArray().isEmpty()) {
+            err() << "kyu: to compare and merge: sudo pacdiff" << Qt::endl;
+        }
     }
 }
 

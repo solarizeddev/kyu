@@ -41,6 +41,8 @@ QVariant UpdatesModel::data(const QModelIndex &index, int role) const
         return r.status;
     case ActionRole:
         return r.action;
+    case RestartRole:
+        return r.restart;
     }
     return {};
 }
@@ -56,6 +58,7 @@ QHash<int, QByteArray> UpdatesModel::roleNames() const
         {SizeRole, "size"},
         {StatusRole, "status"},
         {ActionRole, "action"},
+        {RestartRole, "restart"},
     };
 }
 
@@ -94,6 +97,7 @@ void UpdatesModel::setState(const Kyu::UpdateState &state)
     QList<Row> rows;
     for (const auto &p : state.packages) {
         rows.append(makeRow(p.name, p.repo, QStringLiteral("pacman"), p.oldVersion, p.newVersion, p.size));
+        rows.last().restart = p.restart;
     }
     for (const auto &f : state.flatpaks) {
         rows.append(makeRow(f.name, f.origin, QStringLiteral("flatpak"), QString(), f.branch, -1));

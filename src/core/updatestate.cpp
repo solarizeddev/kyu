@@ -120,6 +120,9 @@ QJsonObject UpdateState::toJson() const
         if (p.size >= 0) {
             o.insert(QStringLiteral("size"), p.size);
         }
+        if (p.restart) {
+            o.insert(QStringLiteral("restart"), true);
+        }
         packageArray.append(o);
     }
     QJsonArray flatpakArray;
@@ -132,8 +135,22 @@ QJsonObject UpdateState::toJson() const
             {QStringLiteral("installation"), f.installation},
         });
     }
+    QJsonArray newsItems;
+    for (const auto &item : news.items) {
+        newsItems.append(QJsonObject{
+            {QStringLiteral("title"), item.title},
+            {QStringLiteral("link"), item.link},
+            {QStringLiteral("published"), dateToString(item.published)},
+        });
+    }
+    QJsonObject newsObject = statusToJson({news.checked, news.ok, news.error, news.checkedAt, {}});
+    newsObject.insert(QStringLiteral("source"), news.source);
+    newsObject.insert(QStringLiteral("url"), news.url);
+    newsObject.insert(QStringLiteral("since"), dateToString(news.since));
+    newsObject.insert(QStringLiteral("items"), newsItems);
     return QJsonObject{
         {QStringLiteral("formatVersion"), FormatVersion},
+        {QStringLiteral("news"), newsObject},
         {QStringLiteral("checkedAt"), dateToString(checkedAt)},
         {QStringLiteral("pacman"), statusToJson(pacman)},
         {QStringLiteral("flatpak"), statusToJson(flatpak)},
@@ -157,6 +174,7 @@ UpdateState UpdateState::fromJson(const QJsonObject &object)
             o.value(QStringLiteral("oldVersion")).toString(),
             o.value(QStringLiteral("newVersion")).toString(),
             o.contains(QStringLiteral("size")) ? o.value(QStringLiteral("size")).toInteger() : -1,
+            o.value(QStringLiteral("restart")).toBool(),
         });
     }
     const auto flatpakArray = object.value(QStringLiteral("flatpaks")).toArray();
@@ -169,6 +187,20 @@ UpdateState UpdateState::fromJson(const QJsonObject &object)
             o.value(QStringLiteral("origin")).toString(),
             o.value(QStringLiteral("installation")).toString(),
         });
+    }
+    const QJsonObject n = object.value(QStringLiteral("news")).toObject();
+    const SourceStatus ns = statusFromJson(n);
+    state.news.checked = ns.checked;
+    state.news.ok = ns.ok;
+    state.news.error = ns.error;
+    state.news.checkedAt = ns.checkedAt;
+    state.news.source = n.value(QStringLiteral("source")).toString();
+    state.news.url = n.value(QStringLiteral("url")).toString();
+    state.news.since = dateFromJson(n.value(QStringLiteral("since")));
+    for (const auto &value : n.value(QStringLiteral("items")).toArray()) {
+        const auto o = value.toObject();
+        state.news.items.append({o.value(QStringLiteral("title")).toString(), o.value(QStringLiteral("link")).toString(),
+                                 dateFromJson(o.value(QStringLiteral("published")))});
     }
     return state;
 }
@@ -226,7 +258,8 @@ bool UpdateState::save(const QString &path, QString *error) const
 UpdateState UpdateState::merge(const UpdateState &previous,
                                const std::optional<PacmanResult> &pacman,
                                const std::optional<FlatpakResult> &flatpak,
-                               const QDateTime &now)
+                               const QDateTime &now,
+                               const std::optional<NewsResult> &news)
 {
     UpdateState state = previous;
     state.checkedAt = now;
@@ -241,6 +274,21 @@ UpdateState UpdateState::merge(const UpdateState &previous,
             state.packages = pacman->packages;
         } else {
             state.pacman.error = pacman->error;
+        }
+    }
+
+    if (news) {
+        state.news.checked = true;
+        state.news.ok = news->ok;
+        state.news.checkedAt = now;
+        state.news.source = news->source.name;
+        state.news.url = news->source.url;
+        if (news->ok) {
+            state.news.error.clear();
+            state.news.since = news->since;
+            state.news.items = news->items;
+        } else {
+            state.news.error = news->error;
         }
     }
 

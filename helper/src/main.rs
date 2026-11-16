@@ -4,6 +4,7 @@
 //! Owns each pacman transaction from start to end, independent of any panel:
 //! a panel can close, crash or reattach without affecting the update.
 
+mod aftercare;
 mod log;
 mod parse;
 mod service;
@@ -27,7 +28,8 @@ const IDLE_EXIT: Duration = Duration::from_secs(5 * 60);
 const QUESTION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 const USAGE: &str = "\
-Usage: kyu-helper [--session [--pacman PATH] [--db-lock PATH] [--log-dir PATH]] [--idle-exit SECONDS]
+Usage: kyu-helper [--session [--pacman PATH] [--db-lock PATH] [--log-dir PATH] [--proc-dir PATH]
+                  [--modules-dir PATH]] [--idle-exit SECONDS]
                   [--question-timeout SECONDS]
 
 Runs on the system bus as root, started by D-Bus activation.
@@ -37,6 +39,9 @@ Runs on the system bus as root, started by D-Bus activation.
   --pacman PATH     pacman binary (session mode only)
   --db-lock PATH    pacman database lock to check (session mode only)
   --log-dir PATH    transaction log directory (session mode only)
+  --proc-dir PATH   /proc for restart detection (session mode only)
+  --modules-dir PATH
+                    /usr/lib/modules for restart detection (session mode only)
   --idle-exit SECS  exit after this long without a transaction (default 300)
   --question-timeout SECS
                     stop pacman if a question is not answered in time
@@ -48,6 +53,8 @@ fn parse_args() -> Result<(Config, Duration), String> {
     let mut pacman = None;
     let mut db_lock = None;
     let mut log_dir = None;
+    let mut proc_dir = None;
+    let mut modules_dir = None;
     let mut idle = IDLE_EXIT;
     let mut question_timeout = QUESTION_TIMEOUT;
     let mut args = std::env::args().skip(1);
@@ -58,6 +65,8 @@ fn parse_args() -> Result<(Config, Duration), String> {
             "--pacman" => pacman = Some(PathBuf::from(value("--pacman")?)),
             "--db-lock" => db_lock = Some(PathBuf::from(value("--db-lock")?)),
             "--log-dir" => log_dir = Some(PathBuf::from(value("--log-dir")?)),
+            "--proc-dir" => proc_dir = Some(PathBuf::from(value("--proc-dir")?)),
+            "--modules-dir" => modules_dir = Some(PathBuf::from(value("--modules-dir")?)),
             "--idle-exit" => {
                 let secs = value("--idle-exit")?;
                 idle = Duration::from_secs(
@@ -81,8 +90,16 @@ fn parse_args() -> Result<(Config, Duration), String> {
     }
     // The root helper always runs the system's pacman with the system's
     // paths; overrides exist only for the unprivileged session mode.
-    if !session && (pacman.is_some() || db_lock.is_some() || log_dir.is_some()) {
-        return Err("--pacman, --db-lock and --log-dir need --session".into());
+    if !session
+        && (pacman.is_some()
+            || db_lock.is_some()
+            || log_dir.is_some()
+            || proc_dir.is_some()
+            || modules_dir.is_some())
+    {
+        return Err(
+            "--pacman, --db-lock, --log-dir, --proc-dir and --modules-dir need --session".into(),
+        );
     }
     let db_lock = db_lock.unwrap_or_else(system_db_lock);
     Ok((
@@ -92,6 +109,10 @@ fn parse_args() -> Result<(Config, Duration), String> {
             db_lock,
             log_dir: log_dir.unwrap_or_else(|| PathBuf::from("/var/log/kyu")),
             question_timeout,
+            roots: aftercare::Roots {
+                proc_dir: proc_dir.unwrap_or_else(|| PathBuf::from("/proc")),
+                modules_dir: modules_dir.unwrap_or_else(|| PathBuf::from("/usr/lib/modules")),
+            },
         },
         idle,
     ))

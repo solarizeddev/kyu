@@ -3,7 +3,7 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Quick QuickControls2)
 # Logic, testable without QML.
 add_library(kyupanel STATIC panelcontroller.cpp updatesmodel.cpp outputmodel.cpp flatpakfollower.cpp)
 target_include_directories(kyupanel PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(kyupanel PUBLIC kyucore kyuclient Qt6::Gui)
+target_link_libraries(kyupanel PUBLIC kyucore kyuclient Qt6::Gui Qt6::DBus)
 
 # The panel window.
 add_executable(kyu main.cpp singleinstance.cpp)
@@ -22,6 +22,11 @@ qt_add_resources(kyu panel_qml PREFIX "/" FILES
     qml/OutputPage.qml
     qml/FinishedScreen.qml
     qml/ChangesPage.qml
+    qml/LinkCard.qml
+    qml/PageHeader.qml
+    qml/ConfigsPage.qml
+    qml/DiffPage.qml
+    qml/ProcessesPage.qml
 )
 install(TARGETS kyu DESTINATION ${CMAKE_INSTALL_BINDIR})
 

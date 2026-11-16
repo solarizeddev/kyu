@@ -35,12 +35,27 @@ publish "$work" org.kyu.Test.App 2
 publish "$work" "$KYU_TEST_RUNTIME" 2
 cp "$src/tools/preview-state.json" "$work/state/kyu/updates.json"
 cp "$src/tests/helper/fake-pacman" "$work/fake/pacman"
+# Restart facts: the running kernel 6.18.20 was replaced by 6.18.22, and
+# plasmashell maps a replaced library (a fake /proc and /usr/lib/modules).
+mkdir -p "$work/proc/sys/kernel" "$work/proc/1301" "$work/modules/6.18.22-1-MANJARO"
+echo 6.18.20-1-MANJARO >"$work/proc/sys/kernel/osrelease"
+echo "BOOT_IMAGE=/boot/vmlinuz-linux618 rw" >"$work/proc/cmdline"
+echo plasmashell >"$work/proc/1301/comm"
+echo "7f00-7f01 r--p 0 00:1f 9  /usr/lib/libQt6Core.so.6.10.1 (deleted)" >"$work/proc/1301/maps"
+touch "$work/modules/6.18.22-1-MANJARO/vmlinuz"
+echo linux618 >"$work/modules/6.18.22-1-MANJARO/pkgbase"
+# A settings file and its .pacnew, for the diff view.
+mkdir -p "$work/etc"
+printf '[General]\nNumlock=on\n\n[Theme]\nCurrent=breeze\n' >"$work/etc/sddm.conf"
+printf '[General]\nNumlock=none\nHaltCommand=/usr/bin/systemctl poweroff\n\n[Theme]\nCurrent=breeze\n' >"$work/etc/sddm.conf.pacnew"
+echo "$work/etc/sddm.conf" >"$work/fake/pacnew"
 echo "${MODE:-normal}" >"$work/fake/mode"
 echo "${DELAY:-1}" >"$work/fake/delay"
 
 dbus-run-session -- sh -c '
     work=$1; bin=$2; out=$3; shift 3
-    "$bin/kyu-helper" --session --pacman "$work/fake/pacman" --db-lock "$work/db.lck" --log-dir "$work/logs" 2>/dev/null &
+    "$bin/kyu-helper" --session --pacman "$work/fake/pacman" --db-lock "$work/db.lck" --log-dir "$work/logs" \
+        --proc-dir "$work/proc" --modules-dir "$work/modules" 2>/dev/null &
     helper=$!
     sleep 0.5
     # After an update the panel runs kyu-check, which rewrites the sample

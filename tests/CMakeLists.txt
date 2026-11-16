@@ -8,6 +8,7 @@ endfunction()
 
 kyu_test(test_pacmanparse)
 kyu_test(test_updatestate)
+kyu_test(test_news)
 
 kyu_test(test_kyucheck)
 target_compile_definitions(test_kyucheck PRIVATE KYU_CHECK_BIN="$<TARGET_FILE:kyu-check>")

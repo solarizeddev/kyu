@@ -182,6 +182,33 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - **Tests:** `flatpak_update` runs kyu-flatpak against real libflatpak with a local repository and a throwaway installation built by `flatpak build-export`. It covers updates of apps and runtimes, nothing to do, an unreachable remote (updater and checker), the lock, `--after` ordering, and the skip after a cancelled pacman update. `test_panel` covers combined runs, Flatpak-only runs, cancel-and-skip, and a lost kyu-flatpak. The preview script now uses the same real repository, so the screenshots show a real Flatpak update.
 - Not done: Flatpak updates have no cancel button (pacman's cancel is only at questions, and stopping between Flatpak refs has not been needed). "Follow in Konsole" (`kyu-update --attach`) shows the pacman part only. The test runs the user installation; system installations use the same code, through flatpak's system helper, which the container cannot run.
 
+**Milestone 6 (after-update care): done.** Everything here is derived from the system (rule 7).
+
+- **Before the update:** kyu-check marks the package that installed the running kernel. It reads `/usr/lib/modules/$(uname -r)/pkgbase`, so the list shows "restart needed" and the sketch's "restart" chip on that row; other installed kernels and the headers are not marked.
+- **Distro news:** kyu-check picks the feed from `/etc/os-release`:
+  - Arch, and Arch-based distros without their own feed (EndeavourOS, CachyOS), use `https://archlinux.org/feeds/news/`.
+  - Manjaro uses its forum's stable/testing/unstable update announcements (branch from `/etc/pacman-mirrors.conf`). The Manjaro feed URL (`https://forum.manjaro.org/c/announcements/<branch>-updates.rss`) follows Discourse's scheme but has not been fetched from this environment; check it on a Manjaro machine.
+
+  It keeps items published since the last full upgrade, read from `pacman.log` (the last 30 days if there is none). The panel shows them above the list only when pacman updates are pending. A failed fetch is stated there and does not count as a failed check.
+- **After the update:** the helper adds `configs` (from pacman's own `.pacnew`/`.pacsave` warnings) and `restart` to its finished record (see `docs/helper-protocol.md`, "After the update"). It derives:
+  - a replaced running kernel (its modules directory is gone; the installed version comes from BOOT_IMAGE's pkgbase)
+  - processes mapping replaced shared libraries, from `/proc/*/maps`, as root, so all processes are seen
+
+  "Restart required" means the kernel was replaced or systemd (PID 1) maps a replaced library.
+- **Panel, finished screen:**
+  - The title becomes "12 updated, restart required", with "running … · installed …" under it (the sketch's line).
+  - The restart card states the reason, with "Restart now" (Plasma's own reboot prompt via `org.kde.LogoutPrompt`, so applications can save; otherwise logind `Reboot` with polkit) and "I will restart later".
+  - "N programs use replaced libraries" opens the list of programs and libraries.
+  - "N settings files changed" opens the files, each with a `diff -u` view. Files only root can read say so. Merging is left to `sudo pacdiff` (copy button); Kyu does not write to `/etc`.
+- `kyu-update` prints the same facts after an update.
+- **Tests:**
+  - restart detection against fake `/proc` and modules trees (Rust unit tests, and the session test through `--proc-dir`/`--modules-dir`, session mode only)
+  - `.pacnew`/`.pacsave` parsing
+  - feed parsing (RSS and Atom), distro-to-feed mapping and `pacman.log` reading
+  - kyu-check with a local feed and a fake modules directory
+  - the panel's list and finished states, and the diff
+- Not done: news is not "only before big updates". It is shown whenever there are pacman updates and news newer than the last full upgrade. Arch's feed only carries announcements that matter for updates, so a size threshold seemed like guessing.
+
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").

@@ -4,6 +4,7 @@
 # because the helper clears the environment:
 #   mode   normal | nothing | fail | provider | conflict | replace | key | unknown
 #   delay  seconds per package (default 0)
+#   pacnew settings file to report a .pacnew for (default /etc/kyu-test.conf)
 dir=$(dirname "$0")
 mode=$(cat "$dir/mode" 2>/dev/null || echo normal)
 delay=$(cat "$dir/delay" 2>/dev/null || echo 0)
@@ -94,6 +95,10 @@ for p in $packages; do
         exit 1
     fi
 done
+if [ "$mode" = normal ]; then
+    pacnew=$(cat "$dir/pacnew" 2>/dev/null || echo /etc/kyu-test.conf)
+    echo "warning: $pacnew installed as $pacnew.pacnew" >&2
+fi
 echo ":: Running post-transaction hooks..."
 echo "(1/1) Arming ConditionNeedsUpdate..."
 exit 0

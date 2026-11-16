@@ -2,11 +2,13 @@
 
 A KDE-native updater for Arch-based systems: a tray icon showing the number of pending repo and Flatpak updates, and (in later milestones) a panel that applies them through a privileged helper. Design and milestones: [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
-Current state: milestone 5. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer.
+Current state: milestone 6. The tray icon shows pending repo and Flatpak updates, and clicking it opens the update panel: the list grouped by repo and remote, "Update all", live progress per package, and the output. A privileged helper runs `pacman -Syu`; then `kyu-flatpak` updates the Flatpaks through libflatpak in your session. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting either part, and picks the update up again when reopened, including a question still waiting for an answer. Before an update, the list marks the package of the running kernel ("restart") and shows the distro's news published since the last full upgrade. Afterwards, it says whether a restart is required, and why (running vs installed kernel, systemd using replaced libraries). It also lists the programs still running replaced libraries and the settings files pacman left as `.pacnew`/`.pacsave`, with a diff view.
 
-| List | Updating | Question | pacman output | Done |
-|---|---|---|---|---|
-| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-question.png) | ![](docs/screenshots/panel-output.png) | ![](docs/screenshots/panel-finished.png) |
+| List | Updating | Question | Output | Done | Settings file |
+|---|---|---|---|---|---|
+| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-question.png) | ![](docs/screenshots/panel-output.png) | ![](docs/screenshots/panel-finished.png) | ![](docs/screenshots/panel-diff.png) |
+
+The news items in the screenshots are sample data.
 
 The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stand-in for Kirigami (Breeze colours, Fusion controls). On Plasma the panel uses the real Kirigami, your colour scheme and Plasma's control style.
 
@@ -14,7 +16,7 @@ The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stan
 
 | Path | What it is |
 |---|---|
-| `src/checker` | `kyu-check`: runs `checkupdates` and libflatpak, writes `$XDG_STATE_HOME/kyu/updates.json`. Never needs root. |
+| `src/checker` | `kyu-check`: runs `checkupdates` and libflatpak, marks the running kernel's package, fetches the distro's news since the last full upgrade, writes `$XDG_STATE_HOME/kyu/updates.json`. Never needs root. |
 | `src/tray` | `kyu-tray`: StatusNotifierItem with the update count; reads the state file. |
 | `src/core` | Shared code: parsers, state file, checks. |
 | `helper` | `kyu-helper` (Rust): the only code that runs as root. D-Bus service behind polkit; runs `pacman -Syu`, streams progress, writes `/var/log/kyu/*.jsonl`. Protocol: [`docs/helper-protocol.md`](docs/helper-protocol.md). |

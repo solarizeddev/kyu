@@ -4,6 +4,7 @@
 #include "updatesmodel.h"
 
 #include <QDateTime>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
 #include <QVariantList>
@@ -33,6 +34,9 @@ class PanelController : public QObject
     Q_PROPERTY(QStringList checkProblems READ checkProblems NOTIFY changed)
     Q_PROPERTY(QString flatpakNote READ flatpakNote NOTIFY changed)
     Q_PROPERTY(bool canUpdate READ canUpdate NOTIFY changed)
+    Q_PROPERTY(QString newsTitle READ newsTitle NOTIFY changed)
+    Q_PROPERTY(QVariantList newsItems READ newsItems NOTIFY changed)
+    Q_PROPERTY(QString newsError READ newsError NOTIFY changed)
     Q_PROPERTY(bool starting READ starting NOTIFY changed)
     Q_PROPERTY(QString message READ message NOTIFY changed)
 
@@ -64,6 +68,11 @@ class PanelController : public QObject
     Q_PROPERTY(QString resultText READ resultText NOTIFY changed)
     Q_PROPERTY(QString resultDetails READ resultDetails NOTIFY changed)
     Q_PROPERTY(QVariantList changes READ changes NOTIFY changed)
+    Q_PROPERTY(bool restartRequired READ restartRequired NOTIFY changed)
+    Q_PROPERTY(QString restartReason READ restartReason NOTIFY changed)
+    Q_PROPERTY(QVariantList processes READ processes NOTIFY changed)
+    Q_PROPERTY(int processCount READ processCount NOTIFY changed)
+    Q_PROPERTY(QVariantList configs READ configs NOTIFY changed)
 
 public:
     explicit PanelController(QObject *parent = nullptr);
@@ -88,6 +97,9 @@ public:
     QStringList checkProblems() const;
     QString flatpakNote() const;
     bool canUpdate() const;
+    QString newsTitle() const;
+    QVariantList newsItems() const;
+    QString newsError() const;
     bool starting() const { return m_starting; }
     QString message() const { return m_message; }
 
@@ -118,6 +130,15 @@ public:
     QString resultText() const;
     QString resultDetails() const;
     QVariantList changes() const;
+    bool restartRequired() const;
+    QString restartReason() const;
+    QVariantList processes() const;
+    int processCount() const;
+    QVariantList configs() const;
+
+    // `diff -u PATH SAVED` as lines {text, kind: hunk/add/remove/context/header},
+    // or a single {text, kind: "error"} line.
+    Q_INVOKABLE QVariantList diff(const QString &path, const QString &saved) const;
 
 public Q_SLOTS:
     void setUpdateState(const Kyu::UpdateState &state, bool checking = false);
@@ -138,6 +159,9 @@ public Q_SLOTS:
     Q_INVOKABLE void followInTerminal();
     Q_INVOKABLE void answer(const QString &value);
     Q_INVOKABLE void cancelUpdate();
+    Q_INVOKABLE void restartNow();
+    Q_INVOKABLE void copyText(const QString &text);
+    Q_INVOKABLE void openLink(const QString &url);
 
 Q_SIGNALS:
     void changed();
@@ -203,6 +227,8 @@ private:
     QDateTime m_finishedAt;
     bool m_success = false;
     QString m_summary;
+    QJsonObject m_restart; // from the helper's finished record
+    QJsonArray m_configs;
     int m_exitCode = 0;
     bool m_haveExitCode = false;
 };

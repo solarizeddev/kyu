@@ -27,9 +27,20 @@ cp "$here/helper/fake-pacman" "$work/pacman"
 mode() { echo "$1" > "$work/mode"; }
 delay() { echo "$1" > "$work/delay"; }
 
+# Restart detection looks at a fake /proc and /usr/lib/modules: the running
+# kernel 6.18.20 was replaced by 6.18.22, and plasmashell maps a replaced library.
+mkdir -p "$work/proc/sys/kernel" "$work/proc/42" "$work/modules/6.18.22-1-MANJARO"
+echo 6.18.20-1-MANJARO >"$work/proc/sys/kernel/osrelease"
+echo "BOOT_IMAGE=/boot/vmlinuz-linux618 root=UUID=x rw" >"$work/proc/cmdline"
+echo plasmashell >"$work/proc/42/comm"
+echo "7f00-7f01 r--p 0 00:1f 9  /usr/lib/libQt6Core.so.6 (deleted)" >"$work/proc/42/maps"
+touch "$work/modules/6.18.22-1-MANJARO/vmlinuz"
+echo linux618 >"$work/modules/6.18.22-1-MANJARO/pkgbase"
+
 start_helper() {
     "$bin/kyu-helper" --session --pacman "$work/pacman" --db-lock "$work/db.lck" \
-        --log-dir "$work/logs" --idle-exit 600 "$@" 2>>"$work/helper.err" &
+        --log-dir "$work/logs" --idle-exit 600 --proc-dir "$work/proc" --modules-dir "$work/modules" \
+        "$@" 2>>"$work/helper.err" &
     helper_pid=$!
     i=0
     until "$bin/kyu-update" --session --state >/dev/null 2>&1; do
@@ -98,6 +109,14 @@ contains normal 'kyu: answered ":: Proceed with installation? [Y/n]" with y'
 contains normal 'upgrading mesa...'
 contains normal 'kyu: 3 upgraded'
 count normal 'upgrading kwin...' 1
+
+echo "after the update: restart facts and settings files"
+contains normal 'kyu: restart required: running kernel 6.18.20-1-MANJARO, installed 6.18.22-1-MANJARO'
+contains normal 'kyu: 1 program uses replaced libraries: plasmashell'
+contains normal 'kyu: /etc/kyu-test.conf.pacnew has new default settings for /etc/kyu-test.conf'
+contains normal 'kyu: to compare and merge: sudo pacdiff'
+absent normal 'systemd (PID 1)'
+tail -n 1 "$(ls "$work"/logs/*.jsonl | tail -n 1)" | grep -q '"required":true' || fail "finished record lacks restart.required"
 
 echo "log file is world-readable JSON lines ending in 'finished'"
 log=$(ls "$work"/logs/*.jsonl | tail -n 1)
@@ -238,6 +257,7 @@ echo "nothing to do"
 mode nothing
 expect_code 0 nothing
 contains nothing 'kyu: Nothing to do'
+absent nothing 'restart required'
 
 echo "--attach after the fact replays the finished transaction"
 expect_code 0 replay --attach

@@ -7,6 +7,8 @@ import org.kde.kirigami as Kirigami
 ColumnLayout {
     signal showOutput()
     signal showChanges()
+    signal showConfigs()
+    signal showProcesses()
     spacing: Kirigami.Units.largeSpacing * 2
 
     ColumnLayout {
@@ -50,15 +52,43 @@ ColumnLayout {
             id: doneColumn
             anchors.fill: parent
             anchors.margins: Kirigami.Units.gridUnit
+            QQC2.Label {
+                visible: Panel.restartRequired
+                text: Panel.restartReason
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                Layout.bottomMargin: Kirigami.Units.smallSpacing
+            }
             QQC2.Button {
-                text: "Done"
+                text: Panel.restartRequired ? "Restart now" : "Done"
                 highlighted: true
-                onClicked: Panel.done()
+                onClicked: Panel.restartRequired ? Panel.restartNow() : Panel.done()
                 Layout.fillWidth: true
                 Layout.preferredHeight: Kirigami.Units.gridUnit * 2.5
                 font.weight: Font.DemiBold
             }
+            QQC2.Button {
+                visible: Panel.restartRequired
+                text: "I will restart later"
+                flat: true
+                onClicked: Panel.done()
+                Layout.fillWidth: true
+            }
         }
+    }
+
+    LinkCard {
+        visible: Panel.configs.length > 0
+        title: Panel.configs.length === 1 ? "1 settings file changed" : Panel.configs.length + " settings files changed"
+        subtitle: "Optional. Compare yours with the new defaults"
+        onClicked: showConfigs()
+    }
+
+    LinkCard {
+        visible: Panel.processCount > 0
+        title: Panel.processCount === 1 ? "1 program uses replaced libraries" : Panel.processCount + " programs use replaced libraries"
+        subtitle: "They run the old versions until they restart"
+        onClicked: showProcesses()
     }
 
     Card {

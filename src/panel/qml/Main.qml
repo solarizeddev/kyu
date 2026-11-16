@@ -23,6 +23,15 @@ QQC2.ApplicationWindow {
     function showChanges() {
         stack.push(changesPage)
     }
+    function showConfigs() {
+        stack.push(configsPage)
+    }
+    function showDiff(path, saved) {
+        stack.push(diffPage, { path: path, saved: saved })
+    }
+    function showProcesses() {
+        stack.push(processesPage)
+    }
 
     Connections {
         target: Panel
@@ -55,8 +64,19 @@ QQC2.ApplicationWindow {
         FinishedScreen {
             onShowOutput: root.showOutput()
             onShowChanges: root.showChanges()
+            onShowConfigs: root.showConfigs()
+            onShowProcesses: root.showProcesses()
         }
     }
     Component { id: outputPage; OutputPage { onBack: stack.pop() } }
     Component { id: changesPage; ChangesPage { onBack: stack.pop() } }
+    Component {
+        id: configsPage
+        ConfigsPage {
+            onBack: stack.pop()
+            onShowDiff: (path, saved) => root.showDiff(path, saved)
+        }
+    }
+    Component { id: diffPage; DiffPage { onBack: stack.pop() } }
+    Component { id: processesPage; ProcessesPage { onBack: stack.pop() } }
 }
