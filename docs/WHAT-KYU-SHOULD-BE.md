@@ -119,6 +119,50 @@ there is a second user). Branch switching: unsupported; say so in the docs.
 | 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | missing | 1 |
 | 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |
 
+## Notifications
+
+Researched with Fable from Arch-Update's source and issues, Discover's
+history and KDE's guidelines (sources at the end).
+
+**What others do.** Arch-Update sends exactly one: "N updates available"
+with a "Run Arch-Update" button, whenever the list of pending updates differs
+from the last check, replacing the previous one instead of stacking. Users
+still feel nagged (on Arch the list changes at almost every check) and asked
+for "only some packages" or "once a day"; those requests were declined. Its
+buttons caused two regressions (a blocking `notify-send` left running). It has
+nothing for news, finished updates or errors. Discover made "Updates
+available" persistent in 2019 and then went back to non-persistent, because
+the tray already shows the state; it rate-limits with a timestamp and had a
+bug leaving the notification up after updating. KDE's guidelines: give every
+notification an urgency, think twice before sending low-importance ones, and
+make "must not miss" ones persistent.
+
+**What Kyu should notify.** Through KNotification with a `kyu.notifyrc`, so
+each kind can be switched off in System Settings → Notifications (Kyu needs no
+setting of its own). One notification per kind, replaced not stacked, closed
+when it no longer applies.
+
+| Kind | When | Text and button | Lasts |
+|---|---|---|---|
+| Updates | only when going from none to some, and at most once a day; never when the list only grows or shrinks | "8 updates: 6 packages, 2 Flatpaks", naming at most the notable ones (kernel, Plasma, Mesa, NVIDIA, systemd); **Update** | goes away by itself; closed when an update starts |
+| News | once per new announcement (Manjaro, or Arch news) | its title; **Read** | stays until dismissed (must not miss) |
+| Waiting for you | pacman or sudo is waiting for an answer while the Kyu window is not in front (the terminal part reports silence), plus the taskbar entry asks for attention | "The update is waiting for you"; **Show** | stays until answered |
+| Done | the update finished while the Kyu window was not in front | the verdict; **Restart** when a restart is needed | goes away by itself |
+| Failed | the update failed while the window was not in front | the one-sentence reason; **Show** | stays until dismissed |
+| Could not check | checks have failed for a whole day | "Could not check since yesterday 20:02" | goes away by itself |
+
+Never: every check, "checking", "up to date", a shrinking list.
+
+**Where Fable and I disagree.** Fable: done and failed need no notification,
+since they happen in the terminal you are looking at. Me: updates take
+minutes, people switch away; "waiting for you" matters most (a "Proceed?" or
+a password prompt behind other windows stalls the update without a sign), and
+done/failed only fire when the window is not in front. Both: one kind per
+event, replaced, and switchable in System Settings.
+
+Status: missing. Priority: "Waiting for you" and "News" 1; "Updates", "Done",
+"Failed" 2; "Could not check" 3 (with item 8).
+
 ## Compared with what exists
 
 Kyu's column is what it does today, tested only against a fake pacman.
@@ -166,5 +210,8 @@ update) first.
 - Apdatifier issues: https://github.com/exequtic/apdatifier/issues (e.g. #70, #149, #156, #161, #179, #230, #237, #165).
 - Octopi issues: https://github.com/aarnt/octopi/issues (#134, #306, #296, #434).
 - Discover/PackageKit on Arch: https://bugs.kde.org/show_bug.cgi?id=450381, https://bugs.kde.org/show_bug.cgi?id=438129.
+- Notifications: Arch-Update `src/lib/notification.sh`, `src/lib/check.sh`, issues #133, #297, #400, #786, #592, #499, #643, #367, #575;
+  Discover: https://commits.kde.org/discover/b9bf6a37ef6f99a3bcf5296bbc67f3820feae5b9, https://bugs.kde.org/show_bug.cgi?id=443351;
+  KDE HIG: https://develop.kde.org/hig/status_changes/.
 - matray: https://www.github.com/moson-mo/matray; arch-smart-update-checker: https://aur.archlinux.org/packages/arch-smart-update-checker.
 - Forum threads on discuss.cachyos.org, forum.endeavouros.com and discuss.kde.org were seen only as search snippets (blocked from this session); Reddit was not searched.
