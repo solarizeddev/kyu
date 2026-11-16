@@ -28,8 +28,15 @@ echo ""
 printf ':: Proceed with installation? [Y/n] '
 read -r answer || exit 1 # no answer: as if interrupted
 case "$answer" in n|N) exit 1 ;; esac
-[ "${KYU_FAKE_MODE:-}" = slow ] && sleep 3
 echo ":: Retrieving packages..."
+if [ "${KYU_FAKE_MODE:-}" = slow ]; then
+    # A download line redrawn in place, as pacman's progress bar is.
+    for p in 10 35 60 85; do
+        printf '\r mesa-1:26.2.3-1-x86_64      %3s MiB  %s%%' $((p / 4)) "$p"
+        sleep 0.75
+    done
+    printf '\r mesa-1:26.2.3-1-x86_64       25 MiB  100%%\n'
+fi
 if [ "${KYU_FAKE_MODE:-}" = keyring ]; then
     echo "(2/2) checking keys in keyring"
     echo "error: mesa: signature from \"Someone <s@example.org>\" is unknown trust" >&2

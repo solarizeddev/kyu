@@ -15,38 +15,16 @@ fail() { echo "FAIL: $*"; fails=$((fails + 1)); }
 has() { grep -qF -- "$2" "$1" || { fail "$3: expected '$2' in output"; sed 's/^/    /' "$1"; }; }
 hasnt() { if grep -qF -- "$2" "$1"; then fail "$3: did not expect '$2'"; sed 's/^/    /' "$1"; fi; }
 
-state() { # FILE PACKAGES FLATPAKS NEWS(0/1)
-    news=""
-    [ "$4" = 1 ] && news='"items":[{"title":"Manual intervention for foo","link":"https://archlinux.org/news/foo/","published":"2099-01-01T00:00:00Z"}],'
-    pk=""; i=0
-    while [ $i -lt "$2" ]; do pk="$pk${pk:+,}{\"name\":\"p$i\",\"repo\":\"core\",\"oldVersion\":\"1\",\"newVersion\":\"2\",\"size\":1}"; i=$((i + 1)); done
-    fp=""; i=0
-    while [ $i -lt "$3" ]; do fp="$fp${fp:+,}{\"name\":\"org.x.App$i\",\"kind\":\"app\",\"branch\":\"stable\",\"origin\":\"flathub\",\"installation\":\"user\"}"; i=$((i + 1)); done
-    cat >"$1" <<JSON
-{"formatVersion":1,"checkedAt":"2026-11-16T10:00:00Z",
- "pacman":{"checked":true,"ok":true,"checkedAt":"2026-11-16T10:00:00Z"},
- "flatpak":{"checked":true,"ok":true,"checkedAt":"2026-11-16T10:00:00Z"},
- "packages":[$pk],"flatpaks":[$fp],
- "news":{"checked":true,"ok":true,$news"source":"Arch Linux news","url":"https://archlinux.org/feeds/news/","page":"https://archlinux.org/news/"}}
-JSON
-}
+. "$here/update/fake-system.sh"
+state() { fake_state "$@"; }
 
 # run NAME INPUT [kyu-update args...]: a fresh fake system per run.
 run() {
     name=$1; input=$2; shift 2
     d="$work/$name"
-    mkdir -p "$d/state" "$d/proc/sys/kernel" "$d/modules/6.18.22-1-MANJARO"
-    : >"$d/pacman.log"
-    # Manjaro's layout: the image is named by kernelbase, not pkgbase.
-    echo "${RUNNING:-6.18.20-1-MANJARO}" >"$d/proc/sys/kernel/osrelease"
-    echo "BOOT_IMAGE=/boot/vmlinuz-6.18-x86_64 rw" >"$d/proc/cmdline"
-    touch "$d/modules/6.18.22-1-MANJARO/vmlinuz"
-    echo linux618 >"$d/modules/6.18.22-1-MANJARO/pkgbase"
-    echo 6.18-x86_64 >"$d/modules/6.18.22-1-MANJARO/kernelbase"
-    [ -f "$d/state.json" ] || state "$d/state.json" 2 1 0
+    fake_system "$d"
     printf "$input" | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 \
-        timeout 30 "$bin/kyu-update" --no-wait --no-check --state-file "$d/state.json" --pacman-log "$d/pacman.log" \
-        --db-lock "$d/db.lck" --proc-dir "$d/proc" --modules-dir "$d/modules" "$@" >"$d/out" 2>&1
+        timeout 30 "$bin/kyu-update" --no-wait $(fake_args "$d") "$@" >"$d/out" 2>&1
     echo $? >"$d/code"
 }
 prepare() { mkdir -p "$work/$1"; }

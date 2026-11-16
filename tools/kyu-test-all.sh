@@ -1,14 +1,15 @@
 #!/bin/sh
-# One command for the first test on a real system. Builds Kyu, runs the
-# automated tests, screenshots every screen of the panel across colour
-# schemes, window sizes, fonts and scale factors (simulated system: nothing on
-# your machine changes, no root), notes versions of the relevant packages,
-# and packs everything into one zip to send back.
+# One command for a test on a real system. Builds Kyu, runs the automated
+# tests, screenshots kyu-update in real Konsole windows for every outcome,
+# in your profile, Konsole's colour schemes and window sizes (a fake system:
+# fake sudo, pacman and flatpak; nothing on your machine changes, no root),
+# keeps the text of each run, notes versions and the facts kyu-update reads
+# (kernel module directory, boot image, pamac), and packs it into one zip.
 #
 #   tools/kyu-test-all.sh                  writes ~/kyu-test.zip
 #   tools/kyu-test-all.sh /path/name.zip   writes that zip
 #
-# Takes about 20 minutes. Windows open and close by themselves while the
+# Takes about 5 minutes (PANEL=1 adds the old panel's screenshots, 15 more). Windows open and close by themselves while the
 # screenshots run: leave the desktop alone. Your home directory, user name
 # and the checkout's path are replaced in the logs. Environment: SCHEMES (see
 # tools/kyu-screens.sh), BUILD (build directory, default ./build),
@@ -45,9 +46,25 @@ step "System"
     fi
     command -v kscreen-doctor >/dev/null && { echo "screens:"; kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | grep -E 'Output|Geometry|Scale|Modes' | sed 's/^/  /'; }
     echo "colour schemes installed: $(ls /usr/share/color-schemes "$HOME/.local/share/color-schemes" 2>/dev/null | sed -n 's/\.colors$//p' | sort -u | tr '\n' ' ')"
+    echo "kyu-update reads:"
+    echo "  running kernel: $(uname -r)"
+    echo "  its module directory: $(ls /usr/lib/modules/"$(uname -r)"/ 2>&1 | grep -E '^(vmlinuz|pkgbase|kernelbase|modules.dep)$|No such' | tr '\n' ' ')"
+    for m in /usr/lib/modules/*/; do
+        [ -d "$m" ] || continue
+        echo "  $(basename "$m"): pkgbase=$(cat "$m/pkgbase" 2>/dev/null) kernelbase=$(cat "$m/kernelbase" 2>/dev/null) vmlinuz=$([ -f "$m/vmlinuz" ] && echo yes || echo no)"
+    done
+    echo "  boot image: $(tr ' ' '\n' </proc/cmdline | grep '^BOOT_IMAGE=')"
+    echo "  package managers running: $(pgrep -l 'pamac|packagekit|^pacman$' | tr '\n' ' ')"
+    echo "  pacman.log readable: $([ -r /var/log/pacman.log ] && echo yes || echo no)"
+    echo "  shell: $SHELL; sudo: $(command -v sudo || echo none); doas: $(command -v doas || echo none)"
+    if command -v kreadconfig6 >/dev/null; then
+        profile=$(kreadconfig6 --file konsolerc --group "Desktop Entry" --key DefaultProfile)
+        echo "  konsole profile: ${profile:-(built-in)}, colour scheme: $( [ -n "$profile" ] && kreadconfig6 --file "$HOME/.local/share/konsole/$profile" --group Appearance --key ColorScheme)"
+    fi
     echo "packages:"
     pacman -Q qt6-base qt6-declarative qt6-wayland kirigami qqc2-desktop-style kstatusnotifieritem kwindowsystem kconfig \
         plasma-workspace plasma-integration libkscreen breeze flatpak pacman pacman-contrib polkit dbus \
+        konsole spectacle util-linux sudo pamac-gtk pamac-cli \
         rust cmake ninja corrosion imagemagick 2>&1 | sed 's/^/  /'
 } >"$out/system.txt" 2>&1
 cat "$out/system.txt"
@@ -71,11 +88,24 @@ if [ "$status" = ok ]; then
     ctest --test-dir "$build" --output-on-failure >"$out/ctest.log" 2>&1 || status="tests failed"
     tail -n 4 "$out/ctest.log"
 
-    step "Screenshots of both looks (screens/, about 15 minutes; one line per screenshot)"
-    BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
-        "$src/tools/kyu-screens.sh" "$out/screens" 2>&1 | tee "$out/screens.log"
-    if grep -q FAILED "$out/screens.log"; then
+    step "kyu-update runs, as text (transcripts/)"
+    mkdir -p "$out/transcripts" "$stage/tmp"
+    TMPDIR="$stage/tmp" KEEP=1 sh "$src/tests/kyu_update_test.sh" "$build/bin" >"$out/transcripts/test.log" 2>&1 || status="kyu-update test failed"
+    for f in "$stage"/tmp/*/*/out; do
+        [ -f "$f" ] && cp "$f" "$out/transcripts/$(basename "$(dirname "$f")").txt"
+    done
+    tail -n 1 "$out/transcripts/test.log"
+
+    step "kyu-update in Konsole (screens/, about 4 minutes; one line per screenshot)"
+    BUILD="$build" "$src/tools/kyu-update-screens.sh" "$out/screens" 2>&1 | tee "$out/screens-run.log"
+    if ! grep -q '^done:' "$out/screens/screens.log" 2>/dev/null || grep -q FAILED "$out/screens/screens.log"; then
         [ "$status" = ok ] && status="screenshots failed" || status="$status, screenshots failed"
+    fi
+
+    if [ -n "${PANEL:-}" ]; then
+        step "Screenshots of the old panel (panel-screens/, about 15 minutes)"
+        BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
+            "$src/tools/kyu-screens.sh" "$out/panel-screens" 2>&1 | tee "$out/panel-screens.log"
     fi
 fi
 echo "result: $status" >>"$out/system.txt"
@@ -83,7 +113,7 @@ echo "result: $status" >>"$out/system.txt"
 # Your home directory, user name and the checkout's path stay out of the
 # zip's text files. (Literal replacements: no regex characters involved.)
 user=$(id -un)
-for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log; do
+for f in "$out"/*.log "$out"/*.txt "$out"/screens/*.log "$out"/screens/*.json "$out"/transcripts/*; do
     [ -f "$f" ] || continue
     KYU_SRC="$src" KYU_HOME="$HOME" KYU_USER="$user" awk '
         function swap(s, from, to,   i, r) {
