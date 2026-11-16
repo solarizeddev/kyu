@@ -21,7 +21,9 @@
 #   BUILD=dir              build directory (default ./build)
 #
 # Theme, font and scale apply only to the panel: they use a private copy of
-# your kdeglobals and do not change your desktop.
+# your kdeglobals and do not change your desktop. (With SCHEME or FONT_PT,
+# programs opened from the panel, such as a browser for a news link, inherit
+# that private config directory too: close them before the panel.)
 set -eu
 src=$(cd "$(dirname "$0")/.." && pwd)
 demo="$src/tools/demo"
@@ -96,7 +98,7 @@ case "$scenario" in
 esac
 shot=${SHOT_DELAY:-$shot}
 
-bin=$(realpath "${BUILD:-$src/build}")/bin
+bin=$(realpath -m "${BUILD:-$src/build}")/bin
 [ -x "$bin/kyu" ] && [ -x "$bin/kyu-helper" ] || { echo "kyu-demo: build first (cmake --build ${BUILD:-build})" >&2; exit 1; }
 command -v dbus-run-session >/dev/null || { echo "kyu-demo: needs dbus-run-session (package dbus)" >&2; exit 1; }
 command -v flatpak >/dev/null || { echo "kyu-demo: needs flatpak" >&2; exit 1; }
@@ -104,17 +106,23 @@ preview=
 QT_QPA_PLATFORM=offscreen "$bin/kyu" --help 2>/dev/null | grep -q -- '--dark' && preview=1
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/kyu-demo.XXXXXX")
-trap 'rm -rf "$work"' EXIT INT TERM
+trap 'rm -rf "$work"' EXIT
+trap 'exit 130' INT TERM
 
 # --- Simulated system -----------------------------------------------------
-mkdir -p "$work/state/kyu" "$work/fake"
-export FLATPAK_USER_DIR="$work/flatpak-user" FLATPAK_SYSTEM_DIR="$work/flatpak-system"
+mkdir -p "$work/state/kyu" "$work/fake" "$work/flatpak-config"
+export XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache"
+# Only the throwaway installations: FLATPAK_CONFIG_DIR hides any extra
+# system installations configured in /etc/flatpak/installations.d.
+export FLATPAK_USER_DIR="$work/flatpak-user" FLATPAK_SYSTEM_DIR="$work/flatpak-system" FLATPAK_CONFIG_DIR="$work/flatpak-config"
 . "$src/tests/flatpak/make-repo.sh"
-make_repo "$work" flathub
-case "$state" in state-empty.json) ;; *)
-    publish "$work" org.kyu.Test.App 2
-    publish "$work" "$KYU_TEST_RUNTIME" 2 ;;
-esac
+{
+    make_repo "$work" flathub &&
+    case "$state" in state-empty.json) ;; *)
+        publish "$work" org.kyu.Test.App 2 &&
+        publish "$work" "$KYU_TEST_RUNTIME" 2 ;;
+    esac
+} || { echo "kyu-demo: could not set up the test Flatpak repository (flatpak build-export / install failed)" >&2; exit 1; }
 cp "$demo/$state" "$work/state/kyu/updates.json"
 cp "$demo/${after:-$state}" "$work/after.json"
 cp "$src/tests/helper/fake-pacman" "$work/fake/pacman"
@@ -190,20 +198,24 @@ out=
 [ -n "${OUT:-}" ] && { out=$(realpath -m "$OUT"); mkdir -p "$(dirname "$out")"; args="$args --screenshot $out --delay $shot"; }
 
 # --- Run ------------------------------------------------------------------
-export XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache" KYU_NO_SYSTEMD=1 \
-    KYU_CHECK="$demo/fake-kyu-check" KYU_DEMO_AFTER="$work/after.json"
+# No portal on the private bus: links open through xdg-open.
+export KYU_NO_SYSTEMD=1 KYU_CHECK="$demo/fake-kyu-check" KYU_DEMO_AFTER="$work/after.json" QT_NO_XDG_DESKTOP_PORTAL=1
 # shellcheck disable=SC2086 # $args is a list of words
 dbus-run-session -- sh -c '
     work=$1; bin=$2; out=$3; shift 3
     "$bin/kyu-helper" --session --pacman "$work/fake/pacman" --db-lock "$work/db.lck" --log-dir "$work/logs" \
         --proc-dir "$work/proc" --modules-dir "$work/modules" 2>"$work/helper.err" &
     helper=$!
-    sleep 0.5
-    if [ -n "$out" ]; then timeout 90 "$bin/kyu" --session-bus "$@"; else "$bin/kyu" --session-bus "$@"; fi
-    code=$?
-    # SIGKILL: on SIGTERM the helper waits for a running update to finish.
-    kill -9 "$helper" 2>/dev/null
-    exit $code
+    # SIGKILL, also on Ctrl+C: on SIGTERM the helper waits for a running
+    # update to finish.
+    trap "kill -9 $helper 2>/dev/null" EXIT
+    trap "exit 130" INT TERM
+    if command -v gdbus >/dev/null; then
+        gdbus wait --session --timeout 10 io.github.solarizeddev.kyu.Helper || echo "kyu-demo: the test helper did not start" >&2
+    else
+        sleep 1
+    fi
+    if [ -n "$out" ]; then timeout --foreground 90 "$bin/kyu" --session-bus "$@"; else "$bin/kyu" --session-bus "$@"; fi
 ' sh "$work" "$bin" "$out" $args "$@" 2>&1 | grep -v -e 'fd limit' -e XDG_RUNTIME_DIR -e propagateSizeHints -e '^kyu-flatpak: ' || true
 if [ -n "$out" ]; then
     [ -f "$out" ] && echo "wrote $out" || { echo "kyu-demo: no screenshot for $scenario" >&2; exit 1; }

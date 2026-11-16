@@ -23,7 +23,9 @@ fail() {
     exit 1
 }
 
-export FLATPAK_USER_DIR="$work/user" FLATPAK_SYSTEM_DIR="$work/system" XDG_STATE_HOME="$work/state"
+# FLATPAK_CONFIG_DIR: no extra system installations from /etc/flatpak.
+mkdir -p "$work/config"
+export FLATPAK_USER_DIR="$work/user" FLATPAK_SYSTEM_DIR="$work/system" FLATPAK_CONFIG_DIR="$work/config" XDG_STATE_HOME="$work/state"
 . "$here/flatpak/make-repo.sh"
 make_repo "$work"
 flatpak --user list --columns=application | grep -q org.kyu.Test.App || fail "test installation not set up"

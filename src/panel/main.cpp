@@ -95,7 +95,13 @@ int main(int argc, char **argv)
     }
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
     QObject::connect(&instance, &SingleInstance::activated, &panel, [&panel, window]([[maybe_unused]] const QString &token) {
-        Q_EMIT panel.activateRequested(); // show and raise (Main.qml)
+#ifndef KYU_HAVE_KWINDOWSYSTEM
+        // Qt's Wayland plugin uses this for the next requestActivate().
+        if (!token.isEmpty()) {
+            qputenv("XDG_ACTIVATION_TOKEN", token.toUtf8());
+        }
+#endif
+        Q_EMIT panel.activateRequested(); // show, raise, requestActivate (Main.qml)
 #ifdef KYU_HAVE_KWINDOWSYSTEM
         // On Wayland, focus needs the tray click's activation token.
         if (window && !token.isEmpty()) {

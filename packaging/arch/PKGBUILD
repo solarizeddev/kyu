@@ -2,8 +2,10 @@
 # real system. Not an AUR package: it has no source=() and uses the working
 # tree as it is (including uncommitted changes).
 #
-#   cd packaging/arch && makepkg -si          build, run the tests, install
-#   makepkg -si --nocheck                     skip the tests
+#   cd packaging/arch && makepkg -sif         build, run the tests, install
+#   makepkg -sif --nocheck                    skip the tests
+# (-f rebuilds even when a package of this version was built before: the
+# version does not change with your edits.)
 #   sudo pacman -R kyu-git                    remove it again
 
 pkgname=kyu-git
@@ -28,17 +30,12 @@ depends=(
     qt6-base
     qt6-declarative
 )
-makedepends=(cmake corrosion git ninja rust)
+makedepends=(cmake corrosion ninja rust)
 checkdepends=(flatpak)
 provides=(kyu)
 conflicts=(kyu)
 
 _root=$(realpath "$startdir/../..")
-
-pkgver() {
-    cd "$_root"
-    printf '0.1.0.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cmake -S "$_root" -B build -G Ninja \

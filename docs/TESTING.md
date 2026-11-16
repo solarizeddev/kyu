@@ -150,10 +150,10 @@ cd packaging/arch
 ```
 
 ```bash
-makepkg -si
+makepkg -sif
 ```
 
-Add `--nocheck` if the tests already ran in part 2. To remove Kyu later:
+Add `--nocheck` if the tests already ran in part 2. `-f` rebuilds after every change: the package version does not change with your edits. To remove Kyu later:
 
 ```bash
 sudo pacman -R kyu-git
@@ -227,7 +227,7 @@ Then later, when updates are pending, from the tray: click the icon, then "Updat
 
 ### Tray icon
 
-Plasma colours the icon for the panel it sits in. Check it on a light panel and on a dark one, for example with the Breeze Twilight global theme. Check the count overlay and the tooltip. Also open the panel, cover it with another window, then click the tray icon: the panel should come to the front with focus (on Wayland this needs `kwindowsystem`).
+Plasma colours the icon for the panel it sits in. Check it on a light panel and on a dark one, for example with the Breeze Twilight global theme. Check that the number of updates shows on the icon: it is drawn as an overlay so that Plasma can colour the icon for the panel, and it is not yet known whether Plasma shows that overlay. Check the tooltip too. Also open the panel, cover it with another window, then click the tray icon: the panel should come to the front with focus (on Wayland this needs `kwindowsystem`).
 
 ## What to send back
 

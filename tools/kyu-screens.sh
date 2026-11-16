@@ -40,9 +40,11 @@ shot() { # NAME SCENARIO [VAR=value...]
 
 sheet() { # PREFIX
     command -v montage >/dev/null || return 0
-    set -- "$out/$1"-*.png
+    prefix=$1
+    set -- "$out/$prefix"-*.png
     [ -e "$1" ] || return 0
-    montage "$@" -label '%t' -geometry '+8+8' -tile 6x -pointsize 14 -background '#888' "$out/sheet-$(basename "$1" | cut -d- -f1).png" 2>/dev/null
+    montage -label '%t' -pointsize 14 "$@" -geometry '+8+8' -tile 6x -background '#888' "$out/sheet-$prefix.png" \
+        || echo "(could not make sheet-$prefix.png)"
 }
 
 for s in $sections; do
