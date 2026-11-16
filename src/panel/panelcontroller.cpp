@@ -265,13 +265,10 @@ QString PanelController::newsText() const
         return {};
     }
     const auto &items = m_state.news.items;
-    if (!items.isEmpty()) {
-        return QStringLiteral("%1 since your last upgrade: %2 · %3").arg(m_state.news.source).arg(items.size()).arg(items.first().title);
+    if (items.isEmpty()) {
+        return {};
     }
-    if (m_state.news.url.isEmpty() && !m_state.news.page.isEmpty()) {
-        return m_state.news.source; // a link-only source (Manjaro)
-    }
-    return {};
+    return QStringLiteral("%1 since your last upgrade: %2 · %3").arg(m_state.news.source).arg(items.size()).arg(items.first().title);
 }
 
 QString PanelController::newsSource() const
@@ -279,11 +276,7 @@ QString PanelController::newsSource() const
     if (newsText().isEmpty()) {
         return {};
     }
-    const auto &items = m_state.news.items;
-    if (items.isEmpty()) {
-        return QStringLiteral("Update notes, opens in the browser");
-    }
-    return QStringLiteral("%1 · %2 since your last upgrade").arg(m_state.news.source).arg(items.size());
+    return QStringLiteral("%1 · %2 since your last upgrade").arg(m_state.news.source).arg(m_state.news.items.size());
 }
 
 QString PanelController::newsHeadline() const
@@ -291,8 +284,7 @@ QString PanelController::newsHeadline() const
     if (newsText().isEmpty()) {
         return {};
     }
-    const auto &items = m_state.news.items;
-    return items.isEmpty() ? m_state.news.source : items.first().title;
+    return m_state.news.items.first().title;
 }
 
 QString PanelController::newsUrl() const

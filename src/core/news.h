@@ -16,18 +16,20 @@ struct NewsItem {
 
 struct NewsSource {
     QString name; // "Arch Linux news"
-    QString url; // feed to fetch; empty: link only, nothing is fetched
+    QString url; // feed to fetch
     QString page; // the web page people read
 };
 
 // Picks the distro's news from /etc/os-release. Arch and Arch-based distros
 // that use Arch's packages (ID_LIKE=arch: CachyOS, EndeavourOS) get Arch's
-// news feed, the "manual intervention" channel. Manjaro gets only a link to
-// its branch's update announcements (branch from /etc/pacman-mirrors.conf):
-// it posts one per update batch, and Arch's news is mistimed for its delayed
-// branches, so nothing is fetched. Other distributions: none.
+// news feed, the "manual intervention" channel. Manjaro gets its branch's
+// update announcements (branch from /etc/pacman-mirrors.conf; the ARM
+// categories on arm64): one post per update batch, with what changed and the
+// known issues. Arch's news is mistimed for Manjaro's delayed branches. Other
+// distributions: none (empty name).
 NewsSource newsSourceFor(const QString &osReleasePath = QStringLiteral("/etc/os-release"),
-                         const QString &mirrorsConfPath = QStringLiteral("/etc/pacman-mirrors.conf"));
+                         const QString &mirrorsConfPath = QStringLiteral("/etc/pacman-mirrors.conf"),
+                         const QString &cpuArchitecture = QString());
 
 // When the last full system upgrade that completed started, from pacman.log:
 // a "[PACMAN] starting full system upgrade" line followed by "[ALPM]
@@ -51,7 +53,6 @@ struct NewsResult {
 };
 
 // Fetches the feed (http(s) or file URL), keeps items published since the
-// last full upgrade (or the last 30 days when pacman.log has none). A source
-// without a feed is not fetched: ok, no items.
+// last full upgrade (or the last 30 days when pacman.log has none).
 NewsResult fetchNews(const NewsSource &source, const QDateTime &since, int timeoutMs = 20000);
 }

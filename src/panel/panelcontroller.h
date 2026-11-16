@@ -111,7 +111,7 @@ public:
     QString commandPreview() const;
     bool canUpdate() const;
     // One line, only with pending pacman updates: Arch news since the last
-    // full upgrade (count and newest title), or Manjaro's announcements link.
+    // full upgrade (count and newest title), Arch's news or Manjaro's update announcements.
     QString newsText() const;
     QString newsUrl() const;
     // newsText in two parts: what and how many ("Arch Linux news · 2 since

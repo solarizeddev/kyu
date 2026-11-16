@@ -48,7 +48,7 @@ QDateTime parseDate(const QString &text)
 }
 }
 
-NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsConfPath)
+NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsConfPath, const QString &cpuArchitecture)
 {
     const auto os = keyValues(osReleasePath, QLatin1Char('='));
     const QString id = os.value(QStringLiteral("ID"));
@@ -57,9 +57,16 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
         if (branch != QLatin1String("testing") && branch != QLatin1String("unstable")) {
             branch = QStringLiteral("stable");
         }
-        // Not verified from the development environment: check in a browser.
-        return {QStringLiteral("Manjaro %1 update announcements").arg(branch), QString(),
-                QStringLiteral("https://forum.manjaro.org/c/announcements/%1-updates").arg(branch)};
+        // Discourse category ids, as in Manjaro's own news app
+        // (github.com/oguzkaganeren/manjaro-app, NewsScreen.tsx).
+        const QString cpu = cpuArchitecture.isEmpty() ? QSysInfo::currentCpuArchitecture() : cpuArchitecture;
+        const bool arm = cpu == QLatin1String("arm64");
+        const int id = arm ? (branch == QLatin1String("testing") ? 80 : branch == QLatin1String("unstable") ? 81 : 79)
+                           : (branch == QLatin1String("testing") ? 13 : branch == QLatin1String("unstable") ? 15 : 12);
+        const QString page = QStringLiteral("https://forum.manjaro.org/c/%1/%2-updates/%3")
+                                 .arg(arm ? QStringLiteral("arm") : QStringLiteral("announcements"), branch)
+                                 .arg(id);
+        return {QStringLiteral("Manjaro %1%2 updates").arg(arm ? QStringLiteral("ARM ") : QString(), branch), page + QStringLiteral(".rss"), page};
     }
     if (id == QLatin1String("arch") || os.value(QStringLiteral("ID_LIKE")).split(QLatin1Char(' ')).contains(QLatin1String("arch"))) {
         return {QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/"), QStringLiteral("https://archlinux.org/news/")};
@@ -157,7 +164,7 @@ NewsResult fetchNews(const NewsSource &source, const QDateTime &since, int timeo
     result.source = source;
     result.since = since.isValid() ? since : QDateTime::currentDateTimeUtc().addDays(-30);
     if (source.url.isEmpty()) {
-        result.ok = true; // a link-only source: nothing to fetch
+        result.error = QStringLiteral("no news source");
         return result;
     }
 

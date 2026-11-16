@@ -420,13 +420,17 @@ private Q_SLOTS:
         c.setUpdateState(s);
         QVERIFY(c.newsText().isEmpty());
 
-        // Manjaro: a link only, nothing fetched.
+        // Manjaro: the branch's update announcement.
         s = sample();
-        s.news = {true, true, {}, {}, QStringLiteral("Manjaro stable update announcements"), QString(),
-                  QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"), {}, {}};
+        s.news = {true, true, {}, {}, QStringLiteral("Manjaro stable updates"),
+                  QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12.rss"),
+                  QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12"), {},
+                  {{QStringLiteral("[Stable Update] 2026-11-12 - Kernels, Plasma"), QStringLiteral("https://forum.manjaro.org/t/stable-update/190001"),
+                    QDateTime(QDate(2026, 11, 12), QTime(9, 0), Qt::UTC)}}};
         c.setUpdateState(s);
-        QCOMPARE(c.newsText(), QStringLiteral("Manjaro stable update announcements"));
-        QCOMPARE(c.newsUrl(), QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"));
+        QCOMPARE(c.newsSource(), QStringLiteral("Manjaro stable updates · 1 since your last upgrade"));
+        QCOMPARE(c.newsHeadline(), QStringLiteral("[Stable Update] 2026-11-12 - Kernels, Plasma"));
+        QCOMPARE(c.newsUrl(), QStringLiteral("https://forum.manjaro.org/t/stable-update/190001"));
 
         // Nothing new: no line at all.
         s = sample();

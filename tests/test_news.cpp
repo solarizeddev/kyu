@@ -53,6 +53,35 @@ private Q_SLOTS:
         QCOMPARE(items[0].published.date(), QDate(2026, 11, 15)); // published, not updated
     }
 
+    void discourseRss()
+    {
+        // The shape of a Discourse category feed (forum.manjaro.org).
+        const QByteArray xml =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
+            "<rss version=\"2.0\" xmlns:discourse=\"http://www.discourse.org/\" xmlns:atom=\"http://www.w3.org/2005/Atom\" "
+            "xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n<channel>\n"
+            "<title>Stable Updates - Manjaro Linux Forum</title>\n"
+            "<link>https://forum.manjaro.org/c/announcements/stable-updates/12</link>\n"
+            "<description>Topics in the 'Stable Updates' category</description>\n"
+            "<atom:link href=\"https://forum.manjaro.org/c/announcements/stable-updates/12.rss\" rel=\"self\" type=\"application/rss+xml\" />\n"
+            "<item>\n<title>[Stable Update] 2026-11-12 - Kernels, Plasma, Mesa</title>\n"
+            "<dc:creator><![CDATA[philm]]></dc:creator>\n<category>Stable Updates</category>\n"
+            "<description><![CDATA[<p>Hello community, <title>not a title</title></p>]]></description>\n"
+            "<link>https://forum.manjaro.org/t/stable-update-2026-11-12-kernels-plasma-mesa/190001</link>\n"
+            "<pubDate>Thu, 12 Nov 2026 09:30:00 +0000</pubDate>\n"
+            "<discourse:topicPinned>Yes</discourse:topicPinned>\n"
+            "<guid isPermaLink=\"false\">forum.manjaro.org-topic-190001</guid>\n"
+            "<source url=\"https://forum.manjaro.org/t/stable-update-2026-11-12-kernels-plasma-mesa/190001.rss\">[Stable Update] 2026-11-12</source>\n"
+            "</item>\n</channel>\n</rss>\n";
+        QString error;
+        const auto items = parseFeed(xml, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(items.size(), 1);
+        QCOMPARE(items[0].title, QStringLiteral("[Stable Update] 2026-11-12 - Kernels, Plasma, Mesa"));
+        QCOMPARE(items[0].link, QStringLiteral("https://forum.manjaro.org/t/stable-update-2026-11-12-kernels-plasma-mesa/190001"));
+        QCOMPARE(items[0].published, QDateTime(QDate(2026, 11, 12), QTime(9, 30), Qt::UTC));
+    }
+
     void sourceByDistro()
     {
         QTemporaryDir dir;
@@ -60,16 +89,24 @@ private Q_SLOTS:
         QCOMPARE(newsSourceFor(write(dir, "eos", "ID=endeavouros\nID_LIKE=arch\n")).name, QStringLiteral("Arch Linux news"));
         QCOMPARE(newsSourceFor(write(dir, "cachy", "ID=cachyos\nID_LIKE=\"arch\"\n")).name, QStringLiteral("Arch Linux news"));
         const QString manjaro = write(dir, "manjaro", "ID=manjaro\nID_LIKE=arch\n");
-        // Manjaro: a link to the branch's announcements, no feed to fetch.
-        QVERIFY(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))).url.isEmpty());
-        QCOMPARE(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))).page,
-                 QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates"));
-        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors", "# comment\nBranch = testing\n")).page,
-                 QStringLiteral("https://forum.manjaro.org/c/announcements/testing-updates"));
-        const auto linkOnly = fetchNews(newsSourceFor(manjaro, dir.filePath(QStringLiteral("none"))), {});
-        QVERIFY(linkOnly.ok);
-        QVERIFY(linkOnly.items.isEmpty());
-        QVERIFY(newsSourceFor(write(dir, "ubuntu", "ID=ubuntu\nID_LIKE=debian\n")).url.isEmpty());
+        // Manjaro: the branch's update announcements (stable without a mirrors file).
+        const QString none = dir.filePath(QStringLiteral("none"));
+        const auto stable = newsSourceFor(manjaro, none, QStringLiteral("x86_64"));
+        QCOMPARE(stable.name, QStringLiteral("Manjaro stable updates"));
+        QCOMPARE(stable.url, QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12.rss"));
+        QCOMPARE(stable.page, QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12"));
+        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors", "# comment\nBranch = testing\n"), QStringLiteral("x86_64")).url,
+                 QStringLiteral("https://forum.manjaro.org/c/announcements/testing-updates/13.rss"));
+        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors-u", "Branch = unstable\n"), QStringLiteral("x86_64")).url,
+                 QStringLiteral("https://forum.manjaro.org/c/announcements/unstable-updates/15.rss"));
+        QCOMPARE(newsSourceFor(manjaro, write(dir, "mirrors-x", "Branch = arm-stable\n"), QStringLiteral("x86_64")).url,
+                 QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12.rss"));
+        const auto arm = newsSourceFor(manjaro, none, QStringLiteral("arm64"));
+        QCOMPARE(arm.name, QStringLiteral("Manjaro ARM stable updates"));
+        QCOMPARE(arm.url, QStringLiteral("https://forum.manjaro.org/c/arm/stable-updates/79.rss"));
+        QCOMPARE(newsSourceFor(manjaro, dir.filePath(QStringLiteral("mirrors")), QStringLiteral("arm64")).url,
+                 QStringLiteral("https://forum.manjaro.org/c/arm/testing-updates/80.rss"));
+        QVERIFY(newsSourceFor(write(dir, "ubuntu", "ID=ubuntu\nID_LIKE=debian\n")).name.isEmpty());
     }
 
     void lastUpgradeFromPacmanLog()

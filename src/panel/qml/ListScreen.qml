@@ -71,7 +71,7 @@ ColumnLayout {
 
     // One line, only when there is something: Arch news since the last full
     // upgrade (count and newest title, which is often the warning itself),
-    // or Manjaro's update announcements as a link. A failed fetch says so.
+    // or Manjaro's update announcements. A failed fetch says so.
     Hairline { visible: newsLine.visible }
     QQC2.ItemDelegate {
         id: newsLine
