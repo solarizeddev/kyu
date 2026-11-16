@@ -13,6 +13,7 @@ class UpdatesModel : public QAbstractListModel
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     // Row pacman is working on, or -1.
     Q_PROPERTY(int workingRow READ workingRow NOTIFY workingRowChanged)
+    Q_PROPERTY(int pacmanCount READ pacmanCount NOTIFY countChanged)
 public:
     enum Role {
         NameRole = Qt::UserRole + 1,

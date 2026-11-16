@@ -10,6 +10,7 @@ Item {
     property string title
     property string subtitle
     property string key
+    property string iconName
     signal clicked()
 
     Layout.fillWidth: true
@@ -24,6 +25,12 @@ Item {
         anchors.leftMargin: Kirigami.Units.gridUnit
         anchors.rightMargin: Kirigami.Units.gridUnit
         spacing: Kirigami.Units.largeSpacing
+        Kirigami.Icon {
+            visible: row.iconName.length > 0
+            source: row.iconName
+            Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+            Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
+        }
         ColumnLayout {
             spacing: 0
             Layout.fillWidth: true

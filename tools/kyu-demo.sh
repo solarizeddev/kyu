@@ -15,6 +15,7 @@
 #   FONT_PT=14             general font size in points (fixed-width follows)
 #   SCALE=2                QT_SCALE_FACTOR (HiDPI)
 #   SIZE=300x420           window size in logical pixels; default: Kyu's own
+#   STYLE=terminal         the panel's look: plasma or terminal; default: yours
 #   OFFSCREEN=1            render without a window (always for preview builds
 #                          and without a display)
 #   SHOT_DELAY=MS          override the scenario's screenshot delay
@@ -110,7 +111,11 @@ trap 'rm -rf "$work"' EXIT
 trap 'exit 130' INT TERM
 
 # --- Simulated system -----------------------------------------------------
-mkdir -p "$work/state/kyu" "$work/fake" "$work/flatpak-config"
+mkdir -p "$work/state/kyu" "$work/fake" "$work/flatpak-config" "$work/bin"
+# Run copies, so the paths the panel shows (kyu-flatpak's command line) are
+# in the throwaway directory, not in your checkout under your home.
+cp "$bin/kyu" "$bin/kyu-helper" "$bin/kyu-flatpak" "$work/bin/"
+bin="$work/bin"
 export XDG_STATE_HOME="$work/state" XDG_CACHE_HOME="$work/cache"
 # Only the throwaway installations: FLATPAK_CONFIG_DIR hides any extra
 # system installations configured in /etc/flatpak/installations.d.
@@ -194,6 +199,7 @@ fi
 [ -n "$preview" ] && case "${SCHEME:-}" in *[Dd]ark*) args="$args --dark" ;; esac
 [ -n "$preview" ] && [ -n "${FONT_PT:-}" ] && args="$args --font-size $FONT_PT"
 [ -n "${SIZE:-}" ] && args="$args --size $SIZE"
+[ -n "${STYLE:-}" ] && args="$args --style $STYLE"
 out=
 [ -n "${OUT:-}" ] && { out=$(realpath -m "$OUT"); mkdir -p "$(dirname "$out")"; args="$args --screenshot $out --delay $shot"; }
 

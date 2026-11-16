@@ -3,6 +3,7 @@ import QtQuick
 
 Item {
     property var source
+    property var fallback
     property color color: "transparent"
     implicitWidth: 32
     implicitHeight: 32

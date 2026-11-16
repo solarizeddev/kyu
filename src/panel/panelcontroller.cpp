@@ -19,6 +19,7 @@
 #include <QJsonArray>
 #include <QLocale>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 
 #include <unistd.h>
@@ -60,10 +61,53 @@ QString siblingBinary(const QString &name)
 }
 }
 
+namespace
+{
+// ~/.config/kyurc, like other KDE applications' rc files.
+QString settingsPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kyurc");
+}
+}
+
 PanelController::PanelController(QObject *parent)
     : QObject(parent)
     , m_ownUid(::getuid())
 {
+    const QString saved = QSettings(settingsPath(), QSettings::IniFormat).value(QStringLiteral("Panel/Style")).toString();
+    if (isStyle(saved)) {
+        m_style = saved;
+    }
+}
+
+bool PanelController::isStyle(const QString &style)
+{
+    return style == QLatin1String("plasma") || style == QLatin1String("terminal");
+}
+
+void PanelController::setStyle(const QString &style)
+{
+    if (!isStyle(style) || style == m_style) {
+        return;
+    }
+    m_style = style;
+    if (!m_styleOverridden) {
+        QSettings settings(settingsPath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Panel/Style"), style);
+    }
+    Q_EMIT styleChanged();
+}
+
+void PanelController::overrideStyle(const QString &style)
+{
+    if (!isStyle(style)) {
+        return;
+    }
+    m_styleOverridden = true;
+    if (style != m_style) {
+        m_style = style;
+        Q_EMIT styleChanged();
+    }
 }
 
 void PanelController::setStateWatcher(StateWatcher *watcher)
@@ -986,7 +1030,25 @@ QString PanelController::resultTitle() const
     if (m_stoppedBy == QLatin1String("unsupported")) {
         return QStringLiteral("Update stopped");
     }
+    // pacman's part went through; only the Flatpaks did not.
+    if (m_pacmanRun && m_success && m_fpRun && !m_fpSuccess && !m_summary.isEmpty()) {
+        return QStringLiteral("%1 · Flatpak update failed").arg(m_summary);
+    }
     return QStringLiteral("Update failed");
+}
+
+QString PanelController::outcome() const
+{
+    if (success()) {
+        return QStringLiteral("success");
+    }
+    if (m_pacmanRun && m_success && m_fpRun && !m_fpSuccess) {
+        return QStringLiteral("partial");
+    }
+    if (!m_stoppedBy.isEmpty()) {
+        return QStringLiteral("stopped");
+    }
+    return QStringLiteral("failed");
 }
 
 QString PanelController::resultText() const

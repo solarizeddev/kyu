@@ -40,8 +40,9 @@ Rectangle {
                 font.family: Kirigami.Theme.fixedWidthFont.family
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
                 color: !entry ? Style.muted(Kirigami.Theme.textColor)
-                     : entry.stream === "kyu" ? Kirigami.Theme.linkColor
-                     : entry.stream === "stderr" ? Kirigami.Theme.neutralTextColor
+                     : entry.level === "note" ? Kirigami.Theme.linkColor
+                     : entry.level === "error" ? Kirigami.Theme.negativeTextColor
+                     : entry.level === "warning" ? Kirigami.Theme.neutralTextColor
                      : index === tail.shown.length - 1 ? Kirigami.Theme.textColor
                      : Style.muted(Kirigami.Theme.textColor)
             }

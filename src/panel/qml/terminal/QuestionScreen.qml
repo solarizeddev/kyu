@@ -6,7 +6,8 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
-import "Style.js" as Style
+import ".."
+import "../Style.js" as Style
 
 ColumnLayout {
     id: screen
@@ -194,9 +195,9 @@ ColumnLayout {
         Layout.margins: Kirigami.Units.gridUnit
         Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
         spacing: Kirigami.Units.largeSpacing
-        Message {
+        Notice {
             text: Panel.message
-            iconName: "dialog-error"
+            type: "error"
         }
         QQC2.Label {
             text: Panel.questionNote

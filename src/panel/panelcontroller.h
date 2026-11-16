@@ -48,6 +48,8 @@ class PanelController : public QObject
     // running
     Q_PROPERTY(int percent READ percent NOTIFY changed)
     Q_PROPERTY(QString progressText READ progressText NOTIFY changed)
+    // "plasma" (default) or "terminal": which set of screens the window shows.
+    Q_PROPERTY(QString style READ style WRITE setStyle NOTIFY styleChanged)
     Q_PROPERTY(QString transactionNote READ transactionNote NOTIFY changed)
     Q_PROPERTY(QString question READ question NOTIFY changed) // one Kyu does not recognise
 
@@ -73,6 +75,9 @@ class PanelController : public QObject
     Q_PROPERTY(QString resultTitle READ resultTitle NOTIFY changed)
     Q_PROPERTY(QString resultText READ resultText NOTIFY changed)
     Q_PROPERTY(QString resultDetails READ resultDetails NOTIFY changed)
+    // "success", "partial" (pacman done, Flatpaks failed), "stopped"
+    // (cancelled, timed out, unknown question: nothing changed) or "failed".
+    Q_PROPERTY(QString outcome READ outcome NOTIFY changed)
     Q_PROPERTY(QVariantList changes READ changes NOTIFY changed)
     Q_PROPERTY(bool restartRequired READ restartRequired NOTIFY changed)
     Q_PROPERTY(QString restartReason READ restartReason NOTIFY changed)
@@ -156,6 +161,7 @@ public:
     QString resultTitle() const;
     QString resultText() const;
     QString resultDetails() const;
+    QString outcome() const;
     QVariantList changes() const;
     bool restartRequired() const;
     QString restartReason() const;
@@ -197,9 +203,17 @@ public Q_SLOTS:
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE void openLink(const QString &url);
 
+    QString style() const { return m_style; }
+    // Saves the choice in kyurc (unless a --style override is active).
+    void setStyle(const QString &style);
+    // --style: for this run only, not saved.
+    void overrideStyle(const QString &style);
+    static bool isStyle(const QString &style);
+
 Q_SIGNALS:
     void changed();
     void activateRequested();
+    void styleChanged();
 
 private:
     void setScreen(const QString &screen);
@@ -251,6 +265,8 @@ private:
     QString m_stage;
     QString m_action;
     int m_current = 0;
+    QString m_style = QStringLiteral("plasma");
+    bool m_styleOverridden = false;
     int m_total = 0;
     int m_transactionSize = 0; // pacman's "Packages (N)"; 0 until known
     int m_listedAtStart = 0; // pacman packages on the list when the update started

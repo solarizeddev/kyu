@@ -9,29 +9,9 @@ target_link_libraries(kyupanel PUBLIC kyucore kyuclient Qt6::Gui Qt6::DBus)
 add_executable(kyu main.cpp singleinstance.cpp testdriver.cpp)
 target_link_libraries(kyu PRIVATE kyupanel Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::DBus)
 target_compile_definitions(kyu PRIVATE KYU_VERSION="${PROJECT_VERSION}" KYU_APP_ID="${KYU_APP_ID}")
-qt_add_resources(kyu panel_qml PREFIX "/" FILES
-    qml/Main.qml
-    qml/Card.qml
-    qml/Message.qml
-    qml/ThinBar.qml
-    qml/PackageList.qml
-    qml/PackageRow.qml
-    qml/ListScreen.qml
-    qml/RunningScreen.qml
-    qml/QuestionScreen.qml
-    qml/OutputPage.qml
-    qml/FinishedScreen.qml
-    qml/ChangesPage.qml
-    qml/LinkRow.qml
-    qml/Hairline.qml
-    qml/KeyHints.qml
-    qml/LogTail.qml
-    qml/PageHeader.qml
-    qml/ConfigsPage.qml
-    qml/DiffPage.qml
-    qml/ProcessesPage.qml
-    qml/Style.js
-)
+# Every QML file and script under qml/ (both looks: qml/plasma, qml/terminal).
+file(GLOB_RECURSE KYU_QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS qml/*.qml qml/*.js)
+qt_add_resources(kyu panel_qml PREFIX "/" FILES ${KYU_QML_FILES})
 install(TARGETS kyu DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # Optional: lets a tray click focus an already open panel on Wayland.
@@ -52,5 +32,6 @@ if(KYU_PREVIEW)
         preview/kirigami/Icon.qml
         preview/kirigami/Heading.qml
         preview/kirigami/Separator.qml
+        preview/kirigami/LinkButton.qml
     )
 endif()

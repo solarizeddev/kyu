@@ -28,6 +28,8 @@ const Set LightView{"#ffffff", "#f7f7f7", "#232629", "#707d8a", "#2980b9", "#fbe
 const Set DarkWindow{"#202326", "#292c30", "#fcfcfc", "#a1a9b1", "#1d99f3", "#4b3a26"};
 const Set DarkView{"#141618", "#1d1f22", "#fcfcfc", "#a1a9b1", "#1d99f3", "#4b3a26"};
 const Set Complementary{"#2a2e32", "#1b1e20", "#fcfcfc", "#a1a9b1", "#1d99f3", "#4b3a26"};
+const Set LightHeader{"#dee0e2", "#e3e5e7", "#232629", "#707d8a", "#2980b9", "#fbe6cf"};
+const Set DarkHeader{"#2a2e32", "#31363b", "#fcfcfc", "#a1a9b1", "#1d99f3", "#4b3a26"};
 }
 
 class StubTheme : public QObject
@@ -47,6 +49,10 @@ class StubTheme : public QObject
     Q_PROPERTY(QColor neutralTextColor READ neutralTextColor NOTIFY changed)
     Q_PROPERTY(QColor negativeTextColor READ negativeTextColor NOTIFY changed)
     Q_PROPERTY(QColor neutralBackgroundColor READ neutralBackgroundColor NOTIFY changed)
+    Q_PROPERTY(QColor negativeBackgroundColor READ negativeBackgroundColor NOTIFY changed)
+    Q_PROPERTY(QColor positiveBackgroundColor READ positiveBackgroundColor NOTIFY changed)
+    Q_PROPERTY(QColor focusColor READ highlightColor NOTIFY changed)
+    Q_PROPERTY(QColor hoverColor READ highlightColor NOTIFY changed)
     Q_PROPERTY(QFont defaultFont READ defaultFont CONSTANT)
     Q_PROPERTY(QFont smallFont READ smallFont CONSTANT)
     Q_PROPERTY(QFont fixedWidthFont READ fixedWidthFont CONSTANT)
@@ -97,6 +103,8 @@ public:
     QColor neutralTextColor() const { return QColor(QStringLiteral("#f67400")); }
     QColor negativeTextColor() const { return QColor(QStringLiteral("#da4453")); }
     QColor neutralBackgroundColor() const { return QColor(QLatin1String(set().neutralBg)); }
+    QColor negativeBackgroundColor() const { return QColor(QLatin1String(g_dark ? "#4d1f24" : "#f9dadd")); }
+    QColor positiveBackgroundColor() const { return QColor(QLatin1String(g_dark ? "#1d3b2a" : "#d6eedf")); }
     QFont defaultFont() const { return QApplication::font(); }
     QFont smallFont() const
     {
@@ -129,6 +137,8 @@ private:
             return ::Complementary;
         case View:
             return g_dark ? DarkView : LightView;
+        case Header:
+            return g_dark ? DarkHeader : LightHeader;
         default:
             return g_dark ? DarkWindow : LightWindow;
         }
@@ -256,6 +266,7 @@ void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
     qmlRegisterType(QUrl(QStringLiteral("qrc:/preview/kirigami/Icon.qml")), uri, 2, 0, "Icon");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/preview/kirigami/Heading.qml")), uri, 2, 0, "Heading");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/preview/kirigami/Separator.qml")), uri, 2, 0, "Separator");
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/preview/kirigami/LinkButton.qml")), uri, 2, 0, "LinkButton");
 }
 
 void run(QQmlApplicationEngine &engine)

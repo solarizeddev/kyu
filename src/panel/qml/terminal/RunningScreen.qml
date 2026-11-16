@@ -4,7 +4,8 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import "Style.js" as Style
+import ".."
+import "../Style.js" as Style
 
 ColumnLayout {
     signal showOutput()
@@ -43,7 +44,7 @@ ColumnLayout {
         }
     }
 
-    Message {
+    Notice {
         text: Panel.question.length > 0
               ? "pacman asked: “" + Panel.question + "”. Kyu does not recognise this question, so it stopped pacman before any package changed."
               : ""

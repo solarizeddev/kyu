@@ -1,9 +1,11 @@
 // Drives PanelController with the records kyu-helper sends, without D-Bus.
 
 #include "helperclient.h"
+#include "outputmodel.h"
 #include "panelcontroller.h"
 
 #include <QFile>
+#include <QStandardPaths>
 #include <QJsonArray>
 #include <QLocale>
 #include <QTemporaryDir>
@@ -76,6 +78,43 @@ private Q_SLOTS:
         // Expected strings use C number formatting ("165.0 MiB"); the panel
         // itself follows the user's locale ("165,0 MiB" in German).
         QLocale::setDefault(QLocale::c());
+        // Settings (the style) go to a test directory, not ~/.config.
+        QStandardPaths::setTestModeEnabled(true);
+        QFile::remove(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/kyurc"));
+    }
+
+    void styleIsSavedUnlessOverridden()
+    {
+        {
+            PanelController c;
+            QCOMPARE(c.style(), QStringLiteral("plasma"));
+            c.setStyle(QStringLiteral("bogus"));
+            QCOMPARE(c.style(), QStringLiteral("plasma"));
+            c.setStyle(QStringLiteral("terminal"));
+        }
+        {
+            PanelController c;
+            QCOMPARE(c.style(), QStringLiteral("terminal")); // saved
+            c.overrideStyle(QStringLiteral("plasma"));
+            c.setStyle(QStringLiteral("plasma")); // not saved while overridden
+        }
+        PanelController c;
+        QCOMPARE(c.style(), QStringLiteral("terminal"));
+        c.setStyle(QStringLiteral("plasma"));
+    }
+
+    void outputLevelsComeFromTheText()
+    {
+        // libflatpak and pacman hooks write progress on stderr.
+        QCOMPARE(OutputModel::levelOf(QStringLiteral("Fetching summary index file"), QStringLiteral("stderr")), QString());
+        QCOMPARE(OutputModel::levelOf(QStringLiteral("error: failed to commit transaction"), QStringLiteral("stderr")), QStringLiteral("error"));
+        QCOMPARE(OutputModel::levelOf(QStringLiteral("warning: /etc/x installed as /etc/x.pacnew"), QStringLiteral("stdout")), QStringLiteral("warning"));
+        QCOMPARE(OutputModel::levelOf(QStringLiteral("==> ERROR: Cannot fetch updates"), QStringLiteral("stdout")), QStringLiteral("error"));
+        QCOMPARE(OutputModel::levelOf(QStringLiteral("$ pacman -Syu"), QStringLiteral("kyu")), QStringLiteral("note"));
+        OutputModel m;
+        m.append(QStringLiteral("error: x"), QStringLiteral("stderr"));
+        QCOMPARE(m.index(0).data(OutputModel::LevelRole).toString(), QStringLiteral("error"));
+        QCOMPARE(m.tail(1).first().toMap().value(QStringLiteral("level")).toString(), QStringLiteral("error"));
     }
 
     void listGroupsByRepoInConfigOrder()
@@ -399,7 +438,10 @@ private Q_SLOTS:
         c.handleRecord(rec("finished", {{QStringLiteral("success"), true}, {QStringLiteral("summary"), QStringLiteral("4 upgraded")}}));
         c.handleFlatpakLost(QStringLiteral("/state/kyu/flatpak/x.jsonl"));
         QCOMPARE(c.screen(), QStringLiteral("finished"));
-        QCOMPARE(c.resultTitle(), QStringLiteral("Update failed"));
+        // pacman's part went through: the title says so, and what failed.
+        QCOMPARE(c.resultTitle(), QStringLiteral("4 upgraded · Flatpak update failed"));
+        QCOMPARE(c.outcome(), QStringLiteral("partial"));
+        QVERIFY(!c.success());
         QCOMPARE(c.resultText().split(QLatin1Char('\n')).first(), QStringLiteral("4 upgraded"));
         QVERIFY(c.resultText().contains(QStringLiteral("kyu-flatpak stopped before it finished")));
     }

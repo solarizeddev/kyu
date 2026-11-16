@@ -3,7 +3,8 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import "Style.js" as Style
+import ".."
+import "../Style.js" as Style
 
 ColumnLayout {
     spacing: 0
@@ -58,10 +59,10 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
         Repeater {
             model: Panel.checkProblems
-            Message { required property string modelData; text: modelData }
+            Notice { required property string modelData; text: modelData }
         }
-        Message { text: Panel.message; iconName: "dialog-error" }
-        Message { text: Panel.interruptedText }
+        Notice { text: Panel.message; type: "error" }
+        Notice { text: Panel.interruptedText }
         QQC2.Button {
             visible: Panel.canRemoveLock
             text: "Remove the stale lock"

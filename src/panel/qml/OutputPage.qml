@@ -74,14 +74,15 @@ ColumnLayout {
 
             delegate: QQC2.Label {
                 required property string line
-                required property string stream
+                required property string level
                 width: ListView.view.width
                 text: line.length > 0 ? line : " "
                 wrapMode: Text.WrapAnywhere
                 font.family: Kirigami.Theme.fixedWidthFont.family
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: stream === "kyu" ? Kirigami.Theme.linkColor
-                     : stream === "stderr" ? Kirigami.Theme.neutralTextColor
+                color: level === "note" ? Kirigami.Theme.linkColor
+                     : level === "error" ? Kirigami.Theme.negativeTextColor
+                     : level === "warning" ? Kirigami.Theme.neutralTextColor
                      : Kirigami.Theme.textColor
             }
         }
@@ -108,9 +109,9 @@ ColumnLayout {
         }
     }
 
-    Message {
+    Notice {
         text: Panel.message
-        iconName: "dialog-error"
+        type: "error"
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
     }

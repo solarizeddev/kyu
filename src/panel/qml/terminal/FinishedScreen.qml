@@ -3,7 +3,8 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import "Style.js" as Style
+import ".."
+import "../Style.js" as Style
 
 ColumnLayout {
     signal showOutput()
@@ -59,9 +60,9 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Layout.margins: Kirigami.Units.gridUnit
                 spacing: Kirigami.Units.largeSpacing
-                Message {
+                Notice {
                     text: Panel.resultText
-                    iconName: "dialog-error"
+                    type: "error"
                     collapsible: false
                 }
                 QQC2.Label {

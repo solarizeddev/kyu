@@ -4,7 +4,8 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import "Style.js" as Style
+import ".."
+import "../Style.js" as Style
 
 Rectangle {
     id: row

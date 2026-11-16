@@ -11,14 +11,17 @@ import "Style.js" as Style
 QQC2.ApplicationWindow {
     id: root
 
-    // Sized from the font (grid unit), never larger than the screen allows.
+    // Sized from the font actually in use (the grid unit does not always
+    // follow a larger font), never larger than the screen allows.
+    FontMetrics { id: fontMetrics; font: Kirigami.Theme.defaultFont }
+    readonly property real unit: Math.max(Kirigami.Units.gridUnit, Math.ceil(fontMetrics.height))
     readonly property int availableWidth: Screen.desktopAvailableWidth > 0 ? Screen.desktopAvailableWidth : 100000
     readonly property int availableHeight: Screen.desktopAvailableHeight > 0 ? Screen.desktopAvailableHeight : 100000
-    width: Math.min(Kirigami.Units.gridUnit * 24, Math.round(availableWidth * 0.9))
-    height: Math.min(Kirigami.Units.gridUnit * 36, Math.round(availableHeight * 0.9))
+    width: Math.min(unit * 24, Math.round(availableWidth * 0.9))
+    height: Math.min(unit * 36, Math.round(availableHeight * 0.9))
     // Tall enough for the header, a message, a few rows and the buttons.
-    minimumWidth: Math.min(Kirigami.Units.gridUnit * 18, availableWidth)
-    minimumHeight: Math.min(Kirigami.Units.gridUnit * 25, availableHeight)
+    minimumWidth: Math.min(unit * 18, availableWidth)
+    minimumHeight: Math.min(unit * 25, availableHeight)
     visible: true
     title: "Updates"
     color: Kirigami.Theme.backgroundColor
@@ -126,30 +129,30 @@ QQC2.ApplicationWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(parent.width, Kirigami.Units.gridUnit * 44)
+        width: Math.min(parent.width, root.unit * 44)
+        // The screens come in two looks (Panel.style): plasma/ and terminal/,
+        // the same names and signals in each.
         initialItem: Item {
             Loader {
+                id: screenLoader
                 anchors.fill: parent
-                sourceComponent: Panel.screen === "running" ? runningScreen
-                               : Panel.screen === "question" ? questionScreen
-                               : Panel.screen === "finished" ? finishedScreen
-                               : listScreen
+                source: Qt.resolvedUrl(Panel.style + "/"
+                                       + (Panel.screen === "running" ? "RunningScreen"
+                                        : Panel.screen === "question" ? "QuestionScreen"
+                                        : Panel.screen === "finished" ? "FinishedScreen"
+                                        : "ListScreen") + ".qml")
+            }
+            Connections {
+                target: screenLoader.item
+                ignoreUnknownSignals: true
+                function onShowOutput() { root.showOutput() }
+                function onShowChanges() { root.showChanges() }
+                function onShowConfigs() { root.showConfigs() }
+                function onShowProcesses() { root.showProcesses() }
             }
         }
     }
 
-    Component { id: listScreen; ListScreen {} }
-    Component { id: runningScreen; RunningScreen { onShowOutput: root.showOutput() } }
-    Component { id: questionScreen; QuestionScreen { onShowOutput: root.showOutput() } }
-    Component {
-        id: finishedScreen
-        FinishedScreen {
-            onShowOutput: root.showOutput()
-            onShowChanges: root.showChanges()
-            onShowConfigs: root.showConfigs()
-            onShowProcesses: root.showProcesses()
-        }
-    }
     Component { id: outputPage; OutputPage { onBack: root.back() } }
     Component { id: changesPage; ChangesPage { onBack: root.back() } }
     Component {
