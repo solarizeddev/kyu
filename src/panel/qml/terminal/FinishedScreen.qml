@@ -104,17 +104,17 @@ TermScreen {
                         wrapMode: Text.Wrap
                         Layout.fillWidth: true
                     }
-                    RowLayout {
+                    QQC2.Label {
                         visible: Panel.failureCommand.length > 0
+                        text: "$ " + Panel.failureCommand
+                        color: Kirigami.Theme.linkColor
+                        wrapMode: Text.Wrap
                         Layout.fillWidth: true
-                        spacing: Kirigami.Units.largeSpacing
-                        QQC2.Label {
-                            text: "$ " + Panel.failureCommand
-                            color: Kirigami.Theme.linkColor
-                            wrapMode: Text.Wrap
-                            Layout.fillWidth: true
-                        }
-                        KeyButton { text: "copy"; onClicked: Panel.copyText(Panel.failureCommand); Layout.alignment: Qt.AlignTop }
+                    }
+                    KeyButton {
+                        visible: Panel.failureCommand.length > 0
+                        text: "copy the command"
+                        onClicked: Panel.copyText(Panel.failureCommand)
                     }
                 }
             }

@@ -126,6 +126,7 @@ TermScreen {
             onClicked: menu.popup(menuButton, 0, -menu.implicitHeight)
             QQC2.Menu {
                 id: menu
+                font: screen.font
                 QQC2.MenuItem {
                     text: "Copy as command (sudo pacman -Syu)"
                     icon.name: "edit-copy"

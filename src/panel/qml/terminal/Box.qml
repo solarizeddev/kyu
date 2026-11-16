@@ -58,7 +58,8 @@ Rectangle {
             elide: Text.ElideRight
             Layout.fillWidth: true
         }
-        RowLayout {
+        // Buttons wrap rather than push the box wider than the window.
+        Flow {
             id: extra
             visible: children.length > 0
             spacing: Kirigami.Units.largeSpacing

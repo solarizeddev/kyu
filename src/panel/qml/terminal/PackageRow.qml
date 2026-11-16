@@ -92,7 +92,7 @@ Rectangle {
             Layout.minimumWidth: Math.min(fullWidth, Kirigami.Units.gridUnit * 3)
         }
         QQC2.Label {
-            visible: !row.tracking && row.width > Kirigami.Units.gridUnit * 20
+            visible: !row.tracking && row.sizeText.length > 0 && row.width > Kirigami.Units.gridUnit * 26
             text: row.sizeText
             horizontalAlignment: Text.AlignRight
             color: Style.muted(Kirigami.Theme.textColor)

@@ -9,27 +9,10 @@ ColumnLayout {
     signal back()
     spacing: Kirigami.Units.largeSpacing
 
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.largeSpacing * 2
-        Layout.leftMargin: Kirigami.Units.largeSpacing
-        Layout.rightMargin: Kirigami.Units.gridUnit
-        QQC2.ToolButton {
-            icon.name: "go-previous"
-            text: "Back"
-            display: QQC2.AbstractButton.IconOnly
-            onClicked: back()
-        }
-        Kirigami.Heading {
-            level: 2
-            text: "Technical details"
-            Layout.fillWidth: true
-        }
-        Kirigami.Heading {
-            level: 2
-            visible: Panel.screen === "running" || Panel.screen === "question"
-            text: Panel.percent + "%"
-        }
+    PageHeader {
+        title: "Technical details"
+        rightText: Panel.screen === "running" || Panel.screen === "question" ? Panel.percent + "%" : ""
+        onBack: parent.back()
     }
     ThinBar {
         visible: Panel.screen === "running"

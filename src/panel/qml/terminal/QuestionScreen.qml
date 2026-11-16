@@ -187,7 +187,6 @@ TermScreen {
             primary: true
             enabled: Panel.canAnswer && !Panel.replying && screen.selected.length > 0
             onClicked: screen.continueWithSelection()
-            width: Math.min(implicitWidth, screen.width * 0.6)
         }
         KeyButton {
             visible: screen.hasOptions && Panel.questionOptions.length > 1
@@ -202,7 +201,7 @@ TermScreen {
         }
         KeyButton {
             key: "esc"
-            text: "hide · pacman waits"
+            text: "hide"
             onClicked: screen.Window.window.close()
         }
     }

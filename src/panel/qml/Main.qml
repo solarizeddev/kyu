@@ -15,9 +15,14 @@ QQC2.ApplicationWindow {
     // follow a larger font), never larger than the screen allows.
     FontMetrics { id: fontMetrics; font: Kirigami.Theme.defaultFont }
     readonly property real unit: Math.max(Kirigami.Units.gridUnit, Math.ceil(fontMetrics.height))
+    // The terminal look is in the fixed-width font, at the normal size.
+    readonly property bool terminal: Panel.style === "terminal"
+    readonly property font terminalFont: Qt.font({ family: Kirigami.Theme.fixedWidthFont.family, pointSize: Kirigami.Theme.defaultFont.pointSize })
+    FontMetrics { id: fixedMetrics; font: root.terminalFont }
     readonly property int availableWidth: Screen.desktopAvailableWidth > 0 ? Screen.desktopAvailableWidth : 100000
     readonly property int availableHeight: Screen.desktopAvailableHeight > 0 ? Screen.desktopAvailableHeight : 100000
-    width: Math.min(unit * 24, Math.round(availableWidth * 0.9))
+    // Monospace needs more width for the same text: about 64 columns.
+    width: Math.min(Math.max(unit * 24, terminal ? Math.ceil(fixedMetrics.averageCharacterWidth * 64) : 0), Math.round(availableWidth * 0.9))
     height: Math.min(unit * 36, Math.round(availableHeight * 0.9))
     // Tall enough for the header, a message, a few rows and the buttons.
     minimumWidth: Math.min(unit * 18, availableWidth)
@@ -25,6 +30,13 @@ QQC2.ApplicationWindow {
     visible: true
     title: "Updates"
     color: Kirigami.Theme.backgroundColor
+    // The terminal look sits on the colour scheme's View background, edge
+    // to edge (set on items: Kirigami's colour sets follow items).
+    background: Rectangle {
+        Kirigami.Theme.colorSet: root.terminal ? Kirigami.Theme.View : Kirigami.Theme.Window
+        Kirigami.Theme.inherit: false
+        color: Kirigami.Theme.backgroundColor
+    }
 
     // The page on top of the current screen ("" when none): keys depend on it.
     property string page: ""
@@ -129,7 +141,12 @@ QQC2.ApplicationWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(parent.width, root.unit * 44)
+        width: root.terminal ? parent.width : Math.min(parent.width, root.unit * 44)
+        // Pages inherit the look's font and, in the terminal look, the View
+        // colours.
+        font: root.terminal ? root.terminalFont : Kirigami.Theme.defaultFont
+        Kirigami.Theme.colorSet: root.terminal ? Kirigami.Theme.View : Kirigami.Theme.Window
+        Kirigami.Theme.inherit: false
         // The screens come in two looks (Panel.style): plasma/ and terminal/,
         // the same names and signals in each.
         initialItem: Item {

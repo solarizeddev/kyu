@@ -9,22 +9,7 @@ ColumnLayout {
     signal back()
     spacing: Kirigami.Units.largeSpacing
 
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.largeSpacing * 2
-        Layout.leftMargin: Kirigami.Units.largeSpacing
-        QQC2.ToolButton {
-            icon.name: "go-previous"
-            text: "Back"
-            display: QQC2.AbstractButton.IconOnly
-            onClicked: back()
-        }
-        Kirigami.Heading {
-            level: 2
-            text: "What changed"
-            Layout.fillWidth: true
-        }
-    }
+    PageHeader { title: "What changed"; onBack: parent.back() }
 
     Card {
         Layout.fillWidth: true

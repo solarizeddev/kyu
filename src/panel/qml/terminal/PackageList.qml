@@ -21,7 +21,7 @@ ListView {
     // One width for the size column: the widest size in the list.
     TextMetrics {
         id: sizeMetrics
-        text: "999 MiB"
+        text: "1023 MiB"
         font.family: Kirigami.Theme.fixedWidthFont.family
         font.pointSize: Kirigami.Theme.defaultFont.pointSize
     }

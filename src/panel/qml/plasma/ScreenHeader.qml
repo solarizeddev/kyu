@@ -55,8 +55,9 @@ Rectangle {
             }
             QQC2.Label {
                 visible: text.length > 0
-                // Each " · " part stays on one line ("checked 10:30:00").
-                text: header.subtitle.split(" · ").map(part => part.replace(/ /g, "\u00a0")).join(" · ")
+                // Short " · " parts stay on one line ("checked 10:30:00");
+                // sentences wrap normally.
+                text: header.subtitle.split(" · ").map(part => part.length <= 24 && part.indexOf("\n") < 0 ? part.replace(/ /g, "\u00a0") : part).join(" · ")
                 color: Style.muted(Kirigami.Theme.textColor)
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
