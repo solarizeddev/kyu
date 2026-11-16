@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stands in for pacdiff in tests/kyu_update_test.sh.
+touch "$KYU_FAKE_DIR/pacdiff-ran"
+echo "fake pacdiff $*"

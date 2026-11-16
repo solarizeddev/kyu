@@ -33,14 +33,16 @@ echo "success: pacman, then flatpak, then what is left to do"
 run ok 'y\n'
 d=$work/ok
 [ "$(cat "$d/code")" = 0 ] || fail "ok: exit $(cat "$d/code")"
-has "$d/out" '$ sudo pacman -Syu' ok
+has "$d/out" 'Packages   sudo pacman -Syu' ok
 has "$d/out" ':: Proceed with installation? [Y/n]' ok
-has "$d/out" '$ flatpak update' ok
-has "$d/out" 'kyu  Done: 2 packages, flatpak update finished.' ok
-has "$d/out" 'kyu  Restart needed: kernel 6.18.20-1-MANJARO running, 6.18.22-1-MANJARO installed.' ok
-has "$d/out" 'kyu  1 settings file to review:' ok
-has "$d/out" '/etc/sddm.conf.pacnew' ok
-has "$d/out" 'Do not close this window until Kyu says it is done.' ok
+has "$d/out" 'Flatpaks   flatpak update' ok
+has "$d/out" ' · 2 packages · 1 Flatpak' ok
+has "$d/out" 'Done in ' ok
+has "$d/out" 'Restart needed: new kernel 6.18.22-1-MANJARO' ok
+has "$d/out" '1 settings file changed: /etc/sddm.conf' ok
+hasnt "$d/out" 'Nothing else to do' ok
+has "$d/out" 'Keep this window open until Kyu says it is done.' ok
+hasnt "$d/out" 'Snapshot' ok
 grep -q '"restartRequired": true' "$d/state/kyu/last-run.json" || fail "ok: last-run.json without the restart"
 grep -q '"/etc/sddm.conf.pacnew"' "$d/state/kyu/last-run.json" || fail "ok: last-run.json without the settings file"
 
@@ -59,23 +61,21 @@ prepare news-yes; state "$work/news-yes/state.json" 2 1 1
 run news-yes 'y\ny\n'
 [ -e "$work/news-yes/pacman-ran" ] || fail "news-yes: pacman did not run"
 # The second "y" reached pacman's own question (the fake stops without one).
-has "$work/news-yes/out" 'kyu  Done:' news-yes
+has "$work/news-yes/out" 'Done in ' news-yes
 
 echo "failure: keyring, explained, Flatpaks skipped"
 KYU_FAKE_MODE=keyring run keyring 'y\n'
 d=$work/keyring
 [ "$(cat "$d/code")" = 1 ] || fail "keyring: exit $(cat "$d/code")"
-has "$d/out" 'kyu  pacman failed (exit status 1). No packages were changed. Flatpaks were not updated.' keyring
-has "$d/out" 'kyu  Package signatures could not be checked.' keyring
-has "$d/out" 'sudo pacman -Sy --needed' keyring
+has "$d/out" 'Nothing was installed. Flatpaks were skipped.' keyring
+has "$d/out" '  Package signatures could not be checked.' keyring
 [ ! -e "$d/flatpak-ran" ] || fail "keyring: flatpak ran after pacman failed"
 grep -q '"failure": "keyring"' "$d/state/kyu/last-run.json" || fail "keyring: last-run.json without the failure"
 
 echo "pacman's own Proceed answered n: nothing changed, no explanation invented"
 run decline 'n\n'
 d=$work/decline
-has "$d/out" 'kyu  pacman stopped before changing anything (exit status 1).' decline
-hasnt "$d/out" 'usually fixes it' decline
+has "$d/out" 'Stopped. Nothing was installed.' decline
 
 echo "stale lock: said, with the command; nothing runs"
 prepare lock; touch "$work/lock/db.lck"
@@ -83,7 +83,6 @@ run lock ''
 d=$work/lock
 [ "$(cat "$d/code")" = 1 ] || fail "lock: exit $(cat "$d/code")"
 has "$d/out" "pacman's lock file is left over" lock
-has "$d/out" "sudo rm $d/db.lck" lock
 [ ! -e "$d/pacman-ran" ] || fail "lock: pacman ran"
 
 echo "lock held by a running pacman"
@@ -97,7 +96,7 @@ run fponly ''
 d=$work/fponly
 [ ! -e "$d/pacman-ran" ] || fail "fponly: pacman ran"
 [ -e "$d/flatpak-ran" ] || fail "fponly: flatpak did not run"
-has "$d/out" 'kyu  Done: flatpak update finished.' fponly
+has "$d/out" ' · 2 Flatpaks' fponly
 
 echo "a stale lock while the pamac tray runs (it takes no lock)"
 prepare tray; touch "$work/tray/db.lck"; mkdir -p "$work/tray/proc/777"; echo pamac-tray-plas >"$work/tray/proc/777/comm"
@@ -108,29 +107,75 @@ echo "flatpak fails after pacman: both said"
 KYU_FAKE_FLATPAK_EXIT=1 run fpfail 'y\n'
 d=$work/fpfail
 [ "$(cat "$d/code")" = 5 ] || fail "fpfail: exit $(cat "$d/code")"
-has "$d/out" 'kyu  flatpak update failed (exit status 1)' fpfail
-has "$d/out" "kyu  pacman's part is done: 2 packages." fpfail
+has "$d/out" 'flatpak update failed (status 1)' fpfail
+has "$d/out" 'Packages done: 2 packages' fpfail
 
 echo "pacman fails mid-transaction: what changed is said"
 KYU_FAKE_MODE=midfail run midfail 'y\n'
-has "$work/midfail/out" 'kyu  pacman failed (exit status 1) after changing 1 package. Flatpaks were not updated.' midfail
+has "$work/midfail/out" 'pacman failed after changing 1 package. Flatpaks were skipped.' midfail
 
 echo "another language: no invented explanation"
 KYU_FAKE_MODE=german run german ''
-has "$work/german/out" 'kyu  pacman stopped before changing anything (exit status 1).' german
-has "$work/german/out" "kyu  pacman's last lines:" german
+has "$work/german/out" 'Nothing was installed. Flatpaks were skipped.' german
+has "$work/german/out" "pacman's last lines (status 1):" german
 has "$work/german/out" 'Fehler: Konnte nicht alle Datenbanken aktualisieren' german
 hasnt "$work/decline/out" "pacman's last lines" decline
 
 echo "a restart from systemd is not forgotten by a later run (same boot)"
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=systemd run carry 'y\n'
-has "$work/carry/out" 'kyu  Restart needed: systemd was updated.' carry
+has "$work/carry/out" 'Restart needed: systemd was updated' carry
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=nothing run carry ''
-has "$work/carry/out" 'kyu  Done: flatpak update finished.' carry-2
-hasnt "$work/carry/out" 'Done: 1 package' carry-2
+has "$work/carry/out" ' · 1 Flatpak' carry-2
+hasnt "$work/carry/out" '· 1 package' carry-2
 if [ -r /proc/sys/kernel/random/boot_id ]; then
-    has "$work/carry/out" 'kyu  Restart needed: systemd was updated.' carry-2
+    has "$work/carry/out" 'Restart needed: systemd was updated' carry-2
 fi
+
+echo "up to date: nothing else to do"
+prepare clean; state "$work/clean/state.json" 0 0 0
+RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=nothing run clean ''
+has "$work/clean/out" 'Already up to date.' clean
+has "$work/clean/out" 'Nothing else to do.' clean
+hasnt "$work/clean/out" 'Restart needed' clean
+
+echo "a snapshot hook is named before pacman"
+prepare snap; mkdir -p "$work/snap/hooks"; touch "$work/snap/hooks/05-snap-pac-pre.hook"
+run snap 'y\n'
+has "$work/snap/out" 'Snapshot   by snap-pac, before pacman changes anything' snap
+
+# runtty NAME INPUT [args...]: in a terminal (util-linux script), so the last
+# line offers its keys. INPUT is answers separated by "|", typed one second
+# apart (typed ahead, they would go to pacman's own terminal, as for a person).
+runtty() {
+    name=$1; input=$2; shift 2
+    d="$work/$name"
+    fake_system "$d"
+    # shellcheck disable=SC2046
+    (IFS='|'; for a in $input; do sleep 1; printf "$a"; done; sleep 2) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 \
+        timeout 30 script -q -e -c "$bin/kyu-update $(fake_args "$d") $*" /dev/null >"$d/out" 2>&1
+    echo $? >"$d/code"
+}
+
+echo "keys: [f] removes a stale lock, then the update runs again"
+prepare lockfix; touch "$work/lockfix/db.lck"
+runtty lockfix 'f\n|y\n|\n'
+d=$work/lockfix
+has "$d/out" "Fix: sudo rm $d/db.lck" lockfix
+has "$d/out" '[f] fix and update again   [Enter] close' lockfix
+[ ! -e "$d/db.lck" ] || fail "lockfix: the lock is still there"
+[ -e "$d/pacman-ran" ] || fail "lockfix: the update did not run again"
+has "$d/out" 'Done in ' lockfix
+[ "$(cat "$d/code")" = 0 ] || fail "lockfix: exit $(cat "$d/code")"
+
+echo "keys: a keyring failure offers its fix; [m] runs pacdiff; Enter closes"
+KYU_FAKE_MODE=keyring runtty keyfix 'y\n|\n'
+has "$work/keyfix/out" 'Fix: sudo pacman -Sy --needed' keyfix
+has "$work/keyfix/out" '[Enter] close' keyfix
+runtty merge 'y\n|m\n|\n'
+d=$work/merge
+has "$d/out" '[r] restart now   [m] merge sddm.conf   [Enter] close' merge
+[ -e "$d/pacdiff-ran" ] || fail "merge: pacdiff did not run"
+has "$d/out" 'fake pacdiff --sudo' merge
 
 echo "one update at a time"
 KYU_FAKE_MODE=slow run first 'y\n' &

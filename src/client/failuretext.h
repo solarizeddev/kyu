@@ -10,6 +10,7 @@ struct FailureText {
     QString title;
     QString text;
     QString command; // may be empty
+    QString fix; // the fix alone, to run before updating again (kyu-update's [f]); may be empty
     QStringList items; // files, hosts or packages it is about
 };
 

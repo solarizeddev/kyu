@@ -4,7 +4,9 @@
 # Each window runs the real kyu-update against a fake system (fake sudo,
 # pacman and flatpak first on PATH, fake pacman.log, /proc and lock file in a
 # temporary directory): nothing on your machine changes, no root, no network.
-# Answers are typed into the window over Konsole's D-Bus interface.
+# In each window kyu-update runs under util-linux `script` (a terminal of its
+# own) and gets its answers through a pipe; Konsole's D-Bus tells the text on
+# screen and whether the window is active.
 #
 #   tools/kyu-update-screens.sh OUTDIR
 #
@@ -70,8 +72,9 @@ active() {
     r=$(busctl --user get-property "$service" /konsole/MainWindow_1 org.qtproject.Qt.QWidget isActiveWindow 2>/dev/null) || { echo unknown; return; }
     [ "$r" = "b true" ] && echo yes || echo no
 }
+# Types into the window's kyu-update (through the pipe open as fd 3).
 send() {
-    busctl --user call "$service" /Sessions/1 org.kde.konsole.Session sendText s "$1" >/dev/null 2>&1 || {
+    printf '%s' "$1" >&3 2>/dev/null || {
         log "FAILED $name: could not type into the window"
         failed=$((failed + 1))
     }
@@ -125,13 +128,17 @@ shot() {
             ;;
         esac
     done
+    # The answers' pipe, open here for reading and writing so neither side
+    # waits for the other.
+    mkfifo "$d/answers"
+    exec 3<>"$d/answers"
     # Konsole gets the fake state directory too: no remembered window size
     # overrides the columns, and your Konsole's saved state is not touched.
-    # shellcheck disable=SC2046 # fake_args is a word list without spaces
     env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
         XDG_STATE_HOME="$d/state" \
         konsole --separate --hide-menubar --hide-tabbar --workdir "$d" "${profile[@]}" \
-        -e "$work/bin/kyu-update" $(fake_args "$d") >>"$work/konsole.log" 2>&1 &
+        -e sh -c 'exec script -q -e -c "$0" /dev/null <"$1"' "$work/bin/kyu-update $(fake_args "$d")" "$d/answers" \
+        >>"$work/konsole.log" 2>&1 &
     pid=$!
     service=org.kde.konsole-$pid
     for i in $(seq 75); do
@@ -167,15 +174,21 @@ shot() {
             fi
             ;;
         wait\ *) sleep "$arg" ;;
-        type\ *) send "$arg"$'\r'; sleep 0.8 ;;
-        enter) send $'\r'; sleep 0.8 ;;
+        type\ *) send "$arg"$'\n'; sleep 0.8 ;;
+        enter) send $'\n'; sleep 0.8 ;;
         shot)
             n=$((n + 1))
             local label=$name
             [ $n -gt 1 ] && label="$name-$n"
             local file="$out/$label.png" state
             rm -f "$file"
+            # KWin may activate a new window a moment late.
             state=$(active)
+            for i in $(seq 15); do
+                [ "$state" = no ] || break
+                sleep 0.2
+                state=$(active)
+            done
             if [ "$state" = unknown ] && [ -z "${UNCHECKED:-}" ]; then
                 log "FAILED $label: this Konsole does not say whether it is the active window, so the screenshot could be of another window; stopping. Run again with UNCHECKED=1 to take the shots anyway, then look at every picture."
                 failed=$((failed + 1))
@@ -214,14 +227,14 @@ shot() {
     if [ -n "$holder" ]; then kill "$holder" 2>/dev/null; holder=; fi
 }
 
-# Close as a person would: Enter at "Press Enter to close" ends kyu-update
-# and Konsole closes with it (a second Enter if the first answered a
-# question), else end the window.
+# Close as a person would: Enter at "[Enter] close" ends kyu-update and
+# Konsole closes with it (a second Enter if the first answered a question),
+# else end the window.
 close() {
     local try i
     for try in 1 2; do
         kill -0 "$pid" 2>/dev/null || break
-        busctl --user call "$service" /Sessions/1 org.kde.konsole.Session sendText s $'\r' >/dev/null 2>&1
+        printf '\n' >&3 2>/dev/null
         for i in $(seq 15); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
     done
     if kill -0 "$pid" 2>/dev/null; then
@@ -230,32 +243,33 @@ close() {
     fi
     wait "$pid" 2>/dev/null
     pid=
+    exec 3>&-
 }
 
 NEW=6.18.22-1-MANJARO # the installed kernel in the fake system
 
 log "== your Konsole profile"
-shot A-01-done - normal normal - "until Proceed with" "type y" "until Press Enter" shot
+shot A-01-done - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
 if [ -z "${ONLY:-}" ] && [ -z "$checked_fakes" ]; then
     log "FAILED: the fake pacman did not run in the first window; stopping"
     exit 1
 fi
-RUNNING=$NEW shot A-02-done-no-restart - normal normal - "until Proceed with" "type y" "until Press Enter" shot
-RUNNING=$NEW shot A-03-systemd - normal systemd - "until Proceed with" "type y" "until Press Enter" shot
-RUNNING=$NEW shot A-04-old-libraries - normal normal - oldlibs "until Proceed with" "type y" "until Press Enter" shot
-shot A-05-news-question - normal normal "2 1 1" "until Continue?" shot "type y" "until Proceed with" "type y" "until Press Enter" shot
-shot A-06-news-stopped - normal normal "2 1 1" "until Continue?" enter "until Press Enter" shot
-shot A-07-downloading - normal slow - "until Proceed with" "type y" "wait 1" shot "until Press Enter" shot
-shot A-08-keyring - normal keyring - "until Proceed with" "type y" "until Press Enter" shot
-shot A-09-declined - normal normal - "until Proceed with" "type n" "until Press Enter" shot
-shot A-10-failed-midway - normal midfail - "until Proceed with" "type y" "until Press Enter" shot
-shot A-11-other-language - normal german - "until Press Enter" shot
-shot A-12-stale-lock - normal normal - lock "until Press Enter" shot
-shot A-13-busy - normal normal - busy "until Press Enter" shot
-shot A-14-already-running - normal normal - running "until Press Enter" shot
-shot A-15-flatpak-only - normal normal "0 2 0" "until Press Enter" shot
-FLATPAK_EXIT=1 shot A-16-flatpak-failed - normal normal - "until Proceed with" "type y" "until Press Enter" shot
-RUNNING=$NEW shot A-17-nothing-new - normal nothing "0 0 0" "until Press Enter" shot
+RUNNING=$NEW shot A-02-done-no-restart - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
+RUNNING=$NEW shot A-03-systemd - normal systemd - "until Proceed with" "type y" "until [Enter] close" shot
+RUNNING=$NEW shot A-04-old-libraries - normal normal - oldlibs "until Proceed with" "type y" "until [Enter] close" shot
+shot A-05-news-question - normal normal "2 1 1" "until Continue?" shot "type y" "until Proceed with" "type y" "until [Enter] close" shot
+shot A-06-news-stopped - normal normal "2 1 1" "until Continue?" enter "until [Enter] close" shot
+shot A-07-downloading - normal slow - "until Proceed with" "type y" "wait 1" shot "until [Enter] close" shot
+shot A-08-keyring - normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
+shot A-09-declined - normal normal - "until Proceed with" "type n" "until [Enter] close" shot
+shot A-10-failed-midway - normal midfail - "until Proceed with" "type y" "until [Enter] close" shot
+shot A-11-other-language - normal german - "until [Enter] close" shot
+shot A-12-stale-lock - normal normal - lock "until [Enter] close" shot "type f" "until Proceed with" "type y" "until [Enter] close" shot
+shot A-13-busy - normal normal - busy "until [Enter] close" shot
+shot A-14-already-running - normal normal - running "until [Enter] close" shot
+shot A-15-flatpak-only - normal normal "0 2 0" "until [Enter] close" shot
+FLATPAK_EXIT=1 shot A-16-flatpak-failed - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
+RUNNING=$NEW shot A-17-nothing-new - normal nothing "0 0 0" "until [Enter] close" shot
 
 log "== Konsole's colour schemes"
 schemes=${KONSOLE_SCHEMES:-Breeze BlackOnWhite BlackOnLightYellow Solarized SolarizedLight DarkPastels WhiteOnBlack Linux GreenOnBlack}
@@ -264,15 +278,15 @@ for s in $schemes; do
         log "skip $s: no such Konsole colour scheme"
         continue
     fi
-    shot "B-$s-done" "$s" normal normal - "until Proceed with" "type y" "until Press Enter" shot
-    shot "B-$s-keyring" "$s" normal keyring - "until Proceed with" "type y" "until Press Enter" shot
+    shot "B-$s-done" "$s" normal normal - "until Proceed with" "type y" "until [Enter] close" shot
+    shot "B-$s-keyring" "$s" normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
     shot "B-$s-news" "$s" normal normal "2 1 1" "until Continue?" shot
 done
 
 log "== narrow (60 columns) and wide (160 columns)"
 for z in narrow wide; do
-    shot "C-$z-done" - "$z" normal - "until Proceed with" "type y" "until Press Enter" shot
-    shot "C-$z-keyring" - "$z" keyring - "until Proceed with" "type y" "until Press Enter" shot
+    shot "C-$z-done" - "$z" normal - "until Proceed with" "type y" "until [Enter] close" shot
+    shot "C-$z-keyring" - "$z" keyring - "until Proceed with" "type y" "until [Enter] close" shot
     shot "C-$z-news" - "$z" normal "2 1 1" "until Continue?" shot
 done
 

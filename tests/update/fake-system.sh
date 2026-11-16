@@ -23,7 +23,7 @@ JSON
 # $RUNNING (default: an older one, so a restart is needed). Keeps an existing
 # DIR/state.json (default: 2 packages, 1 Flatpak, no news).
 fake_system() {
-    mkdir -p "$1/state" "$1/proc/sys/kernel" "$1/modules/6.18.22-1-MANJARO"
+    mkdir -p "$1/state" "$1/proc/sys/kernel" "$1/modules/6.18.22-1-MANJARO" "$1/hooks"
     : >"$1/pacman.log"
     echo "${RUNNING:-6.18.20-1-MANJARO}" >"$1/proc/sys/kernel/osrelease"
     echo "BOOT_IMAGE=/boot/vmlinuz-6.18-x86_64 rw" >"$1/proc/cmdline"
@@ -35,5 +35,5 @@ fake_system() {
 
 # fake_args DIR: kyu-update's options pointing at the fake system.
 fake_args() {
-    echo "--no-check --state-file $1/state.json --pacman-log $1/pacman.log --db-lock $1/db.lck --proc-dir $1/proc --modules-dir $1/modules"
+    echo "--no-check --state-file $1/state.json --pacman-log $1/pacman.log --db-lock $1/db.lck --proc-dir $1/proc --modules-dir $1/modules --hooks-dir $1/hooks"
 }

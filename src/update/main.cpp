@@ -1,12 +1,13 @@
 // kyu-update: the update, in your terminal. Runs the real `sudo pacman -Syu`
 // and then `flatpak update`, with their own output and their own questions
-// ("Proceed?" included), and says what is left to do afterwards: a restart,
-// settings files to review, programs still using replaced libraries, or why
-// pacman failed and the command that usually fixes it.
+// ("Proceed?" included), and ends with one verdict: done, or why it failed,
+// and what is left to do, each with one key: [r] restart, [m] merge the
+// settings files (pacdiff), [f] fix and update again.
 //
 // Before pacman: the distro news since the last full upgrade (and a
 // "Continue? [y/N]" when there is any), and pacman's lock. Nothing here runs
-// as root but pacman itself (through sudo, doas or pkexec).
+// as root but pacman itself (through sudo, doas or pkexec) and what a key
+// runs.
 
 #include "aftercare.h"
 #include "failure.h"
@@ -16,7 +17,9 @@
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -25,6 +28,7 @@
 #include <QLockFile>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
 #include <QStandardPaths>
@@ -32,45 +36,78 @@
 
 #include <csignal>
 #include <cstdio>
+#include <langinfo.h>
 #include <unistd.h>
 
 namespace
 {
-enum class Tone { Plain, Info, Good, Warn, Bad };
+enum class Tone { Plain, Dim, Info, Good, Warn, Bad };
 
+// Kyu's lines. Basic ANSI colours only, so the terminal's own colour scheme
+// draws them; faint (not "bright black", which some schemes make the
+// background colour) for the quiet ones.
 class Out
 {
 public:
     Out()
         : m_color(::isatty(STDOUT_FILENO) && qEnvironmentVariableIsEmpty("NO_COLOR"))
+        , m_utf8(QByteArray(::nl_langinfo(CODESET)) == "UTF-8")
     {
     }
-    // "kyu  text", the prefix and first line in the tone's colour.
-    void kyu(const QString &text, Tone tone = Tone::Info, bool bold = true)
+    // The window's title, where the terminal shows it.
+    void windowTitle()
     {
-        print(QStringLiteral("kyu  ") + text, tone, bold);
+        if (m_color) {
+            std::fputs("\x1b]0;Kyu\x07", stdout);
+        }
     }
-    // A continuation line under a kyu line.
-    void more(const QString &text, Tone tone = Tone::Plain)
+    // "Kyu · 8 updates: …", once at the top.
+    void header(const QString &text)
     {
-        print(QStringLiteral("       ") + text, tone, false);
+        print(text, Tone::Info, true);
     }
-    // The command about to run, as a prompt line.
-    void command(const QString &text)
+    // A heading for what follows ("Arch Linux news since your last update").
+    void heading(const QString &text, Tone tone)
     {
-        print(QStringLiteral("$ ") + text, Tone::Good, true);
+        print(text, tone, true);
+    }
+    // "▸ Packages   sudo pacman -Syu": what runs next.
+    void step(const QString &name, const QString &detail)
+    {
+        print(sym("▸", ">") + QLatin1Char(' ') + name.leftJustified(10) + QLatin1Char(' ') + detail, Tone::Good, true);
+    }
+    void good(const QString &text)
+    {
+        print(sym("✓", "ok") + QLatin1Char(' ') + text, Tone::Good, true);
+    }
+    void warn(const QString &text)
+    {
+        print(QStringLiteral("! ") + text, Tone::Warn, true);
+    }
+    void bad(const QString &text)
+    {
+        print(sym("✗", "x") + QLatin1Char(' ') + text, Tone::Bad, true);
+    }
+    // An indented line under one of the above.
+    void note(const QString &text, Tone tone = Tone::Plain)
+    {
+        print(QStringLiteral("  ") + text, tone, false);
     }
     void blank()
     {
         print(QString(), Tone::Plain, false);
     }
-    void prompt(const QString &text)
+    void prompt(const QString &text, Tone tone)
     {
-        write(QStringLiteral("kyu  ") + text, Tone::Warn, true);
+        write(text, tone, true);
         std::fflush(stdout);
     }
 
 private:
+    QString sym(const char *utf8, const char *ascii) const
+    {
+        return QString::fromUtf8(m_utf8 ? utf8 : ascii);
+    }
     void print(const QString &text, Tone tone, bool bold)
     {
         write(text, tone, bold);
@@ -79,15 +116,20 @@ private:
     }
     void write(const QString &text, Tone tone, bool bold)
     {
-        if (!m_color || (tone == Tone::Plain && !bold)) {
+        if (!m_color || (tone == Tone::Plain && !bold) || text.isEmpty()) {
             std::fputs(text.toLocal8Bit().constData(), stdout);
             return;
         }
-        // Basic ANSI colours: the terminal's own palette (its colour scheme) draws them.
-        const char *colour = tone == Tone::Info ? "34" : tone == Tone::Good ? "32" : tone == Tone::Warn ? "33" : tone == Tone::Bad ? "31" : "39";
-        std::fprintf(stdout, "\x1b[%s%sm%s\x1b[0m", bold ? "1;" : "", colour, text.toLocal8Bit().constData());
+        const char *colour = tone == Tone::Info ? "34"
+            : tone == Tone::Good                ? "32"
+            : tone == Tone::Warn                ? "33"
+            : tone == Tone::Bad                 ? "31"
+            : tone == Tone::Dim                 ? "2"
+                                                : "39";
+        std::fprintf(stdout, "\x1b[%s%sm%s\x1b[0m", bold && tone != Tone::Dim ? "1;" : "", colour, text.toLocal8Bit().constData());
     }
     bool m_color;
+    bool m_utf8;
 };
 
 bool stdinIsTerminal()
@@ -237,6 +279,56 @@ QStringList strings(const QJsonValue &value)
     return out;
 }
 
+// A pacman hook that takes a snapshot before every transaction, by name.
+QString snapshotHook(const QStringList &dirs)
+{
+    for (const QString &dir : dirs) {
+        for (const QString &name : QDir(dir).entryList({QStringLiteral("*.hook")}, QDir::Files)) {
+            if (name.contains(QLatin1String("snap-pac"))) {
+                return QStringLiteral("snap-pac");
+            }
+            if (name.contains(QLatin1String("timeshift-autosnap"))) {
+                return QStringLiteral("timeshift-autosnap");
+            }
+        }
+    }
+    return {};
+}
+
+QString duration(qint64 ms)
+{
+    const qint64 s = (ms + 500) / 1000;
+    return s < 60 ? QStringLiteral("%1 s").arg(s) : QStringLiteral("%1 min").arg((s + 30) / 60);
+}
+
+// The command to run pacman with, kept from sleeping where logind allows it.
+QStringList inhibited(const QStringList &command)
+{
+    const QString inhibit = QStandardPaths::findExecutable(QStringLiteral("systemd-inhibit"));
+    if (inhibit.isEmpty()) {
+        return command;
+    }
+    const QStringList args{QStringLiteral("--what=idle:sleep"), QStringLiteral("--who=Kyu"), QStringLiteral("--why=Updating packages"),
+                           QStringLiteral("--mode=block")};
+    QProcess probe;
+    probe.start(inhibit, args + QStringList{QStringLiteral("true")});
+    if (!probe.waitForFinished(5000) || probe.exitStatus() != QProcess::NormalExit || probe.exitCode() != 0) {
+        return command;
+    }
+    return QStringList{inhibit} + args + command;
+}
+
+// A command line for `script -c` (run by /bin/sh).
+QString shellJoin(const QStringList &args)
+{
+    static const QRegularExpression plain(QStringLiteral("^[A-Za-z0-9_./=:,+-]+$"));
+    QStringList quoted;
+    for (const QString &a : args) {
+        quoted.append(plain.match(a).hasMatch() ? a : QLatin1Char('\'') + QString(a).replace(QLatin1Char('\''), QStringLiteral("'\\''")) + QLatin1Char('\''));
+    }
+    return quoted.join(QLatin1Char(' '));
+}
+
 QString checkBinary()
 {
     const QString override = qEnvironmentVariable("KYU_CHECK");
@@ -259,8 +351,9 @@ int main(int argc, char **argv)
                                                     "with the news before and what is left to do after."));
     parser.addHelpOption();
     parser.addVersionOption();
-    QCommandLineOption noWait(QStringLiteral("no-wait"), QStringLiteral("Do not wait for Enter at the end."));
+    QCommandLineOption noWait(QStringLiteral("no-wait"), QStringLiteral("Do not wait for a key at the end."));
     QCommandLineOption noCheck(QStringLiteral("no-check"), QStringLiteral("Do not run kyu-check afterwards."));
+    QCommandLineOption refresh(QStringLiteral("refresh"), QStringLiteral("Download all package databases again (pacman -Syyu), as after changing mirrors."));
     QCommandLineOption stateFile(QStringLiteral("state-file"), QStringLiteral("kyu-check's state (testing)."), QStringLiteral("path"));
     QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), QStringLiteral("pacman's log (testing)."), QStringLiteral("path"),
                                  QStringLiteral("/var/log/pacman.log"));
@@ -269,32 +362,111 @@ int main(int argc, char **argv)
     QCommandLineOption procDir(QStringLiteral("proc-dir"), QStringLiteral("/proc (testing)."), QStringLiteral("path"), QStringLiteral("/proc"));
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
-    parser.addOptions({noWait, noCheck, stateFile, pacmanLog, dbLock, procDir, modulesDir});
+    QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
+    parser.addOptions({noWait, noCheck, refresh, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out;
+    out.windowTitle();
     QDir().mkpath(Kyu::Paths::stateDir());
     QLockFile lock(Kyu::Paths::stateDir() + QStringLiteral("/update.lock"));
+
+    QString elevate;
+    for (const char *tool : {"sudo", "doas", "pkexec"}) {
+        if (!QStandardPaths::findExecutable(QLatin1String(tool)).isEmpty()) {
+            elevate = QLatin1String(tool);
+            break;
+        }
+    }
+
+    // What the last line offers, one key each.
+    struct Keys {
+        bool restart = false;
+        QString merge; // what [m] merges ("sddm.conf", "3 settings files")
+        QString fix; // a command; after it, the whole update again
+        bool fixRefreshes = false; // ... with fresh package databases
+    };
+
     // The end: the lock goes first (the tray's card stops saying "Updating"),
-    // then the window waits, so a printed command can still be typed: Enter
-    // closes it, "s" opens a shell here.
+    // then the last line offers what is left to do.
     // The exit status says what happened (0 done, 1 pacman failed, 3 already
     // running, 4 stopped at the news, 5 flatpak failed) only without the wait
     // (--no-wait, or no terminal): after it the person has read the result,
     // last-run.json has it, and a non-zero status would only make Konsole
     // post a "Program exited with status" notification.
-    auto finish = [&](int code) {
+    auto finish = [&](int code, const Keys &keys = {}) {
         lock.unlock();
-        if (!parser.isSet(noWait) && stdinIsTerminal()) {
-            out.blank();
-            out.prompt(QStringLiteral("Press Enter to close, or type s and Enter for a shell here. "));
-            if (readAnswer() == QLatin1String("s")) {
-                const QString shell = qEnvironmentVariable("SHELL", QStringLiteral("/bin/sh"));
-                runInTerminal(shell, {});
-            }
-            return 0;
+        if (parser.isSet(noWait) || !stdinIsTerminal()) {
+            return code;
         }
-        return code;
+        Keys k = keys;
+        for (;;) {
+            QStringList offer;
+            if (!k.fix.isEmpty()) {
+                offer.append(QStringLiteral("[f] fix and update again"));
+            }
+            if (k.restart) {
+                offer.append(QStringLiteral("[r] restart now"));
+            }
+            if (!k.merge.isEmpty()) {
+                offer.append(QStringLiteral("[m] merge ") + k.merge);
+            }
+            offer.append(QStringLiteral("[Enter] close"));
+            out.blank();
+            out.prompt(offer.join(QStringLiteral("   ")) + QLatin1Char(' '), Tone::Info);
+            const QString answer = readAnswer();
+            if (answer.isEmpty()) {
+                return 0;
+            }
+            if (answer == QLatin1String("r") && k.restart) {
+                const int rc = runInTerminal(QStringLiteral("systemctl"), {QStringLiteral("reboot")});
+                if (rc == 0) {
+                    return 0;
+                }
+                out.bad(QStringLiteral("systemctl reboot failed (status %1).").arg(rc));
+            } else if (answer == QLatin1String("m") && !k.merge.isEmpty()) {
+                if (QStandardPaths::findExecutable(QStringLiteral("pacdiff")).isEmpty()) {
+                    out.warn(QStringLiteral("pacdiff is in pacman-contrib: sudo pacman -S pacman-contrib"));
+                    continue;
+                }
+                // pacdiff as you, with sudo for the files: your DIFFPROG stays.
+                QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+                if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()
+                    && !QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
+                    env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
+                }
+                const int rc = elevate == QLatin1String("sudo")
+                    ? runInTerminal(QStringLiteral("pacdiff"), {QStringLiteral("--sudo")}, env)
+                    : runInTerminal(elevate, {QStringLiteral("pacdiff")}, env);
+                if (rc == 0) {
+                    k.merge.clear();
+                }
+            } else if (answer == QLatin1String("f") && !k.fix.isEmpty()) {
+                const int rc = runInTerminal(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), k.fix});
+                if (rc != 0) {
+                    out.bad(QStringLiteral("The fix failed (status %1); its messages are above.").arg(rc));
+                    continue;
+                }
+                // The whole update again, as a new run of this program.
+                QStringList args = QCoreApplication::arguments();
+                if (k.fixRefreshes && !args.contains(QStringLiteral("--refresh"))) {
+                    args.append(QStringLiteral("--refresh"));
+                }
+                QList<QByteArray> bytes;
+                for (const QString &a : args) {
+                    bytes.append(QFile::encodeName(a));
+                }
+                QList<char *> argvNew;
+                for (QByteArray &b : bytes) {
+                    argvNew.append(b.data());
+                }
+                argvNew.append(nullptr);
+                out.blank();
+                ::execv(QFile::encodeName(QCoreApplication::applicationFilePath()).constData(), argvNew.data());
+                out.bad(QStringLiteral("Could not start kyu-update again."));
+                return code;
+            }
+        }
     };
 
     // One update at a time; the tray's card reads this lock too.
@@ -303,55 +475,74 @@ int main(int argc, char **argv)
         qint64 pid = 0;
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
-        out.kyu(QStringLiteral("An update is already running (pid %1).").arg(pid), Tone::Warn);
-        return parser.isSet(noWait) || !stdinIsTerminal() ? 3 : (out.prompt(QStringLiteral("Press Enter to close. ")), readAnswer(), 0);
+        out.warn(QStringLiteral("An update is already running (pid %1).").arg(pid));
+        if (parser.isSet(noWait) || !stdinIsTerminal()) {
+            return 3;
+        }
+        out.blank();
+        out.prompt(QStringLiteral("[Enter] close "), Tone::Info);
+        readAnswer();
+        return 0;
     }
 
     // --- Before pacman ----------------------------------------------------
     const QString statePath = parser.isSet(stateFile) ? parser.value(stateFile) : Kyu::Paths::stateFile();
     const std::optional<Kyu::UpdateState> state = Kyu::UpdateState::load(statePath);
-    if (state && state->checkedAt.isValid()) {
-        out.kyu(QStringLiteral("%1: %2, %3")
-                    .arg(plural(state->total(), QStringLiteral("update"), QStringLiteral("updates")),
-                         plural(state->packages.size(), QStringLiteral("package"), QStringLiteral("packages")),
-                         plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks"))));
+    if (!state || !state->checkedAt.isValid()) {
+        out.header(QStringLiteral("Kyu · updating (no check for updates yet)"));
+    } else if (state->total() == 0) {
+        out.header(QStringLiteral("Kyu · no updates at the last check; updating anyway"));
     } else {
-        out.kyu(QStringLiteral("Updating. (Kyu has not checked for updates yet.)"));
+        QStringList parts;
+        if (!state->packages.isEmpty()) {
+            parts.append(plural(state->packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
+        }
+        if (!state->flatpaks.isEmpty()) {
+            parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+        }
+        out.header(QStringLiteral("Kyu · %1: %2").arg(plural(state->total(), QStringLiteral("update"), QStringLiteral("updates")),
+                                                     parts.join(QStringLiteral(", "))));
     }
+    out.note(QStringLiteral("Keep this window open until Kyu says it is done."), Tone::Dim);
 
     if (state && !state->news.items.isEmpty()) {
-        out.kyu(QStringLiteral("%1 since your last upgrade:").arg(state->news.source), Tone::Warn);
+        out.blank();
+        out.heading(QStringLiteral("%1 since your last update").arg(state->news.source), Tone::Warn);
         for (const Kyu::NewsItem &item : state->news.items.mid(0, 5)) {
-            out.more(item.title, Tone::Warn);
-            out.more(item.link);
+            out.note(item.title);
+            out.note(item.link, Tone::Dim);
         }
         if (state->news.items.size() > 5) {
-            out.more(QStringLiteral("… and %1 more: %2").arg(state->news.items.size() - 5).arg(state->news.page));
+            out.note(QStringLiteral("… and %1 more: %2").arg(state->news.items.size() - 5).arg(state->news.page), Tone::Dim);
         }
         // No by default: Enter alone must not skip news that may need action.
-        out.prompt(QStringLiteral("Continue? [y/N] "));
+        out.prompt(QStringLiteral("Continue? [y/N] "), Tone::Warn);
         const QString answer = readAnswer();
         if (!stdinIsTerminal()) {
             out.blank(); // a typed answer ends the line itself
         }
         if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
-            out.kyu(QStringLiteral("Stopped. Nothing was changed."));
+            out.note(QStringLiteral("Stopped. Nothing was changed."));
             return finish(4);
         }
     }
 
     // pacman's lock: another package manager, or one left over from a run that was stopped.
     if (QFileInfo::exists(parser.value(dbLock))) {
+        out.blank();
         const QString holder = runningPackageManager(parser.value(procDir));
         if (!holder.isEmpty()) {
-            out.kyu(QStringLiteral("Another package manager is running (%1). Update when it has finished.").arg(holder), Tone::Warn);
-        } else {
-            out.kyu(QStringLiteral("pacman's lock file is left over from a run that was stopped:"), Tone::Warn);
-            out.more(parser.value(dbLock));
-            out.more(QStringLiteral("No package manager is running, so it is safe to remove it:"));
-            out.more(QStringLiteral("sudo rm ") + parser.value(dbLock), Tone::Info);
+            out.warn(QStringLiteral("Another package manager is running (%1). Update when it is done.").arg(holder));
+            return finish(1);
         }
-        return finish(1);
+        out.warn(QStringLiteral("pacman's lock file is left over from a run that was stopped."));
+        out.note(QStringLiteral("No package manager is running, so it is safe to remove."));
+        Keys keys;
+        if (!elevate.isEmpty()) {
+            keys.fix = elevate + QStringLiteral(" rm ") + parser.value(dbLock);
+            out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+        }
+        return finish(1, keys);
     }
 
     // Only Flatpaks pending (by the last check): no sudo, no pacman.
@@ -359,30 +550,29 @@ int main(int argc, char **argv)
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
 
-    QString elevate;
-    if (!flatpakOnly) {
-        for (const char *tool : {"sudo", "doas", "pkexec"}) {
-            if (!QStandardPaths::findExecutable(QLatin1String(tool)).isEmpty()) {
-                elevate = QLatin1String(tool);
-                break;
-            }
-        }
-        if (elevate.isEmpty()) {
-            out.kyu(QStringLiteral("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."), Tone::Bad);
-            return finish(1);
-        }
+    if (!flatpakOnly && elevate.isEmpty()) {
+        out.bad(QStringLiteral("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."));
+        return finish(1);
     }
-    out.kyu(QStringLiteral("Do not close this window until Kyu says it is done."));
-    out.blank();
 
     // --- pacman ------------------------------------------------------------
+    QElapsedTimer clock;
+    clock.start();
     int pacmanExit = -1;
     Kyu::PacmanRun run;
     QJsonObject failure;
     QStringList pacmanLines;
     if (!flatpakOnly) {
-        const QString command = elevate + QStringLiteral(" pacman -Syu");
-        out.command(command);
+        const QStringList hookDirs = parser.isSet(hooksDir) ? parser.values(hooksDir)
+                                                            : QStringList{QStringLiteral("/usr/share/libalpm/hooks"), QStringLiteral("/etc/pacman.d/hooks")};
+        if (const QString hook = snapshotHook(hookDirs); !hook.isEmpty()) {
+            out.blank();
+            out.step(QStringLiteral("Snapshot"), QStringLiteral("by %1, before pacman changes anything").arg(hook));
+        }
+        const QString syu = parser.isSet(refresh) ? QStringLiteral("-Syyu") : QStringLiteral("-Syu");
+        const QStringList command{elevate, QStringLiteral("pacman"), syu};
+        out.blank();
+        out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')));
         const qint64 logOffset = QFileInfo(parser.value(pacmanLog)).size();
         // util-linux `script` keeps pacman fully interactive (a terminal of
         // its own) and records what it prints, for the explanation of a
@@ -394,17 +584,20 @@ int main(int argc, char **argv)
         if (!script.isEmpty() && recording.isValid()) {
             QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
             env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
-            pacmanExit = runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), command, typescript}, env);
+            pacmanExit = runInTerminal(script,
+                                       {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shellJoin(inhibited(command)), typescript},
+                                       env);
             QFile ts(typescript);
             if (ts.open(QIODevice::ReadOnly)) {
                 pacmanLines = Kyu::terminalLines(ts.readAll());
-                // script's own first and last lines ("Script started/done on …").
+                // script's own first line ("Script started on …").
                 if (!pacmanLines.isEmpty() && pacmanLines.first().startsWith(QLatin1String("Script started"))) {
                     pacmanLines.removeFirst();
                 }
             }
         } else {
-            pacmanExit = runInTerminal(elevate, {QStringLiteral("pacman"), QStringLiteral("-Syu")});
+            const QStringList c = inhibited(command);
+            pacmanExit = runInTerminal(c.first(), c.mid(1));
         }
         run = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(parser.value(pacmanLog), logOffset)));
         if (pacmanExit != 0) {
@@ -416,101 +609,25 @@ int main(int argc, char **argv)
     int flatpakExit = -1;
     if ((flatpakOnly || pacmanExit == 0) && flatpakWanted) {
         out.blank();
-        out.command(QStringLiteral("flatpak update"));
+        out.step(QStringLiteral("Flatpaks"), QStringLiteral("flatpak update"));
         flatpakExit = runInTerminal(flatpak, {QStringLiteral("update")});
     }
 
-    // --- After ---------------------------------------------------------------
-    out.blank();
-    if (pacmanExit > 0) {
-        const QString flatpakNote = flatpakWanted ? QStringLiteral(" Flatpaks were not updated.") : QString();
-        if (run.transactionStarted) {
-            out.kyu(QStringLiteral("pacman failed (exit status %1) after changing %2.")
-                            .arg(pacmanExit)
-                            .arg(plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages")))
-                        + flatpakNote,
-                    Tone::Bad);
-        } else if (failure.isEmpty()) {
-            // A wrong password, "n" at pacman's question, or an error Kyu does
-            // not know (or in another language): nothing changed either way.
-            out.kyu(QStringLiteral("pacman stopped before changing anything (exit status %1).").arg(pacmanExit) + flatpakNote, Tone::Warn);
-        } else {
-            out.kyu(QStringLiteral("pacman failed (exit status %1). No packages were changed.").arg(pacmanExit) + flatpakNote, Tone::Bad);
-        }
-        if (!failure.isEmpty()) {
-            const FailureText text = describeFailure(failure);
-            out.kyu(text.title + QLatin1Char('.'), Tone::Warn);
-            for (const QString &line : wrap(text.text)) {
-                out.more(line);
-            }
-            // Files and package files are not in the sentence: list them.
-            const QString kind = failure.value(QStringLiteral("kind")).toString();
-            if (kind == QLatin1String("files") || kind == QLatin1String("mirror")) {
-                for (const QString &item : text.items.mid(0, 5)) {
-                    out.more(QStringLiteral("· ") + item);
-                }
-                if (text.items.size() > 5) {
-                    out.more(QStringLiteral("· and %1 more").arg(text.items.size() - 5));
-                }
-            }
-            if (!text.command.isEmpty()) {
-                out.kyu(QStringLiteral("This usually fixes it:"), Tone::Info);
-                out.more(text.command, Tone::Info);
-            }
-        } else {
-            // pacman's last error lines, whatever the language.
-            QStringList last;
-            for (auto it = pacmanLines.crbegin(); it != pacmanLines.crend() && last.size() < 3; ++it) {
-                const QString l = it->trimmed();
-                if (!l.isEmpty() && !l.startsWith(QLatin1String("Script done"))) {
-                    last.prepend(l);
-                }
-            }
-            // Not after "n" at pacman's own question (its last line is the "::" prompt).
-            const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
-            if (!last.isEmpty() && !declined) {
-                out.kyu(QStringLiteral("pacman's last lines:"), Tone::Plain, false);
-                for (const QString &l : last) {
-                    out.more(l);
-                }
-            }
-        }
-    } else {
-        QStringList done;
-        if (pacmanExit == 0 && !run.changed.isEmpty()) {
-            done.append(plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages")));
-        }
-        if (flatpakExit == 0) {
-            done.append(QStringLiteral("flatpak update finished"));
-        }
-        if (flatpakExit > 0) {
-            out.kyu(QStringLiteral("flatpak update failed (exit status %1); its own messages are above.").arg(flatpakExit), Tone::Bad);
-            if (!run.changed.isEmpty()) {
-                out.kyu(QStringLiteral("pacman's part is done: %1.").arg(plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages"))),
-                        Tone::Good);
-            }
-        } else {
-            out.kyu(done.isEmpty() ? QStringLiteral("Done: nothing new.") : QStringLiteral("Done: %1.").arg(done.join(QStringLiteral(", "))), Tone::Good);
-        }
-    }
-
-    // What is left to do, after any run: the kernel is checked every time,
-    // and what an earlier run left (same boot) is not forgotten.
+    // --- The verdict ---------------------------------------------------------
+    // What is left to do comes from this run and, in the same boot, from
+    // earlier ones: the kernel is checked every time.
     const QJsonObject previous = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
     const QString boot = bootId();
     const bool sameBoot = !boot.isEmpty() && previous.value(QStringLiteral("bootId")).toString() == boot;
     QString restartReason;
     const Kyu::KernelState kernel = Kyu::kernelState(parser.value(procDir), parser.value(modulesDir));
     if (kernel.replaced) {
-        restartReason = kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was replaced.").arg(kernel.running)
-                                                   : QStringLiteral("kernel %1 running, %2 installed.").arg(kernel.running, kernel.installed);
+        restartReason = kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was removed").arg(kernel.running)
+                                                   : QStringLiteral("new kernel %1").arg(kernel.installed);
     } else if (const QString pkg = Kyu::restartPackage(run); !pkg.isEmpty()) {
-        restartReason = QStringLiteral("%1 was updated.").arg(pkg);
+        restartReason = QStringLiteral("%1 was updated").arg(pkg);
     } else if (sameBoot && previous.value(QStringLiteral("restartRequired")).toBool()) {
         restartReason = previous.value(QStringLiteral("restartReason")).toString();
-    }
-    if (!restartReason.isEmpty()) {
-        out.kyu(QStringLiteral("Restart needed: ") + restartReason, Tone::Warn);
     }
 
     // Settings files: this run's, and earlier ones still waiting.
@@ -519,13 +636,6 @@ int main(int argc, char **argv)
         if (!configs.contains(path) && QFileInfo::exists(path)) {
             configs.append(path);
         }
-    }
-    if (!configs.isEmpty()) {
-        out.kyu(plural(configs.size(), QStringLiteral("settings file"), QStringLiteral("settings files")) + QStringLiteral(" to review:"), Tone::Info);
-        for (const QString &path : configs) {
-            out.more(path);
-        }
-        out.more(QStringLiteral("compare and merge: sudo pacdiff"), Tone::Info);
     }
 
     // Your own programs on replaced libraries (other users' are not readable
@@ -538,11 +648,97 @@ int main(int argc, char **argv)
                 programs.append(p.name);
             }
         }
-        if (!programs.isEmpty()) {
-            out.kyu(QStringLiteral("Programs you run still use replaced libraries: %1. Restart them, or log out and in.")
-                        .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())),
-                    Tone::Info, false);
+    }
+
+    Keys keys;
+    const QString packages = plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages"));
+    out.blank();
+    if (pacmanExit > 0) {
+        const QString skipped = flatpakWanted ? QStringLiteral(" Flatpaks were skipped.") : QString();
+        // pacman's last lines, whatever the language; the last one is its
+        // "::" question when it was answered no.
+        QStringList last;
+        for (auto it = pacmanLines.crbegin(); it != pacmanLines.crend() && last.size() < 3; ++it) {
+            const QString l = it->trimmed();
+            if (!l.isEmpty() && !l.startsWith(QLatin1String("Script done"))) {
+                last.prepend(l);
+            }
         }
+        const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
+        if (run.transactionStarted) {
+            out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
+        } else if (declined) {
+            out.warn(QStringLiteral("Stopped. Nothing was installed.") + skipped);
+        } else {
+            out.bad(QStringLiteral("Nothing was installed.") + skipped);
+        }
+        if (!failure.isEmpty()) {
+            const FailureText text = describeFailure(failure);
+            out.note(text.title + QLatin1Char('.'));
+            // Files and package files are not in the sentence: list them.
+            const QString kind = failure.value(QStringLiteral("kind")).toString();
+            if (kind == QLatin1String("files") || kind == QLatin1String("mirror")) {
+                for (const QString &item : text.items.mid(0, 3)) {
+                    out.note(QStringLiteral("· ") + item, Tone::Dim);
+                }
+                if (text.items.size() > 3) {
+                    out.note(QStringLiteral("· and %1 more").arg(text.items.size() - 3), Tone::Dim);
+                }
+            }
+            if (!text.fix.isEmpty()) {
+                keys.fix = text.fix;
+                keys.fixRefreshes = kind == QLatin1String("mirror");
+                out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+            } else {
+                // No key for it: what to do, in words.
+                for (const QString &line : wrap(text.text, 72)) {
+                    out.note(line, Tone::Dim);
+                }
+            }
+        } else if (!declined && !last.isEmpty()) {
+            out.note(QStringLiteral("pacman's last lines (status %1):").arg(pacmanExit));
+            for (const QString &l : last) {
+                out.note(l, Tone::Dim);
+            }
+        }
+    } else if (flatpakExit > 0) {
+        if (!run.changed.isEmpty()) {
+            out.good(QStringLiteral("Packages done: %1").arg(packages));
+        }
+        out.bad(QStringLiteral("flatpak update failed (status %1); its messages are above.").arg(flatpakExit));
+    } else {
+        QStringList parts;
+        if (!run.changed.isEmpty()) {
+            parts.append(packages);
+        }
+        if (flatpakExit == 0 && state && !state->flatpaks.isEmpty()) {
+            parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+        }
+        out.good(parts.isEmpty() ? QStringLiteral("Already up to date.")
+                                 : QStringLiteral("Done in %1 · %2").arg(duration(clock.elapsed()), parts.join(QStringLiteral(" · "))));
+    }
+
+    if (!restartReason.isEmpty()) {
+        out.warn(QStringLiteral("Restart needed: ") + restartReason);
+        keys.restart = true;
+    }
+    if (!configs.isEmpty()) {
+        // The file the new version is for: /etc/sddm.conf for /etc/sddm.conf.pacnew.
+        QStringList shown;
+        for (const QString &path : configs) {
+            shown.append(QString(path).remove(QRegularExpression(QStringLiteral("\\.pac(new|save)$"))));
+        }
+        out.warn(QStringLiteral("%1 changed: %2")
+                     .arg(plural(configs.size(), QStringLiteral("settings file"), QStringLiteral("settings files")),
+                          shown.mid(0, 3).join(QStringLiteral(", ")) + (shown.size() > 3 ? QStringLiteral(", …") : QString())));
+        keys.merge = configs.size() == 1 ? QFileInfo(shown.first()).fileName() : plural(configs.size(), QStringLiteral("file"), QStringLiteral("files"));
+    }
+    if (!programs.isEmpty()) {
+        out.warn(QStringLiteral("Still on old libraries: %1. Restart them.")
+                     .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())));
+    }
+    if (pacmanExit <= 0 && flatpakExit <= 0 && restartReason.isEmpty() && configs.isEmpty() && programs.isEmpty()) {
+        out.note(QStringLiteral("Nothing else to do."));
     }
 
     // For the tray's card: what is left to do.
@@ -571,5 +767,5 @@ int main(int argc, char **argv)
     }
 
     const int code = pacmanExit > 0 ? pacmanExit : flatpakExit > 0 ? 5 : 0;
-    return finish(code);
+    return finish(code, keys);
 }

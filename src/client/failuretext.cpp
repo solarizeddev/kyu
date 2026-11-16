@@ -67,6 +67,7 @@ FailureText describeFailure(const QJsonObject &failure)
         t.items = files;
         if (distroId() == QLatin1String("manjaro")) {
             t.command = QStringLiteral("sudo pacman-mirrors --fasttrack && sudo pacman -Syyu");
+            t.fix = QStringLiteral("sudo pacman-mirrors --fasttrack");
         } else {
             t.text += QStringLiteral(" Mirrors are listed in /etc/pacman.d/mirrorlist.");
         }
@@ -83,6 +84,8 @@ FailureText describeFailure(const QJsonObject &failure)
         }
         // Not a partial upgrade: -Su follows at once.
         t.command = QStringLiteral("sudo pacman -Sy --needed %1 && sudo pacman -Su").arg(keyrings.join(QLatin1Char(' ')));
+        // kyu-update follows the fix with the whole update at once.
+        t.fix = QStringLiteral("sudo pacman -Sy --needed %1").arg(keyrings.join(QLatin1Char(' ')));
     } else if (kind == QLatin1String("files")) {
         const QStringList files = strings(failure.value(QStringLiteral("files")));
         const int count = failure.value(QStringLiteral("fileCount")).toInt();
@@ -99,6 +102,7 @@ FailureText describeFailure(const QJsonObject &failure)
         t.text = QStringLiteral("pacman needs more free space than there is (in pacman's messages). Removing old package versions from "
                                 "pacman's cache often frees enough.");
         t.command = QStringLiteral("sudo paccache -r");
+        t.fix = t.command;
     } else if (kind == QLatin1String("dependencies")) {
         t.title = QStringLiteral("Dependencies cannot be satisfied");
         t.text = QStringLiteral("pacman cannot resolve the update's dependencies (in pacman's messages). This often involves a package from "
