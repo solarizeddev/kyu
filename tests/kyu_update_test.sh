@@ -182,7 +182,7 @@ has "$d/out" 'Done in ' lockfix
 
 echo "keys: a keyring failure offers its fix; [m] runs pacdiff; Enter closes"
 KYU_FAKE_MODE=keyring runtty keyfix 'y\n|\n'
-has "$work/keyfix/out" 'Fix: sudo pacman -Sy --needed' keyfix
+has "$work/keyfix/out" 'Fix: sudo pacman -Sy --needed archlinux-keyring manjaro-keyring' keyfix
 has "$work/keyfix/out" '[Enter] close' keyfix
 runtty merge 'y\n|m\n|\n'
 d=$work/merge

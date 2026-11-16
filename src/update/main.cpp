@@ -34,6 +34,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+#include <clocale>
 #include <csignal>
 #include <cstdio>
 #include <functional>
@@ -51,9 +52,9 @@ enum class Tone { Plain, Dim, Info, Good, Warn, Bad };
 class Out
 {
 public:
-    Out()
+    explicit Out(bool utf8)
         : m_color(::isatty(STDOUT_FILENO) && qEnvironmentVariableIsEmpty("NO_COLOR"))
-        , m_utf8(QByteArray(::nl_langinfo(CODESET)) == "UTF-8")
+        , m_utf8(utf8)
     {
     }
     // The window's title, where the terminal shows it.
@@ -371,6 +372,10 @@ QString checkBinary()
 
 int main(int argc, char **argv)
 {
+    // The terminal's character set, from the environment: asked before Qt
+    // starts, which switches a non-UTF-8 locale to C.UTF-8 for itself.
+    std::setlocale(LC_ALL, "");
+    const bool utf8 = QByteArray(::nl_langinfo(CODESET)) == "UTF-8";
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-update"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
@@ -399,7 +404,7 @@ int main(int argc, char **argv)
     parser.addOptions({noWait, noCheck, refresh, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
-    Out out;
+    Out out(utf8);
     out.windowTitle();
     QDir().mkpath(Kyu::Paths::stateDir());
     QLockFile lock(Kyu::Paths::stateDir() + QStringLiteral("/update.lock"));

@@ -81,6 +81,9 @@ FailureText describeFailure(const QJsonObject &failure)
         QStringList keyrings = installedKeyrings();
         if (keyrings.isEmpty()) {
             keyrings = {QStringLiteral("archlinux-keyring")};
+            if (distroId() == QLatin1String("manjaro")) {
+                keyrings.append(QStringLiteral("manjaro-keyring"));
+            }
         }
         // Not a partial upgrade: -Su follows at once.
         t.command = QStringLiteral("sudo pacman -Sy --needed %1 && sudo pacman -Su").arg(keyrings.join(QLatin1Char(' ')));

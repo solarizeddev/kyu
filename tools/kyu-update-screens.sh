@@ -274,7 +274,13 @@ RUNNING=$NEW shot A-17-nothing-new - normal nothing "0 0 0" "until [Enter] close
 log "== Konsole's colour schemes"
 schemes=${KONSOLE_SCHEMES:-Breeze BlackOnWhite BlackOnLightYellow Solarized SolarizedLight DarkPastels WhiteOnBlack Linux GreenOnBlack}
 for s in $schemes; do
-    if [ ! -f "/usr/share/konsole/$s.colorscheme" ] && [ ! -f "$HOME/.local/share/konsole/$s.colorscheme" ]; then
+    # Konsole bundles its own schemes in the program (Konsole 23 and later);
+    # others are files.
+    case " Breeze BlackOnWhite BlackOnLightYellow BlackOnRandomLight BlueOnBlack Campbell Solarized SolarizedLight DarkPastels WhiteOnBlack Linux GreenOnBlack RedOnBlack " in
+    *" $s "*) bundled=1 ;;
+    *) bundled= ;;
+    esac
+    if [ -z "$bundled" ] && [ ! -f "/usr/share/konsole/$s.colorscheme" ] && [ ! -f "$HOME/.local/share/konsole/$s.colorscheme" ]; then
         log "skip $s: no such Konsole colour scheme"
         continue
     fi

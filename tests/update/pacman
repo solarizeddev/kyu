@@ -5,6 +5,7 @@
 # (upgrades systemd) | nothing | midfail (fails after one package) | german.
 # The keyring fix: only the keyring packages.
 case "$*" in
+-Qq) printf 'archlinux-keyring\nbase\nmanjaro-keyring\n'; exit 0 ;;
 "-Sy --needed "*) touch "$KYU_FAKE_DIR/keyring-fixed"; echo ":: Synchronizing package databases..."; exit 0 ;;
 -Syu | -Syyu) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
 *) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;
