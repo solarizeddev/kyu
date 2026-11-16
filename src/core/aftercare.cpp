@@ -40,9 +40,10 @@ KernelState kernelState(const QString &procDir, const QString &modulesDir)
         return k;
     }
     k.known = true;
-    // Still installed: its directory has a kernel image (a directory with
-    // only leftover DKMS modules does not count).
-    if (dirs.contains(k.running)) {
+    // Still installed: its directory is there with a kernel image or a
+    // module index (a directory with only leftover DKMS modules does not count).
+    const QString runningDir = modulesDir + QLatin1Char('/') + k.running;
+    if (QFileInfo(runningDir + QStringLiteral("/vmlinuz")).isFile() || QFileInfo(runningDir + QStringLiteral("/modules.dep")).isFile()) {
         k.installed = k.running;
         return k;
     }
@@ -162,8 +163,12 @@ QString restartPackage(const PacmanRun &run)
             return name;
         }
     }
+    // The driver itself: nvidia, nvidia-open, nvidia-dkms, nvidia-utils,
+    // nvidia-470xx-dkms, lib32-nvidia-utils, Manjaro's linux618-nvidia. Not
+    // nvidia-settings or nvidia-prime.
+    static const QRegularExpression driver(QStringLiteral("^(lib32-)?nvidia(-open)?(-[0-9]+xx)?(-dkms|-utils)?$|^linux[0-9]+-nvidia"));
     for (const QString &name : run.updated) {
-        if (name.startsWith(QLatin1String("nvidia"))) {
+        if (driver.match(name).hasMatch()) {
             return name;
         }
     }

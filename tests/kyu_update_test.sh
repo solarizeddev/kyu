@@ -140,6 +140,9 @@ has "$work/midfail/out" 'kyu  pacman failed (exit status 1) after changing 1 pac
 echo "another language: no invented explanation"
 KYU_FAKE_MODE=german run german ''
 has "$work/german/out" 'kyu  pacman stopped before changing anything (exit status 1).' german
+has "$work/german/out" "kyu  pacman's last lines:" german
+has "$work/german/out" 'Fehler: Konnte nicht alle Datenbanken aktualisieren' german
+hasnt "$work/decline/out" "pacman's last lines" decline
 
 echo "a restart from systemd is not forgotten by a later run (same boot)"
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=systemd run carry 'y\n'

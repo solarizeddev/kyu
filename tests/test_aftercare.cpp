@@ -74,6 +74,11 @@ private Q_SLOTS:
         const KernelState k = kernelState(proc, modules);
         QVERIFY(k.known);
         QVERIFY(!k.replaced);
+        // A kernel installed without an image in its module directory (custom
+        // builds): its module index counts.
+        write(proc + QStringLiteral("/sys/kernel/osrelease"), "6.19.0-custom\n");
+        write(modules + QStringLiteral("/6.19.0-custom/modules.dep"), "");
+        QVERIFY(!kernelState(proc, modules).replaced);
     }
 
     void replacedLibraries()
@@ -114,6 +119,12 @@ private Q_SLOTS:
         QCOMPARE(run.changed, QStringList({QStringLiteral("linux618"), QStringLiteral("systemd"), QStringLiteral("vulkan-intel"), QStringLiteral("oldthing")}));
         QCOMPARE(run.configs, QStringList({QStringLiteral("/etc/sddm.conf.pacnew"), QStringLiteral("/etc/foo.conf.pacsave")}));
         QCOMPARE(restartPackage(run), QStringLiteral("systemd"));
+        auto upgradedOnly = [](const QString &name) {
+            return parsePacmanLog(QStringLiteral("[2026-11-16T14:10:21+0100] [ALPM] upgraded %1 (1-1 -> 2-1)\n").arg(name));
+        };
+        QCOMPARE(restartPackage(upgradedOnly(QStringLiteral("nvidia-utils"))), QStringLiteral("nvidia-utils"));
+        QCOMPARE(restartPackage(upgradedOnly(QStringLiteral("linux618-nvidia"))), QStringLiteral("linux618-nvidia"));
+        QVERIFY(restartPackage(upgradedOnly(QStringLiteral("nvidia-settings"))).isEmpty());
 
         const PacmanRun nothing = parsePacmanLog(QStringLiteral("[2026-11-16T14:10:01+0100] [PACMAN] starting full system upgrade\n"));
         QVERIFY(!nothing.transactionStarted);

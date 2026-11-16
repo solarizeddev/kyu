@@ -198,7 +198,7 @@ QStringList wrap(const QString &text, int width = 64)
 // This process and the ones that started it (kyu-update, the shell, the
 // terminal): they use replaced libraries too, after a Qt update, but are not
 // what the user should restart.
-QSet<int> ancestors(const QString &procDir)
+QSet<int> ancestors()
 {
     QSet<int> pids;
     int pid = ::getpid();
@@ -213,7 +213,6 @@ QSet<int> ancestors(const QString &procDir)
         const QList<QByteArray> rest = line.mid(line.lastIndexOf(')') + 2).split(' ');
         pid = rest.size() > 1 ? rest.at(1).toInt() : 0;
     }
-    Q_UNUSED(procDir)
     return pids;
 }
 
@@ -457,11 +456,13 @@ int main(int argc, char **argv)
             QStringList last;
             for (auto it = pacmanLines.crbegin(); it != pacmanLines.crend() && last.size() < 3; ++it) {
                 const QString l = it->trimmed();
-                if (!l.isEmpty() && !l.startsWith(QLatin1String("Script done")) && !l.startsWith(QLatin1String("::"))) {
+                if (!l.isEmpty() && !l.startsWith(QLatin1String("Script done"))) {
                     last.prepend(l);
                 }
             }
-            if (!last.isEmpty() && pacmanExit != 1) {
+            // Not after "n" at pacman's own question (its last line is the "::" prompt).
+            const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
+            if (!last.isEmpty() && !declined) {
                 out.kyu(QStringLiteral("pacman's last lines:"), Tone::Plain, false);
                 for (const QString &l : last) {
                     out.more(l);
@@ -525,7 +526,7 @@ int main(int argc, char **argv)
     // without root). Not needed when a restart is anyway.
     QStringList programs;
     if (restartReason.isEmpty() && !run.changed.isEmpty()) {
-        const QSet<int> mine = ancestors(parser.value(procDir));
+        const QSet<int> mine = ancestors();
         for (const Kyu::OldLibraryProcess &p : Kyu::processesOnReplacedLibraries(::getuid(), parser.value(procDir))) {
             if (!mine.contains(p.pid) && !programs.contains(p.name)) {
                 programs.append(p.name);
