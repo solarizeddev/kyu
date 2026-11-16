@@ -1,6 +1,7 @@
 // GLib before Qt (see core/flatpakcheck.cpp).
 #include <flatpak.h>
 
+#include "flatpakinstallations.h"
 #include "flatpakupdater.h"
 #include "flatpakwarnings.h"
 
@@ -185,22 +186,11 @@ FlatpakUpdater::Result FlatpakUpdater::run()
     };
 
     GError *error = nullptr;
-    if (GPtrArray *system = flatpak_get_system_installations(nullptr, &error)) {
-        for (guint i = 0; i < system->len; ++i) {
-            installations.append(FLATPAK_INSTALLATION(g_object_ref(g_ptr_array_index(system, i))));
-        }
-        g_ptr_array_unref(system);
-    } else {
+    QStringList listErrors;
+    installations = Kyu::flatpakInstallations(listErrors);
+    if (!listErrors.isEmpty()) {
         m_result.ok = false;
-        m_result.errors.append(QStringLiteral("system installations: %1").arg(fromUtf8(error->message)));
-        g_clear_error(&error);
-    }
-    if (FlatpakInstallation *user = flatpak_installation_new_user(nullptr, &error)) {
-        installations.append(user);
-    } else {
-        m_result.ok = false;
-        m_result.errors.append(QStringLiteral("user installation: %1").arg(fromUtf8(error->message)));
-        g_clear_error(&error);
+        m_result.errors.append(listErrors);
     }
 
     for (FlatpakInstallation *installation : std::as_const(installations)) {

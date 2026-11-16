@@ -5,6 +5,7 @@
 
 #include <QFile>
 #include <QJsonArray>
+#include <QLocale>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -70,6 +71,13 @@ class TestPanel : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // Expected strings use C number formatting ("165.0 MiB"); the panel
+        // itself follows the user's locale ("165,0 MiB" in German).
+        QLocale::setDefault(QLocale::c());
+    }
+
     void listGroupsByRepoInConfigOrder()
     {
         PanelController c;

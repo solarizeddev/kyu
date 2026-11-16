@@ -6,6 +6,9 @@
 #endif
 
 #include "flatpakcheck.h"
+#ifdef KYU_HAVE_FLATPAK
+#include "flatpakinstallations.h"
+#endif
 #include "flatpakwarnings.h"
 
 #include <QStringList>
@@ -65,27 +68,9 @@ FlatpakResult checkFlatpak()
     QStringList errors;
     const FlatpakWarnings warnings;
 
-    GError *error = nullptr;
-    GPtrArray *system = flatpak_get_system_installations(nullptr, &error);
-    if (system) {
-        for (guint i = 0; i < system->len; ++i) {
-            collect(FLATPAK_INSTALLATION(g_ptr_array_index(system, i)), result.updates, errors);
-        }
-        g_ptr_array_unref(system);
-    } else {
-        errors.append(QStringLiteral("system installations: %1")
-                          .arg(error ? QString::fromUtf8(error->message) : QStringLiteral("unknown error")));
-        g_clear_error(&error);
-    }
-
-    FlatpakInstallation *user = flatpak_installation_new_user(nullptr, &error);
-    if (user) {
-        collect(user, result.updates, errors);
-        g_object_unref(user);
-    } else {
-        errors.append(QStringLiteral("user installation: %1")
-                          .arg(error ? QString::fromUtf8(error->message) : QStringLiteral("unknown error")));
-        g_clear_error(&error);
+    for (FlatpakInstallation *installation : flatpakInstallations(errors)) {
+        collect(installation, result.updates, errors);
+        g_object_unref(installation);
     }
 
     // A remote that could not be read is not "no updates".

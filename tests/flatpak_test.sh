@@ -53,6 +53,9 @@ has "$log" '"source":"flatpak"'
 has "$log" '"package":"org.kyu.Test.App"'
 has "$log" '"package":"org.kyu.Test.Runtime"'
 has "$log" '"summary":"2 Flatpaks updated"'
+# The system installation has nothing installed (and, as a normal user, no
+# repository): skipped, not an error (newer flatpak fails to open it).
+if grep -q 'error: system installation' "$log"; then fail "the unused system installation was reported as an error"; fi
 [ -z "$(flatpak --user remote-ls --updates)" ] || fail "updates left after kyu-flatpak"
 [ "$(stat -c %a "$log")" = 644 ] || true
 
