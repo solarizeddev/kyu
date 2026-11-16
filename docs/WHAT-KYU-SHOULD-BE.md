@@ -1,9 +1,14 @@
 # What Kyu should be
 
 Written 2026-11-16 with Fable, after looking at what Arch-Update, pamac
-(GTK4), Apdatifier, Octopi, Discover, matray and Omarchy get right and wrong.
-Sources are listed at the end. Out of scope by the owner's decision: an
-unbootable system after a kernel update (boot files, initramfs, DKMS).
+(GTK4), Apdatifier, Octopi, Discover, matray and Omarchy get right and wrong,
+and checking each claim about Kyu against its code. Sources are at the end.
+Out of scope by the owner's decision: an unbootable system after a kernel
+update (boot files, initramfs, DKMS).
+
+**Read this first:** Kyu has never completed a real update. Until item 32
+passes, every "have" under "The update" and "After the update" is a claim
+backed by tests against a fake pacman, not a fact.
 
 ## In one sentence
 
@@ -14,124 +19,139 @@ what is left to do — and nothing else.
 ## What it should solve (with evidence)
 
 1. **pamac is unreliable for updates on Manjaro.** The GTK4 window disappears
-   mid-update while the update keeps running, crashes when pacman itself is
+   mid-update while the update keeps running, it crashes when pacman itself is
    updated, and Manjaro's own update announcements list "unreliability of the
    pamac package manager" as a known issue and advise: pacman first, reboot,
-   then AUR packages separately. Kyu does that order with the real pacman.
+   then AUR packages separately. Kyu should do exactly that order.
 2. **The right news, on Manjaro.** Arch-Update and informant read Arch's
-   news, which is the wrong feed on Manjaro; Manjaro's announcement thread
-   for your branch is what matters there. (matray shows Manjaro announcements
-   in the tray but does nothing else.)
-3. **"What now?" after an update.** Restart needed, settings files to merge,
-   programs on old libraries: today you find out by reading pacman's output
-   carefully. Arch-Update asks about each one in turn (several prompts); pamac
-   says little.
-4. **Failures in plain words.** Keyring, mirror, conflicting files, disk
-   space: other tools show pacman's raw error or a generic "something went
-   wrong".
-5. **A quiet tray that is right.** Users of every tool complain about the
-   tray: missing on Plasma, wrong counts, notifications that pile up, icons
-   that can't be turned off.
+   news, the wrong feed on Manjaro. (matray shows Manjaro announcements in the
+   tray and does nothing else.)
+3. **"What now?" after an update.** Restart needed, settings files to merge:
+   Arch-Update asks about each in turn; pamac says little.
+4. **Failures in plain words.** Other tools show pacman's raw error.
+5. **A quiet tray that is right.** Every tool's tracker has tray complaints:
+   missing on Plasma, stale counts, notifications that pile up.
+
+Why not just patch Arch-Update with a Manjaro news feed? That would cover
+roughly 70% of this list. Kyu differs in three places: a Plasma-native tray
+(Arch-Update's is PyQt6), one verdict with one key per thing instead of a
+chain of prompts, and failure explanations. If those three don't matter to
+you, patching Arch-Update is the cheaper road.
 
 ## What it should not be
 
-- A package manager: no search, no install/remove, no package list to tick.
+- A package manager: no search, no install/remove, no list to tick.
 - An updater that hides pacman: no GUI transaction, no auto-answered
   "Proceed?", no PackageKit.
+- A partial-upgrade risk: never offer or run `pacman -Sy <package>` on its own.
+- Something that edits other programs' settings (pamac's autostart included).
 - A system rescuer: no boot-file checks, no chroot help (out of scope).
-- Configurable in a hundred ways: Apdatifier has about 110 settings; Kyu
-  should need none, and have a handful at most.
+- Configurable in a hundred ways: a handful of settings at most.
 
 ## The list
 
-Status: **have** (in Kyu now), **part**, **missing**, **fix** (in Kyu but
-wrong). Priority: 1 = needed for Kyu to be worth using, 2 = clearly better,
-3 = nice.
+Status: **have** (in Kyu, tested against fakes), **part**, **missing**,
+**fix** (in Kyu but wrong), **verify** (unknown). Priority: 1 = needed for
+Kyu to be worth using, 2 = clearly better, 3 = nice.
 
 ### Checking and the tray
 
 | # | What | Why (who gets it wrong) | Status | Pri |
 |---|---|---|---|---|
-| 1 | Check without touching pacman's real databases (no `-Sy`), with `LC_ALL=C` | Octopi ran `-Sy`; Apdatifier broke with pacman 7.1 | have | 1 |
-| 2 | Honour IgnorePkg/IgnoreGroup and Flatpak masks | Apdatifier, Octopi, Arch-Update in non-English locales | have (pacman); verify (Flatpak masks) | 1 |
+| 1 | Check without touching pacman's real databases (no `-Sy`), parsed with `LC_ALL=C` | Octopi ran `-Sy`; Apdatifier broke with pacman 7.1; Arch-Update locale bugs | have | 1 |
+| 2 | Honour IgnorePkg/IgnoreGroup; honour Flatpak masks | Apdatifier, Octopi | have (pacman); verify (Flatpak: mask a ref, run `kyu-check --json`) | 1 |
 | 3 | "Could not check" is its own state, never "up to date" or a stale count | Arch-Update "Cannot fetch Update" on Manjaro | have | 1 |
-| 4 | Timeouts, cancel, and a retry when the network comes back after boot or resume | Apdatifier hangs; Arch-Update errors on wake | verify | 1 |
-| 5 | Check again as soon as an update ends | Apdatifier keeps the old list | have | 1 |
-| 6 | Tray: theme icons, hidden when up to date (Passive), left click opens, right click only the menu | Arch-Update's PyQt tray on Plasma | have (built, untested on Plasma) | 1 |
-| 7 | One icon, not two: say how to turn pamac's tray off, or do it with consent | two trays and two notifications on Manjaro | missing | 1 |
-| 8 | Notifications: one at a time, replaced not stacked, expire; only for news and for a finished update in the background | Arch-Update and Apdatifier pile-ups | missing | 2 |
-| 9 | Icons that don't depend on colour alone (tooltip at least) | Arch-Update colourblind request | part (tooltip) | 2 |
-| 10 | AUR updates counted (when an AUR helper is installed) | Octopi misses AUR updates | missing | 2 |
+| 4 | Every check has a timeout and can't block later checks; retry when the network is back after boot or resume | Apdatifier hangs; Arch-Update errors on wake | **part**: only checkupdates has a timeout; the Flatpak check doesn't; a hung check holds the lock so later checks exit; no resume/network retry | 1 |
+| 5 | Check again whenever packages change, not only after Kyu's own update (pamac, plain pacman) | Apdatifier keeps the old list | **part**: only after kyu-update; otherwise stale for up to an hour | 1 |
+| 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | **fix**: icons done (untested on Plasma); left click still opens the old panel | 1 |
+| 7 | One tray, not two: print how to turn pamac's tray off (never change it ourselves) | two trays and two notifications on Manjaro | missing | 2 |
+| 8 | A failed check is quiet (tooltip "could not check since …"); loud only after about a day | an offline laptop shouldn't show red | missing (today: red at once, like a failed update) | 2 |
+| 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
+| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | missing | 2 |
+| 11 | Icons that don't depend on colour alone | Arch-Update colourblind request | part (tooltip) | 2 |
+| 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | verify | 2 |
 
 ### Before pacman
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 11 | Manjaro's announcement for your branch; Arch news on Arch | Arch-Update/informant: wrong feed on Manjaro | have | 1 |
-| 12 | News shown once and not every time: stop at "Continue? [y/N]" only when it says something needs doing, otherwise one line with the link | every Manjaro update has an announcement, so a question every time becomes a reflex "y"; Arch-Update users ask to trim news | **fix** | 1 |
-| 13 | Wait for pamac/another package manager to finish, then go on (not stop) | pamac stuck on "Waiting for another package manager" | part (says so, stops) | 2 |
-| 14 | Keyring packages first when they are among the updates (`-Sy --needed keyrings && -Su`, no partial upgrade) | Manjaro announcements advise it; keyring failures are common | missing | 2 |
-| 15 | Flatpak-only update without a password | — | have | 2 |
+| 13 | Manjaro's announcement for your branch; Arch news on Arch | Arch-Update/informant: wrong feed on Manjaro | have | 1 |
+| 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | **fix**: asks whenever there is any news | 1 |
+| 15 | Wait for pamac or another package manager to finish, then go on | pamac's own background refresh takes the lock routinely | part (says so, stops) | 1 |
+| 16 | Keyrings first when they are among the updates: `pacman -Sy --needed archlinux-keyring manjaro-keyring` then `pacman -Su` at once, in the same run | Manjaro advice; the top real failure after long gaps | missing | 1 |
+| 17 | Long gap warning: last full upgrade more than a few weeks ago → "read the announcements in between; keyrings first" | — | missing | 2 |
+| 18 | Flatpak-only update without a password | — | have | 2 |
 
 ### The update
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 16 | The real `sudo pacman -Syu` in a real terminal, its own questions | pamac's daemon/GUI crashes | have (untested on a real update) | 1 |
-| 17 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, only if one is installed | Manjaro's advice: pacman first, AUR after | missing | 2 |
-| 18 | Then `flatpak update` | — | have | 1 |
-| 19 | The terminal you use: Konsole by default, a setting for another | Arch-Update/Apdatifier terminal detection is their longest bug thread | part (Konsole/xdg-terminal-exec, no setting) | 2 |
-| 20 | Closing the window asks first; a failed or closed run is detected afterwards | the original goal; pamac keeps running hidden | part (Kyu window asks; plain Konsole doesn't) | 2 |
-| 21 | Kept awake while pacman runs | Apdatifier, Omarchy | have | 2 |
+| 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have (never run on a real update) | 1 |
+| 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | missing | 1 |
+| 21 | Then `flatpak update` | — | have | 1 |
+| 22 | The terminal you use: Konsole by default, one setting for another | terminal detection is Arch-Update's and Apdatifier's longest bug thread | part (Konsole / xdg-terminal-exec, no setting) | 2 |
+| 23 | Closing the window mid-update asks first | pamac's update keeps running hidden | part (the Kyu window asks; plain Konsole asks only Konsole's own question) | 2 |
+| 24 | Kept awake while pacman runs | Apdatifier, Omarchy | have | 2 |
 
 ### After the update
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 22 | One verdict line; then only what applies, one key each | Arch-Update asks several questions in turn | have | 1 |
-| 23 | Restart needed: kernel (running vs installed), systemd, glibc, NVIDIA; remembered until you restart | Arch-Update false positives (EndeavourOS, kernel-modules-hook) | have (needs real-machine proof) | 1 |
-| 24 | Settings files (.pacnew): list them, merge with pacdiff | pamac says nothing | have | 1 |
-| 25 | Failures: why, in one sentence, and the fix **printed** (run only on an explicit key) | others show raw errors | have; keep the key opt-in | 1 |
-| 26 | Failure explanations in any language (today only when pacman speaks English) | Arch-Update locale bugs | **fix** | 2 |
-| 27 | Services to restart (system services on replaced libraries, as root via `checkservices`-style read) | Arch-Update has it | missing | 3 |
-| 28 | Orphans and package cache: one line with the command, never automatic | Arch-Update has it | missing | 3 |
-| 29 | A short log of each run (what changed, when) | Omarchy keeps one | part (last-run.json only) | 3 |
-| 30 | Firmware (fwupd), opt-in | asked for in Arch-Update and Apdatifier | missing | 3 |
+| 25 | One verdict line; then only what applies, one key each | Arch-Update asks several questions in turn | have | 1 |
+| 26 | Restart needed: kernel (running vs installed), systemd, glibc, NVIDIA; remembered until you restart | Arch-Update false positives (EndeavourOS, kernel-modules-hook) | have (needs real-machine proof) | 1 |
+| 27 | Settings files (.pacnew): list them, merge with pacdiff | pamac only lists them in its log | have | 1 |
+| 28 | Failures: why, in one sentence; the fix printed, run only on an explicit key | others show raw errors | have | 1 |
+| 29 | Failure explanations in any language, or say plainly "English only" | the owner's machine may not be English, which silently turns off 28 | **fix**: English only, unstated | 1 |
+| 30 | Mirror failures name Manjaro's own fix (`pacman-mirrors --fasttrack`) | stale mirrors: quiet "up to date" or 404s | have (for the mirror failure); verify (the quiet case) | 2 |
+| 31 | Housekeeping as printed lines, never automatic: orphans, package cache, unused Flatpak runtimes | Arch-Update does these with prompts | missing | 3 |
+| 32 | A short log of each run | Omarchy keeps one | part (last-run.json) | 3 |
+
+Cut from the draft: restarting system services and firmware updates (scope
+creep, Arch-Update parity nobody asked for), Kyu's own translations (until
+there is a second user). Branch switching: unsupported; say so in the docs.
 
 ### Kyu itself
 
 | # | What | Status | Pri |
 |---|---|---|---|
-| 31 | Delete the old helper, the old panel and `kyu-flatpak` (about 9,000 lines) | missing | 1 |
-| 32 | One real update on the owner's Manjaro before anything else is built | missing | 1 |
-| 33 | Say "Manjaro first, Arch tested less" until it is tested elsewhere | missing | 1 |
-| 34 | Survive Plasma, Qt and Konsole updates: small tray, Konsole part optional | part (window falls back to Konsole) | 2 |
-| 35 | Kyu's own text translatable | missing | 3 |
+| 33 | One real update on the owner's Manjaro before anything else is built | missing | 1 |
+| 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | missing | 1 |
+| 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | missing | 1 |
+| 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |
 
 ## Compared with what exists
 
-| | Kyu now | Arch-Update | pamac (GTK4) | Apdatifier | matray |
+Kyu's column is what it does today, tested only against a fake pacman.
+
+| | Kyu now (untested) | Arch-Update | pamac (GTK4) | Apdatifier | matray |
 |---|---|---|---|---|---|
+| Checks without `-Sy` | yes | yes | yes (own database copy) | yes | — |
 | Right news on Manjaro | yes | no (Arch feed) | no | if you add the feed | yes (only this) |
 | Real pacman in a terminal | yes | yes | no (daemon + GUI) | yes | — |
-| Survives the UI closing | asks first (Kyu window) | no | update goes on hidden | no | — |
-| AUR | no (#17) | yes | yes | yes | — |
-| Flatpak | yes | yes | yes | yes | — |
-| Settings files | list + pacdiff | pacdiff | no | no | — |
-| Restart needed | kernel, systemd, glibc, NVIDIA; remembered | kernel + services | partly | optional list | — |
-| Failure explained | yes (English) | no | raw error | no | — |
-| Tray on Plasma | theme icons, Passive when idle | PyQt, many Plasma bugs | GTK tray | real plasmoid | yes |
-| Settings | none | config file | many | about 110 | few |
-| Tested on | one Manjaro machine | many | many | many | ? |
+| Closing the window mid-update | Kyu window asks first | same as any terminal | update goes on hidden | same as any terminal | — |
+| AUR | no | yes | yes | yes | — |
+| Flatpak | yes | yes | yes (and Snap) | yes | — |
+| Settings files | list + pacdiff | pacdiff | listed in its log | ? | — |
+| Restart needed | kernel, systemd, glibc, NVIDIA; remembered | kernel reboot prompt + services | yes (prompt) | optional list | — |
+| Housekeeping | no | orphans, cache | yes | no | — |
+| Failure explained | yes, English only | no | raw error | ? | — |
+| Tray on Plasma | theme icons, hidden when idle | PyQt6; some Plasma/Wayland issues | GTK tray | a real Plasma widget | yes |
+| Settings | none yet | config file | many | about 110 | few |
+| Tested on | stand-ins; screenshots on one Manjaro | many systems | many | many | ? |
+
+Checking without `-Sy` is no longer a differentiator: everyone serious does it.
 
 ## Honest bottom line
 
-Kyu's real reasons to exist are items 11, 12, 16–18, 22–25 on Manjaro:
-pamac's unreliability, the right news, and a clear "what now". Everything
-else is matching what Arch-Update already does. Worth it as the owner's own
-tool, and possibly for Manjaro Plasma users who distrust pamac; not worth it
-as a general Arch updater. Priority 1 items that are missing or wrong: 7, 12,
-31, 32, 33.
+Kyu's real reasons to exist are items 13, 19, 21, 25–28 on Manjaro:
+pamac's unreliability, the right news, and a clear "what now". Two more
+(14 and 20) would make it a real pamac replacement but are wrong or missing
+today. Everything else matches what Arch-Update already does.
+
+Worth it as the owner's own tool, and possibly for Manjaro Plasma users who
+distrust pamac; not worth it as a general Arch updater. Missing or wrong
+priority-1 items: 4, 5, 6, 14, 15, 16, 20, 29, 33, 34, 35 — with 33 (one real
+update) first.
 
 ## Sources
 
@@ -147,3 +167,4 @@ as a general Arch updater. Priority 1 items that are missing or wrong: 7, 12,
 - Octopi issues: https://github.com/aarnt/octopi/issues (#134, #306, #296, #434).
 - Discover/PackageKit on Arch: https://bugs.kde.org/show_bug.cgi?id=450381, https://bugs.kde.org/show_bug.cgi?id=438129.
 - matray: https://www.github.com/moson-mo/matray; arch-smart-update-checker: https://aur.archlinux.org/packages/arch-smart-update-checker.
+- Forum threads on discuss.cachyos.org, forum.endeavouros.com and discuss.kde.org were seen only as search snippets (blocked from this session); Reddit was not searched.
