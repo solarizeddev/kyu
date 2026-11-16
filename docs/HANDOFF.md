@@ -120,4 +120,17 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - `kyu-check` runs `checkupdates` against a private database copy (`$XDG_CACHE_HOME/kyu/checkup-db`), looks up each package's repo in that copy with `pacman -Sl`, and counts Flatpak updates in all system installations plus the user installation through libflatpak. It writes `$XDG_STATE_HOME/kyu/updates.json` atomically. A source that fails keeps its last good list and records the tool's own error message.
 - `kyu-check.timer` (systemd user unit) runs it hourly. `kyu-tray` starts the timer at login. Without a systemd user manager, the tray runs `kyu-check` itself every hour.
 - `kyu-tray` watches the state directory and shows the theme icon `update-low` with the count drawn in the palette's highlight colours, a tooltip with counts per repo and remote, and the check time or failure. The icon goes Passive (hidden in the tray's overflow) when there is nothing to do. The menu has "Check for updates now".
-- Not done yet: strings go through `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, because the development container had no KF6. No PKGBUILD yet.
+
+**Milestone 2 (helper, repo updates only): done.** Protocol: `docs/helper-protocol.md`.
+
+- `kyu-helper` (Rust, zbus, polkit over D-Bus) is D-Bus activated on the system bus as `io.github.solarizeddev.kyu.Helper`. It has two methods, `StartUpdate` and `GetState`, and one signal, `Event`, carrying JSON records. Each record is also a line of `/var/log/kyu/<tx>.jsonl`.
+- It runs `pacman -Syu --noprogressbar --color never` with `LC_ALL=C` and a cleared environment. It answers only "Proceed with installation?". Any other question stops pacman with SIGINT before it changes anything, and the summary says so.
+- It refuses to start when `db.lck` exists. It holds a logind inhibitor during the update, ignores SIGHUP, and on SIGTERM waits for pacman to finish. It exits after 5 idle minutes. After a restart, `GetState` reports the previous transaction, including "interrupted" when its log has no result.
+- `kyu-update` (Qt, `HelperClient`) starts an update or reattaches with `--attach`. Records come from the log first, then from signals, ordered by sequence number, with no gaps or duplicates. It reports when the helper disappears mid-update.
+- Tested with a fake pacman on a private session bus (`ctest`): killing the client mid-update and reattaching, busy, locked, an unanswerable question, pacman failure, SIGTERM mid-update, and helper killed mid-update. Separately checked on a private system bus with the real polkitd: the bus policy lets only root own the name, the polkit action loads, a user without an agent gets `NotAuthorized`, and root is authorized.
+- Not yet run against real pacman (the development container is Ubuntu). First thing to do on an Arch machine: install, `sudo systemctl reload dbus`, run `kyu-update`, and compare its output and log with a manual `pacman -Syu`.
+
+Open items carried forward:
+- The tray's strings use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, because the development container had no KF6. No PKGBUILD yet.
+- The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").
+- Prompt ownership (only the starting uid may answer) is recorded per transaction (`uid`), but there is nothing to answer until milestone 4.

@@ -1,0 +1,23 @@
+[package]
+name = "kyu-helper"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Privileged helper for Kyu: runs pacman -Syu on behalf of the update panel"
+license = "GPL-3.0-or-later"
+publish = false
+
+[[bin]]
+name = "kyu-helper"
+path = "src/main.rs"
+
+[dependencies]
+zbus = { version = "6", default-features = false, features = ["tokio", "service"] }
+zbus_polkit = { version = "6", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "macros", "process", "io-util", "signal", "time", "fs", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"
+
+[profile.release]
+lto = "thin"

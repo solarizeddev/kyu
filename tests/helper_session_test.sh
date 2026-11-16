@@ -1,0 +1,186 @@
+#!/bin/sh
+# End-to-end test of kyu-helper and kyu-update on a private session bus,
+# with a fake pacman. Run under dbus-run-session (ctest does this):
+#   dbus-run-session -- sh tests/helper_session_test.sh BUILD_BIN_DIR
+set -eu
+
+bin=$1
+here=$(cd "$(dirname "$0")" && pwd)
+work=$(mktemp -d)
+helper_pid=
+trap 'cleanup' EXIT
+
+cleanup() {
+    [ -n "$helper_pid" ] && kill -9 "$helper_pid" 2>/dev/null || true
+    rm -rf "$work"
+}
+
+fail() {
+    echo "FAIL: $*" >&2
+    for f in "$work"/*.out "$work"/helper.err; do
+        [ -f "$f" ] && { echo "--- $f" >&2; cat "$f" >&2; }
+    done
+    exit 1
+}
+
+cp "$here/helper/fake-pacman" "$work/pacman"
+mode() { echo "$1" > "$work/mode"; }
+delay() { echo "$1" > "$work/delay"; }
+
+start_helper() {
+    "$bin/kyu-helper" --session --pacman "$work/pacman" --db-lock "$work/db.lck" \
+        --log-dir "$work/logs" --idle-exit 600 2>>"$work/helper.err" &
+    helper_pid=$!
+    i=0
+    until "$bin/kyu-update" --session --state >/dev/null 2>&1; do
+        i=$((i + 1)); [ $i -lt 50 ] || fail "helper did not come up"; sleep 0.1
+    done
+}
+
+# update NAME [ARGS...]: runs kyu-update, stores output in NAME.out, returns its exit code
+update() {
+    name=$1; shift
+    set +e
+    timeout 30 "$bin/kyu-update" --session "$@" >"$work/$name.out" 2>&1
+    code=$?
+    set -e
+    return $code
+}
+
+expect_code() {
+    want=$1; name=$2; shift 2
+    if update "$name" "$@"; then got=0; else got=$?; fi
+    [ "$got" = "$want" ] || fail "$name: exit code $got, expected $want"
+}
+
+contains() { grep -qF -- "$2" "$work/$1.out" || fail "$1: missing '$2'"; }
+count() { n=$(grep -cF -- "$2" "$work/$1.out" || true); [ "$n" = "$3" ] || fail "$1: '$2' appears $n times, expected $3"; }
+
+wait_for() {
+    file=$1; text=$2; i=0
+    until grep -qF -- "$text" "$file" 2>/dev/null; do
+        i=$((i + 1)); [ $i -lt 100 ] || fail "timed out waiting for '$text' in $file"; sleep 0.1
+    done
+}
+
+start_helper
+
+echo "interface matches data/io.github.solarizeddev.kyu.Helper1.xml"
+gdbus introspect --session --dest io.github.solarizeddev.kyu.Helper \
+    --object-path /io/github/solarizeddev/kyu/Helper --xml >"$work/introspect.xml"
+for item in 'method name="StartUpdate"' 'method name="GetState"' 'signal name="Event"' \
+            'name="transaction" type="s"' 'name="seq" type="t"' 'name="record" type="s"'; do
+    grep -qF "$item" "$work/introspect.xml" || fail "introspection lacks $item"
+    grep -qF "$item" "$here/../data/io.github.solarizeddev.kyu.Helper1.xml" || fail "XML file lacks $item"
+done
+
+echo "normal update"
+mode normal; delay 0
+expect_code 0 normal
+contains normal 'kyu: running '
+contains normal 'pacman -Syu --noprogressbar --color never'
+contains normal 'kyu: answered ":: Proceed with installation? [Y/n]" with y'
+contains normal 'upgrading mesa...'
+contains normal 'kyu: 3 upgraded'
+count normal 'upgrading kwin...' 1
+
+echo "log file is world-readable JSON lines ending in 'finished'"
+log=$(ls "$work"/logs/*.jsonl | tail -n 1)
+[ "$(stat -c %a "$log")" = 644 ] || fail "log mode is $(stat -c %a "$log")"
+tail -n 1 "$log" | grep -q '"kind":"finished"' || fail "log does not end with finished"
+tail -n 1 "$log" | grep -q '"success":true' || fail "log does not record success"
+
+echo "killing the UI mid-update does not stop the update; --attach picks it up"
+delay 1
+"$bin/kyu-update" --session >"$work/killed.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/killed.out" 'upgrading kwin...'
+kill -9 "$ui_pid"
+wait "$ui_pid" 2>/dev/null || true
+grep -qF 'kyu: 3 upgraded' "$work/killed.out" && fail "update finished before the UI was killed; test proves nothing"
+expect_code 0 attached --attach
+count attached 'upgrading kwin...' 1
+count attached 'upgrading linux618...' 1
+count attached 'upgrading mesa...' 1
+contains attached 'kyu: 3 upgraded'
+
+echo "--quiet shows progress"
+delay 0
+expect_code 0 quiet --quiet
+contains quiet '[1/3] upgrading kwin'
+contains quiet '[3/3] upgrading mesa'
+
+echo "second start while running is refused"
+delay 1
+"$bin/kyu-update" --session >"$work/first.out" 2>&1 &
+first=$!
+wait_for "$work/first.out" 'kyu: running'
+expect_code 3 second
+contains second 'already running'
+wait "$first" || fail "first update failed"
+grep -qF 'kyu: 3 upgraded' "$work/first.out" || fail "first update did not finish"
+
+echo "pacman's lock file is respected"
+delay 0
+touch "$work/db.lck"
+expect_code 3 locked
+contains locked 'Locked'
+contains locked 'db.lck exists'
+rm "$work/db.lck"
+
+echo "unanswerable question stops pacman before it changes anything"
+mode conflict
+expect_code 1 conflict
+contains conflict 'kyu: pacman asked ":: foo and bar are in conflict. Remove bar? [y/N]"; stopping it'
+contains conflict 'Stopped at a question Kyu cannot answer yet'
+contains conflict 'No packages were changed.'
+grep -qF "instead of stopping pacman" "$work/conflict.out" && fail "fake pacman received an answer"
+
+echo "pacman failure is quoted with what had changed"
+mode fail
+expect_code 1 failed
+contains failed 'kyu: pacman: failed to commit transaction (conflicting files). 2 upgraded before the error.'
+
+echo "nothing to do"
+mode nothing
+expect_code 0 nothing
+contains nothing 'kyu: Nothing to do'
+
+echo "--attach after the fact replays the finished transaction"
+expect_code 0 replay --attach
+contains replay 'kyu: Nothing to do'
+
+echo "SIGTERM during an update waits for pacman"
+mode normal; delay 1
+"$bin/kyu-update" --session >"$work/term.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/term.out" 'upgrading kwin...'
+kill -TERM "$helper_pid"
+sleep 0.3
+kill -0 "$helper_pid" 2>/dev/null || fail "helper exited mid-update on SIGTERM"
+wait "$ui_pid" || fail "update did not finish after SIGTERM"
+grep -qF 'kyu: 3 upgraded' "$work/term.out" || fail "update after SIGTERM did not complete"
+i=0; while kill -0 "$helper_pid" 2>/dev/null; do i=$((i + 1)); [ $i -lt 50 ] || fail "helper did not exit after the update"; sleep 0.1; done
+helper_pid=
+
+echo "a restarted helper reports the previous transaction"
+start_helper
+expect_code 0 previous --attach
+contains previous 'No update is running. Last update: 3 upgraded'
+
+echo "a helper killed mid-update leaves the transaction marked interrupted"
+delay 1
+"$bin/kyu-update" --session >"$work/crash.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/crash.out" 'upgrading kwin...'
+kill -9 "$helper_pid"
+set +e; wait "$ui_pid"; ui_code=$?; set -e
+[ "$ui_code" = 4 ] || fail "kyu-update exit code $ui_code after the helper died, expected 4"
+grep -qF 'kyu: kyu-helper exited before the update finished' "$work/crash.out" || fail "crash not reported"
+sleep 2.5   # let the orphaned fake pacman die on its closed pipe
+helper_pid=
+start_helper
+expect_code 0 interrupted --attach
+contains interrupted 'was interrupted: its log ends without a result'
+
+echo "all helper tests passed"

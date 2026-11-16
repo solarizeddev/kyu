@@ -1,0 +1,14 @@
+[Unit]
+Description=Kyu update helper (runs pacman -Syu for the Kyu panel)
+Documentation=https://github.com/solarizeddev/kyu
+
+[Service]
+Type=dbus
+BusName=io.github.solarizeddev.kyu.Helper
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/kyu-helper
+# On stop, only the helper gets SIGTERM; it waits for a running pacman to
+# finish before exiting. pacman is killed only if that takes longer than this.
+KillMode=mixed
+TimeoutStopSec=30min
+# Started on demand by D-Bus activation; exits by itself when idle.
+Restart=no

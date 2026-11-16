@@ -1,0 +1,53 @@
+#!/bin/sh
+# Stands in for pacman in the helper tests. Prints what pacman -Syu prints
+# with LC_ALL=C and --noprogressbar. Behaviour comes from files next to it,
+# because the helper clears the environment:
+#   mode   normal | conflict | nothing | fail
+#   delay  seconds per package (default 0)
+dir=$(dirname "$0")
+mode=$(cat "$dir/mode" 2>/dev/null || echo normal)
+delay=$(cat "$dir/delay" 2>/dev/null || echo 0)
+
+[ "$LC_ALL" = C ] || { echo "error: LC_ALL is '$LC_ALL', expected C" >&2; exit 1; }
+[ "$*" = "-Syu --noprogressbar --color never" ] || { echo "error: unexpected arguments: $*" >&2; exit 1; }
+
+echo ":: Synchronizing package databases..."
+echo " core is up to date"
+echo " extra is up to date"
+echo ":: Starting full system upgrade..."
+if [ "$mode" = nothing ]; then
+    echo " there is nothing to do"
+    exit 0
+fi
+echo "resolving dependencies..."
+echo "looking for conflicting packages..."
+if [ "$mode" = conflict ]; then
+    printf ':: foo and bar are in conflict. Remove bar? [y/N] ' >&2
+    read -r answer
+    echo "error: the helper answered '$answer' instead of stopping pacman" >&2
+    exit 1
+fi
+echo ""
+echo "Packages (3) kwin-6.7.4-1  linux618-6.18.22-1  mesa-1:26.2.3-1"
+echo ""
+echo "Total Download Size:    40.00 MiB"
+echo "Net Upgrade Size:        1.40 MiB"
+echo ""
+printf ':: Proceed with installation? [Y/n] ' >&2
+read -r answer
+[ "$answer" = y ] || { echo "error: expected answer y, got '$answer'" >&2; exit 1; }
+echo ":: Retrieving packages..."
+echo "checking keyring..."
+echo "checking package integrity..."
+echo ":: Processing package changes..."
+for p in kwin linux618 mesa; do
+    echo "upgrading $p..."
+    sleep "$delay"
+    if [ "$mode" = fail ] && [ "$p" = linux618 ]; then
+        echo "error: failed to commit transaction (conflicting files)" >&2
+        exit 1
+    fi
+done
+echo ":: Running post-transaction hooks..."
+echo "(1/1) Arming ConditionNeedsUpdate..."
+exit 0

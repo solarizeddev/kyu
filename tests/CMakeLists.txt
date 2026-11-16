@@ -12,3 +12,18 @@ kyu_test(test_updatestate)
 kyu_test(test_kyucheck)
 target_compile_definitions(test_kyucheck PRIVATE KYU_CHECK_BIN="$<TARGET_FILE:kyu-check>")
 add_dependencies(test_kyucheck kyu-check)
+
+if(KYU_HELPER)
+    find_program(DBUS_RUN_SESSION dbus-run-session)
+    find_program(GDBUS gdbus)
+    if(DBUS_RUN_SESSION AND GDBUS)
+        add_test(NAME helper_session
+                 COMMAND ${DBUS_RUN_SESSION} -- sh ${CMAKE_CURRENT_SOURCE_DIR}/helper_session_test.sh
+                         ${CMAKE_BINARY_DIR}/bin)
+        set_tests_properties(helper_session PROPERTIES TIMEOUT 180)
+    else()
+        message(STATUS "dbus-run-session or gdbus not found: helper_session test disabled")
+    endif()
+    add_test(NAME helper_unit COMMAND cargo test --locked --manifest-path ${CMAKE_SOURCE_DIR}/helper/Cargo.toml
+             --target-dir ${CMAKE_BINARY_DIR}/cargo-test)
+endif()

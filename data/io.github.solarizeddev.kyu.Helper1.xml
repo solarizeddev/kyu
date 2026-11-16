@@ -1,0 +1,28 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  Interface of kyu-helper, service io.github.solarizeddev.kyu.Helper,
+  object /io/github/solarizeddev/kyu/Helper. Payloads are JSON; see
+  docs/helper-protocol.md. Generated from the running helper with
+  gdbus introspect; tests/helper_session_test.sh checks they still match.
+-->
+<node>
+  <interface name="io.github.solarizeddev.kyu.Helper1">
+    <!-- Runs `pacman -Syu` as root (polkit action io.github.solarizeddev.kyu.update).
+         Returns the transaction id. Errors: io.github.solarizeddev.kyu.Helper1.Error.
+         NotAuthorized, Busy, Locked, Failed. -->
+    <method name="StartUpdate">
+      <arg name="transaction" type="s" direction="out"/>
+    </method>
+    <!-- JSON object describing the helper's state. -->
+    <method name="GetState">
+      <arg name="state" type="s" direction="out"/>
+    </method>
+    <!-- One transaction log record (JSON), also appended to the log file. -->
+    <signal name="Event">
+      <arg name="transaction" type="s"/>
+      <arg name="seq" type="t"/>
+      <arg name="record" type="s"/>
+    </signal>
+  </interface>
+</node>

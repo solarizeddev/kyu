@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=io.github.solarizeddev.kyu.Helper
+Exec=@CMAKE_INSTALL_FULL_LIBEXECDIR@/kyu-helper
+User=root
+SystemdService=kyu-helper.service
