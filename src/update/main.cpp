@@ -39,6 +39,7 @@
 #include <cstdio>
 #include <functional>
 #include <langinfo.h>
+#include <poll.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -168,8 +169,10 @@ private:
 };
 
 // Asks the terminal for its background colour (OSC 11, answered by Konsole,
-// xterm, VTE, kitty, foot and others): true for a light one. No answer within
-// a moment: false.
+// xterm, VTE, kitty, foot and others): true for a light one. A "device
+// attributes" query (DA1) follows it: nearly every terminal answers that one,
+// in order, so once its answer is in nothing else can arrive late and be
+// read as a typed answer. Whatever is queued is dropped on the way out.
 bool lightBackground()
 {
     if (!::isatty(STDIN_FILENO) || !::isatty(STDOUT_FILENO)) {
@@ -180,26 +183,28 @@ bool lightBackground()
         return false;
     }
     termios raw = old;
-    raw.c_lflag &= ~(ICANON | ECHO);
+    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
     raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 2; // tenths of a second per read
+    raw.c_cc[VTIME] = 0;
     ::tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-    std::fputs("\x1b]11;?\x1b\\", stdout);
+    std::fputs("\x1b]11;?\x1b\\\x1b[c", stdout);
     std::fflush(stdout);
     QByteArray reply;
-    char c = 0;
-    // The reply ends with BEL or ST (ESC \\); give up after a few empty reads.
-    for (int empty = 0; empty < 2 && reply.size() < 64;) {
-        if (::read(STDIN_FILENO, &c, 1) != 1) {
-            ++empty;
+    static const QRegularExpression da1(QStringLiteral("\\x1b\\[\\?[0-9;]*c"));
+    QElapsedTimer waited;
+    waited.start();
+    while (waited.elapsed() < 1000 && reply.size() < 256 && !da1.match(QString::fromLatin1(reply)).hasMatch()) {
+        pollfd in{STDIN_FILENO, POLLIN, 0};
+        if (::poll(&in, 1, int(1000 - waited.elapsed())) <= 0) {
             continue;
         }
-        reply.append(c);
-        if (c == '\a' || reply.endsWith("\x1b\\")) {
-            break;
+        char buffer[64];
+        const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof buffer);
+        if (n > 0) {
+            reply.append(buffer, int(n));
         }
     }
-    ::tcsetattr(STDIN_FILENO, TCSANOW, &old);
+    ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &old);
     static const QRegularExpression rgb(QStringLiteral("rgb:([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})"));
     const QRegularExpressionMatch m = rgb.match(QString::fromLatin1(reply));
     if (!m.hasMatch()) {

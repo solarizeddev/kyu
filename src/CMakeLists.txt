@@ -1,7 +1,7 @@
 add_subdirectory(core)
 add_subdirectory(client)
 add_subdirectory(update)
-if(KF6Parts_FOUND)
+if(KYU_WINDOW)
     add_subdirectory(window)
 endif()
 add_subdirectory(checker)

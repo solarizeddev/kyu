@@ -44,7 +44,8 @@ build() {
         -DCMAKE_BUILD_TYPE=None \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBEXECDIR=lib/kyu \
-        -DKYU_REQUIRE_KSNI=ON
+        -DKYU_REQUIRE_KSNI=ON \
+        -DKYU_REQUIRE_WINDOW=ON
     cmake --build build
 }
 

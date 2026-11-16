@@ -32,9 +32,11 @@ else()
 endif()
 
 # kyu-window embeds Konsole's terminal part (KF6 Parts; Konsole at run time).
-find_package(KF6 QUIET COMPONENTS Parts CoreAddons)
+find_package(KF6Parts QUIET)
+find_package(KF6CoreAddons QUIET)
 option(KYU_REQUIRE_WINDOW "Fail the build if KF6 Parts (for kyu-window) is missing" OFF)
-if(KF6Parts_FOUND)
+if(KF6Parts_FOUND AND KF6CoreAddons_FOUND)
+    set(KYU_WINDOW ON)
     message(STATUS "kyu-window: with Konsole's terminal part")
 elseif(KYU_REQUIRE_WINDOW)
     message(FATAL_ERROR "KF6 Parts not found (needed for kyu-window)")
