@@ -29,7 +29,7 @@ delay() { echo "$1" > "$work/delay"; }
 
 start_helper() {
     "$bin/kyu-helper" --session --pacman "$work/pacman" --db-lock "$work/db.lck" \
-        --log-dir "$work/logs" --idle-exit 600 2>>"$work/helper.err" &
+        --log-dir "$work/logs" --idle-exit 600 "$@" 2>>"$work/helper.err" &
     helper_pid=$!
     i=0
     until "$bin/kyu-update" --session --state >/dev/null 2>&1; do
@@ -37,11 +37,12 @@ start_helper() {
     done
 }
 
-# update NAME [ARGS...]: runs kyu-update, stores output in NAME.out, returns its exit code
+# update NAME [ARGS...]: runs kyu-update with $INPUT on stdin (empty: none),
+# stores output in NAME.out, returns its exit code
 update() {
     name=$1; shift
     set +e
-    timeout 30 "$bin/kyu-update" --session "$@" >"$work/$name.out" 2>&1
+    printf "${INPUT:-}" | timeout 30 "$bin/kyu-update" --session "$@" >"$work/$name.out" 2>&1
     code=$?
     set -e
     return $code
@@ -51,6 +52,19 @@ expect_code() {
     want=$1; name=$2; shift 2
     if update "$name" "$@"; then got=0; else got=$?; fi
     [ "$got" = "$want" ] || fail "$name: exit code $got, expected $want"
+}
+
+absent() { grep -qF -- "$2" "$work/$1.out" && fail "$1: unexpected '$2'"; true; }
+
+current_tx() {
+    "$bin/kyu-update" --session --state | sed -n 's/.*"tx": "\([^"]*\)".*/\1/p' | head -n 1
+}
+
+helper_call() {
+    method=$1; shift
+    gdbus call --session --dest io.github.solarizeddev.kyu.Helper \
+        --object-path /io/github/solarizeddev/kyu/Helper \
+        --method "io.github.solarizeddev.kyu.Helper1.$method" "$@" 2>&1
 }
 
 contains() { grep -qF -- "$2" "$work/$1.out" || fail "$1: missing '$2'"; }
@@ -69,6 +83,7 @@ echo "interface matches data/io.github.solarizeddev.kyu.Helper1.xml"
 gdbus introspect --session --dest io.github.solarizeddev.kyu.Helper \
     --object-path /io/github/solarizeddev/kyu/Helper --xml >"$work/introspect.xml"
 for item in 'method name="StartUpdate"' 'method name="GetState"' 'signal name="Event"' \
+            'method name="Answer"' 'method name="Cancel"' 'name="question" type="t"' 'name="answer" type="s"' \
             'name="transaction" type="s"' 'name="seq" type="t"' 'name="record" type="s"'; do
     grep -qF "$item" "$work/introspect.xml" || fail "introspection lacks $item"
     grep -qF "$item" "$here/../data/io.github.solarizeddev.kyu.Helper1.xml" || fail "XML file lacks $item"
@@ -128,13 +143,91 @@ contains locked 'Locked'
 contains locked 'db.lck exists'
 rm "$work/db.lck"
 
-echo "unanswerable question stops pacman before it changes anything"
+echo "an unrecognised question stops pacman before it changes anything"
+mode unknown
+expect_code 1 unknown
+contains unknown 'which Kyu does not recognise; stopping it'
+contains unknown 'Stopped at a question Kyu does not recognise: ":: Something Kyu has never seen? [Y/n]". No packages were changed.'
+absent unknown "instead of stopping pacman"
+
+echo "provider question: pacman's list is shown, the chosen number is passed on"
+mode provider
+INPUT='3\n' expect_code 0 provider
+contains provider ':: There are 3 providers available for vulkan-driver:'
+contains provider '   1) nvidia-utils  2) vulkan-intel  3) vulkan-radeon'
+contains provider "kyu: type 1/2/3 (Enter: pacman's default, 1)"
+contains provider 'kyu: answered "Enter a number (default=1):" with 3'
+contains provider 'installing vulkan-radeon...'
+contains provider 'kyu: 3 upgraded, 1 installed'
+log=$(ls "$work"/logs/*.jsonl | tail -n 1)
+grep '"kind":"question"' "$log" | grep -q '"type":"provider"' || fail "question record lacks its type"
+grep '"kind":"question"' "$log" | grep -q '"label":"vulkan-radeon"' || fail "question record lacks the options"
+
+echo "Enter takes pacman's default"
+INPUT='\n' expect_code 0 provider-default
+contains provider-default 'installing nvidia-utils...'
+
+echo "an invalid answer is refused and pacman keeps waiting"
+INPUT='9\n2\n' expect_code 0 provider-invalid
+contains provider-invalid "kyu: InvalidAnswer: \"9\" is not one of pacman's answers (1, 2, 3)"
+contains provider-invalid 'installing vulkan-intel...'
+
+echo "conflict: yes removes the other package"
 mode conflict
-expect_code 1 conflict
-contains conflict 'kyu: pacman asked ":: foo and bar are in conflict. Remove bar? [y/N]"; stopping it'
-contains conflict 'Stopped at a question Kyu cannot answer yet'
-contains conflict 'No packages were changed.'
-grep -qF "instead of stopping pacman" "$work/conflict.out" && fail "fake pacman received an answer"
+INPUT='y\n' expect_code 0 conflict-yes
+contains conflict-yes 'removing bar...'
+contains conflict-yes 'kyu: 3 upgraded, 1 removed'
+
+echo "conflict: pacman's default (no) ends the update with nothing changed"
+INPUT='\n' expect_code 1 conflict-no
+contains conflict-no 'kyu: pacman: failed to prepare transaction (conflicting dependencies). No packages were changed.'
+
+echo "replacement declined: pacman goes on without it"
+mode replace
+INPUT='n\n' expect_code 0 replace-no
+absent replace-no 'installing newthing...'
+contains replace-no 'kyu: 3 upgraded'
+
+echo "key import during the commit stage"
+mode key
+INPUT='y\n' expect_code 0 key
+contains key ':: Import PGP key 0123ABCD, "Packager <p@example.org>"? [Y/n]'
+contains key 'kyu: 3 upgraded'
+
+echo "cancel at a question stops pacman before it changes anything"
+mode conflict
+INPUT='c\n' expect_code 1 cancelled
+contains cancelled 'kyu: cancelled; stopping pacman'
+contains cancelled "Cancelled at pacman's question \":: foo and bar are in conflict. Remove bar? [y/N]\". No packages were changed."
+absent cancelled 'failed to prepare transaction'
+
+echo "the D-Bus API: answers from another client, refusals"
+mode provider
+"$bin/kyu-update" --session </dev/null >"$work/remote.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/remote.out" 'kyu: type'
+tx=$(current_tx)
+[ -n "$tx" ] || fail "no transaction id in GetState"
+"$bin/kyu-update" --session --state | grep -q '"type": "provider"' || fail "GetState lacks the pending question"
+# gdbus parses arguments as GVariant text: strings need their own quotes.
+helper_call Answer "'$tx'" 1 "'9'" | grep -q 'Error.InvalidAnswer' || fail "invalid answer accepted"
+helper_call Answer "'$tx'" 2 "'1'" | grep -q 'Error.NoQuestion' || fail "answer to a question never asked accepted"
+helper_call Answer "'nope'" 1 "'1'" | grep -q 'Error.NoQuestion' || fail "answer to another transaction accepted"
+helper_call Answer "'$tx'" 1 "'2'" | grep -qx '()' || fail "valid answer refused"
+helper_call Answer "'$tx'" 1 "'2'" | grep -q 'Error.NoQuestion' || fail "question answered twice"
+wait "$ui_pid" || fail "update answered over D-Bus failed"
+grep -qF 'installing vulkan-intel...' "$work/remote.out" || fail "D-Bus answer not passed to pacman"
+helper_call Cancel "'$tx'" | grep -q 'Error.NoQuestion' || fail "cancel accepted with no question pending"
+
+echo "a client started while pacman waits sees the question and can answer it"
+"$bin/kyu-update" --session </dev/null >"$work/first-ui.out" 2>&1 &
+ui_pid=$!
+wait_for "$work/first-ui.out" 'kyu: type'
+kill -9 "$ui_pid"; wait "$ui_pid" 2>/dev/null || true
+INPUT='3\n' expect_code 0 late --attach
+contains late ':: There are 3 providers available for vulkan-driver:'
+contains late 'installing vulkan-radeon...'
+count late 'kyu: type 1/2/3' 1
 
 echo "pacman failure is quoted with what had changed"
 mode fail
@@ -167,6 +260,15 @@ echo "a restarted helper reports the previous transaction"
 start_helper
 expect_code 0 previous --attach
 contains previous 'No update is running. Last update: 3 upgraded'
+
+echo "an unanswered question times out and stops pacman"
+kill -TERM "$helper_pid"; wait "$helper_pid" 2>/dev/null || true
+start_helper --question-timeout 2
+mode provider
+expect_code 1 timeout
+contains timeout 'kyu: no answer within 2 s; stopping pacman'
+contains timeout 'No answer to "Enter a number (default=1):" within 2 seconds, so Kyu stopped pacman. No packages were changed.'
+mode normal
 
 echo "a helper killed mid-update leaves the transaction marked interrupted"
 delay 1

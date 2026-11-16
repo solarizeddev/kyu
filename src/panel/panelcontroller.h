@@ -15,8 +15,9 @@ class CheckScheduler;
 // Everything the panel's QML shows and does. QML only lays it out.
 //
 // Screens: "list" (pending updates), "running" (a transaction is running,
-// started here or elsewhere), "finished" (result of the transaction this
-// panel followed). The pacman output view is a page on top of any screen.
+// started here or elsewhere), "question" (pacman waits for an answer),
+// "finished" (result of the transaction this panel followed). The pacman
+// output view is a page on top of any screen.
 class PanelController : public QObject
 {
     Q_OBJECT
@@ -37,7 +38,19 @@ class PanelController : public QObject
     // running
     Q_PROPERTY(int percent READ percent NOTIFY changed)
     Q_PROPERTY(QString progressText READ progressText NOTIFY changed)
-    Q_PROPERTY(QString question READ question NOTIFY changed)
+    Q_PROPERTY(QString question READ question NOTIFY changed) // one Kyu does not recognise
+
+    // question (pacman waits for an answer)
+    Q_PROPERTY(QString questionType READ questionType NOTIFY changed)
+    Q_PROPERTY(QString questionTitle READ questionTitle NOTIFY changed)
+    Q_PROPERTY(QString questionText READ questionText NOTIFY changed)
+    Q_PROPERTY(QString questionPacman READ questionPacman NOTIFY changed)
+    Q_PROPERTY(QVariantList questionOptions READ questionOptions NOTIFY changed)
+    Q_PROPERTY(QString questionDefault READ questionDefault NOTIFY changed)
+    Q_PROPERTY(QString questionNote READ questionNote NOTIFY changed)
+    Q_PROPERTY(QString pausedText READ pausedText NOTIFY changed)
+    Q_PROPERTY(bool canAnswer READ canAnswer NOTIFY changed)
+    Q_PROPERTY(bool replying READ replying NOTIFY changed)
 
     // output view
     Q_PROPERTY(QString commandLine READ commandLine NOTIFY changed)
@@ -80,6 +93,20 @@ public:
     QString progressText() const;
     QString question() const { return m_question; }
 
+    QString questionType() const;
+    QString questionTitle() const;
+    QString questionText() const;
+    QString questionPacman() const;
+    QVariantList questionOptions() const;
+    QString questionDefault() const;
+    QString questionNote() const;
+    QString pausedText() const;
+    bool canAnswer() const;
+    bool replying() const { return m_replying; }
+
+    // The user running the panel; tests set it.
+    void setOwnUid(qint64 uid) { m_ownUid = uid; }
+
     QString commandLine() const { return m_commandLine; }
     QString processLine() const;
     QString logPath() const { return m_logPath; }
@@ -95,6 +122,7 @@ public Q_SLOTS:
     void handleRecord(const QJsonObject &record);
     void handleStartFinished(const QString &transaction, const QString &errorName, const QString &errorMessage);
     void handleHelperLost(const QString &logPath);
+    void handleReplyFinished(const QString &errorName, const QString &errorMessage);
 
     Q_INVOKABLE void updateAll();
     Q_INVOKABLE void checkAgain();
@@ -102,6 +130,8 @@ public Q_SLOTS:
     Q_INVOKABLE void copyCommand();
     Q_INVOKABLE void copyLog();
     Q_INVOKABLE void followInTerminal();
+    Q_INVOKABLE void answer(const QString &value);
+    Q_INVOKABLE void cancelUpdate();
 
 Q_SIGNALS:
     void changed();
@@ -139,6 +169,10 @@ private:
     int m_current = 0;
     int m_total = 0;
     QString m_question;
+    QJsonObject m_pending; // the relayed question pacman waits on
+    bool m_replying = false;
+    QString m_stoppedBy; // "cancelled", "timeout" or "unsupported": pacman stopped at a question
+    qint64 m_ownUid = -1;
     QDateTime m_startedAt;
     QDateTime m_finishedAt;
     bool m_success = false;

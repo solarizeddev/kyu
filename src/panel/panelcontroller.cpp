@@ -14,6 +14,8 @@
 #include <QProcess>
 #include <QStandardPaths>
 
+#include <unistd.h>
+
 namespace
 {
 QString stageText(const QString &stage)
@@ -53,6 +55,7 @@ QString siblingBinary(const QString &name)
 
 PanelController::PanelController(QObject *parent)
     : QObject(parent)
+    , m_ownUid(::getuid())
 {
 }
 
@@ -81,6 +84,7 @@ void PanelController::setHelper(HelperClient *helper, bool sessionBus)
     connect(helper, &HelperClient::record, this, &PanelController::handleRecord);
     connect(helper, &HelperClient::startFinished, this, &PanelController::handleStartFinished);
     connect(helper, &HelperClient::helperLost, this, &PanelController::handleHelperLost);
+    connect(helper, &HelperClient::replyFinished, this, &PanelController::handleReplyFinished);
 }
 
 void PanelController::setCheckScheduler(CheckScheduler *scheduler)
@@ -250,6 +254,9 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_current = 0;
         m_total = 0;
         m_question.clear();
+        m_pending = {};
+        m_replying = false;
+        m_stoppedBy.clear();
         m_summary.clear();
         m_haveExitCode = false;
         m_message.clear();
@@ -272,20 +279,48 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_total = qMax(m_total, r.value(QStringLiteral("total")).toInt());
         m_action = r.value(QStringLiteral("action")).toString();
         m_updates.applyProgress(m_action, r.value(QStringLiteral("package")).toString());
-    } else if (kind == QLatin1String("answered")) {
+    } else if (kind == QLatin1String("answered") && !r.contains(QStringLiteral("id"))) {
+        // "Proceed with installation?", answered by the helper itself.
         m_output.append(QStringLiteral("Kyu answered \"%1\" with %2 (%3)")
                             .arg(r.value(QStringLiteral("question")).toString(),
                                  r.value(QStringLiteral("answer")).toString(),
                                  r.value(QStringLiteral("reason")).toString()),
                         QStringLiteral("kyu"));
     } else if (kind == QLatin1String("question")) {
-        m_question = r.value(QStringLiteral("text")).toString();
+        if (r.value(QStringLiteral("handled")).toBool()) {
+            m_pending = r;
+            m_replying = false;
+            m_message.clear();
+            setScreen(QStringLiteral("question"));
+        } else {
+            m_question = r.value(QStringLiteral("text")).toString();
+            m_stoppedBy = QStringLiteral("unsupported");
+        }
+    } else if (kind == QLatin1String("cancelled") || kind == QLatin1String("timeout")
+               || kind == QLatin1String("answered")) {
+        if (kind == QLatin1String("answered")) {
+            m_output.append(QStringLiteral("Answered \"%1\" with %2 (uid %3)")
+                                .arg(r.value(QStringLiteral("question")).toString(),
+                                     r.value(QStringLiteral("answer")).toString())
+                                .arg(r.value(QStringLiteral("uid")).toInteger()),
+                            QStringLiteral("kyu"));
+        } else {
+            m_stoppedBy = kind;
+            m_output.append(kind == QLatin1String("cancelled") ? QStringLiteral("Cancelled; stopping pacman")
+                                                               : QStringLiteral("No answer in time; stopping pacman"),
+                            QStringLiteral("kyu"));
+        }
+        m_pending = {};
+        m_replying = false;
+        setScreen(QStringLiteral("running"));
     } else if (kind == QLatin1String("finished")) {
         m_success = r.value(QStringLiteral("success")).toBool();
         m_summary = r.value(QStringLiteral("summary")).toString();
         m_haveExitCode = r.contains(QStringLiteral("exitCode")) && !r.value(QStringLiteral("exitCode")).isNull();
         m_exitCode = r.value(QStringLiteral("exitCode")).toInt();
         m_finishedAt = QDateTime::fromString(r.value(QStringLiteral("time")).toString(), Qt::ISODate);
+        m_pending = {};
+        m_replying = false;
         m_updates.finishTransaction(m_success);
         setScreen(QStringLiteral("finished"));
         // The tray and the next list should reflect the new system state.
@@ -362,11 +397,222 @@ void PanelController::followInTerminal()
     }
 }
 
+// --- question ---------------------------------------------------------------
+//
+// Wording is derived from pacman's question only: what it asks, what each
+// answer makes pacman do, and pacman's own default. pacman's text is shown
+// verbatim next to it.
+
+namespace
+{
+QString detail(const QJsonObject &q, const char *key)
+{
+    return q.value(QStringLiteral("details")).toObject().value(QLatin1String(key)).toString();
+}
+}
+
+QString PanelController::questionType() const
+{
+    return m_pending.value(QStringLiteral("type")).toString();
+}
+
+QString PanelController::questionTitle() const
+{
+    const QString type = questionType();
+    if (type == QLatin1String("provider")) {
+        return QStringLiteral("Pick a provider for %1").arg(detail(m_pending, "dependency"));
+    }
+    if (type == QLatin1String("conflict")) {
+        return QStringLiteral("%1 conflicts with %2").arg(detail(m_pending, "install"), detail(m_pending, "remove"));
+    }
+    if (type == QLatin1String("replace")) {
+        return QStringLiteral("Replace %1?").arg(detail(m_pending, "old"));
+    }
+    if (type == QLatin1String("import_key")) {
+        return QStringLiteral("Import a PGP key?");
+    }
+    if (type == QLatin1String("corrupted")) {
+        return QStringLiteral("A downloaded package is corrupted");
+    }
+    if (type == QLatin1String("skip")) {
+        return QStringLiteral("Some packages cannot be upgraded");
+    }
+    if (type == QLatin1String("ignored")) {
+        return QStringLiteral("%1 is in IgnorePkg").arg(detail(m_pending, "package"));
+    }
+    return QStringLiteral("pacman asks a question");
+}
+
+QString PanelController::questionText() const
+{
+    const QString type = questionType();
+    if (type == QLatin1String("provider")) {
+        return QStringLiteral("Several packages provide %1. pacman needs one of them.").arg(detail(m_pending, "dependency"));
+    }
+    if (type == QLatin1String("conflict")) {
+        return QStringLiteral("pacman cannot install both.");
+    }
+    if (type == QLatin1String("replace")) {
+        return QStringLiteral("The repos list %1 as the replacement for %2.").arg(detail(m_pending, "new"), detail(m_pending, "old"));
+    }
+    if (type == QLatin1String("import_key")) {
+        return QStringLiteral("pacman needs key %1 (%2) to check package signatures.").arg(detail(m_pending, "key"), detail(m_pending, "uid"));
+    }
+    if (type == QLatin1String("corrupted")) {
+        return QStringLiteral("%1: %2.").arg(detail(m_pending, "file"), detail(m_pending, "reason"));
+    }
+    if (type == QLatin1String("skip")) {
+        return QStringLiteral("pacman offers to skip %1 and upgrade the rest. That would be a partial upgrade, which can break an "
+                              "Arch system, so Kyu does not offer it. Cancel the update.")
+            .arg(detail(m_pending, "packages"));
+    }
+    if (type == QLatin1String("ignored")) {
+        return QStringLiteral("pacman.conf holds it back with IgnorePkg or IgnoreGroup, but this update needs it.");
+    }
+    return {};
+}
+
+QString PanelController::questionPacman() const
+{
+    QStringList lines;
+    for (const auto &line : m_pending.value(QStringLiteral("context")).toArray()) {
+        if (!line.toString().trimmed().isEmpty()) {
+            lines.append(line.toString());
+        }
+    }
+    lines.append(m_pending.value(QStringLiteral("text")).toString());
+    return lines.join(QLatin1Char('\n'));
+}
+
+QString PanelController::questionDefault() const
+{
+    return m_pending.value(QStringLiteral("default")).toString();
+}
+
+QVariantList PanelController::questionOptions() const
+{
+    const QString type = questionType();
+    if (type == QLatin1String("skip")) {
+        return {}; // skipping is a partial upgrade: only cancelling is offered
+    }
+    const QString def = questionDefault();
+    auto option = [&def](const QString &value, const QString &label, QString detailText) {
+        if (value == def) {
+            detailText = detailText.isEmpty() ? QStringLiteral("pacman's default") : detailText + QStringLiteral(" · pacman's default");
+        }
+        return QVariantMap{{QStringLiteral("value"), value}, {QStringLiteral("label"), label}, {QStringLiteral("detail"), detailText}};
+    };
+    QVariantList options;
+    if (type == QLatin1String("provider")) {
+        for (const auto &a : m_pending.value(QStringLiteral("answers")).toArray()) {
+            const QJsonObject o = a.toObject();
+            options.append(option(o.value(QStringLiteral("value")).toString(),
+                                  o.value(QStringLiteral("label")).toString(),
+                                  o.value(QStringLiteral("detail")).toString()));
+        }
+        return options;
+    }
+    const QString y = QStringLiteral("y");
+    const QString n = QStringLiteral("n");
+    if (type == QLatin1String("conflict")) {
+        const QString install = detail(m_pending, "install");
+        const QString remove = detail(m_pending, "remove");
+        options = {option(y, QStringLiteral("Remove %1").arg(remove), QStringLiteral("pacman removes %1 and installs %2").arg(remove, install)),
+                   option(n, QStringLiteral("Keep %1").arg(remove), QStringLiteral("pacman stops the update; nothing is changed"))};
+    } else if (type == QLatin1String("replace")) {
+        const QString old = detail(m_pending, "old");
+        options = {option(y, QStringLiteral("Replace %1 with %2").arg(old, detail(m_pending, "new")), {}),
+                   option(n, QStringLiteral("Keep %1").arg(old), QStringLiteral("pacman continues without the replacement"))};
+    } else if (type == QLatin1String("import_key")) {
+        options = {option(y, QStringLiteral("Import the key"), QStringLiteral("into pacman's keyring")),
+                   option(n, QStringLiteral("Do not import it"), QStringLiteral("packages signed with it fail the check; the update stops"))};
+    } else if (type == QLatin1String("corrupted")) {
+        options = {option(y, QStringLiteral("Delete the file"), QStringLiteral("the update stops; the next one downloads it again")),
+                   option(n, QStringLiteral("Keep the file"), QStringLiteral("the update stops"))};
+    } else if (type == QLatin1String("ignored")) {
+        const QString package = detail(m_pending, "package");
+        options = {option(y, QStringLiteral("Install %1 anyway").arg(package), {}),
+                   option(n, QStringLiteral("Leave %1 out").arg(package), {})};
+    }
+    return options;
+}
+
+QString PanelController::questionNote() const
+{
+    if (!canAnswer()) {
+        return QStringLiteral("uid %1 started this update; only that user (or root) can answer.").arg(m_uid);
+    }
+    const qint64 seconds = m_pending.value(QStringLiteral("timeoutSeconds")).toInteger();
+    if (seconds <= 0) {
+        return {};
+    }
+    const QString limit = seconds < 120 ? QStringLiteral("%1 seconds").arg(seconds) : QStringLiteral("%1 minutes").arg((seconds + 59) / 60);
+    return QStringLiteral("pacman waits up to %1 for an answer, then Kyu stops it.").arg(limit);
+}
+
+QString PanelController::pausedText() const
+{
+    const int changed = m_updates.changedRows().size() + (m_updates.workingRow() >= 0 ? 1 : 0);
+    if (changed == 0) {
+        return QStringLiteral("Paused, nothing changed yet");
+    }
+    return QStringLiteral("Paused, %1 changed so far").arg(changed);
+}
+
+bool PanelController::canAnswer() const
+{
+    return !m_pending.isEmpty() && (m_ownUid == 0 || m_uid < 0 || m_ownUid == m_uid);
+}
+
+void PanelController::answer(const QString &value)
+{
+    if (!canAnswer() || m_replying || !m_helper) {
+        return;
+    }
+    m_replying = true;
+    m_message.clear();
+    Q_EMIT changed();
+    m_helper->answer(static_cast<qulonglong>(m_pending.value(QStringLiteral("id")).toInteger()), value);
+}
+
+void PanelController::cancelUpdate()
+{
+    if (!canAnswer() || m_replying || !m_helper) {
+        return;
+    }
+    m_replying = true;
+    m_message.clear();
+    Q_EMIT changed();
+    m_helper->cancel();
+}
+
+void PanelController::handleReplyFinished(const QString &errorName, const QString &errorMessage)
+{
+    // On success the answered/cancelled record moves the screen on.
+    if (!errorName.isEmpty()) {
+        m_replying = false;
+        m_message = QStringLiteral("%1: %2").arg(errorName.section(QLatin1Char('.'), -1), errorMessage);
+        Q_EMIT changed();
+    }
+}
+
 // --- finished ---------------------------------------------------------------
 
 QString PanelController::resultTitle() const
 {
-    return m_success ? m_summary : QStringLiteral("Update failed");
+    if (m_success) {
+        return m_summary;
+    }
+    if (m_stoppedBy == QLatin1String("cancelled")) {
+        return QStringLiteral("Update cancelled");
+    }
+    if (m_stoppedBy == QLatin1String("timeout")) {
+        return QStringLiteral("Update stopped: no answer");
+    }
+    if (m_stoppedBy == QLatin1String("unsupported")) {
+        return QStringLiteral("Update stopped");
+    }
+    return QStringLiteral("Update failed");
 }
 
 QString PanelController::resultText() const

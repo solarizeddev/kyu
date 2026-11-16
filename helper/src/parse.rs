@@ -142,27 +142,227 @@ fn operation(line: &str) -> Option<LineInfo> {
 pub enum Prompt {
     /// ":: Proceed with installation? [Y/n] ". The user already chose "Update all".
     Proceed,
-    /// Any other question: providers, conflicts, replacements, key imports,
-    /// corrupted packages. Answering these is milestone 4; until then the
-    /// helper stops pacman instead of picking an answer for the user.
+    /// A question the panel can answer; see [`Question`].
+    Relay(Question),
+    /// Anything Kyu does not recognise. The helper stops pacman instead of
+    /// guessing (fail closed).
     Unsupported,
 }
 
+/// A recognised question, with what it is about, parsed from pacman's text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Question {
+    /// provider, conflict, replace, import_key, corrupted, skip, ignored
+    pub kind: &'static str,
+    /// The question line as pacman printed it.
+    pub prompt: String,
+    /// The lines pacman printed for this question before the prompt.
+    pub context: Vec<String>,
+    /// Exactly what may be written back to pacman ("y"/"n" or provider numbers).
+    pub answers: Vec<Answer>,
+    /// pacman's own default.
+    pub default: String,
+    /// Kind-specific facts (package names, key, file), all from pacman's text.
+    pub details: Vec<(&'static str, String)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Answer {
+    pub value: String,
+    /// For providers: the package name; for yes/no: "yes" or "no".
+    pub label: String,
+    /// For providers: the repo.
+    pub detail: String,
+}
+
+fn yes_no() -> Vec<Answer> {
+    vec![
+        Answer {
+            value: "y".into(),
+            label: "yes".into(),
+            detail: String::new(),
+        },
+        Answer {
+            value: "n".into(),
+            label: "no".into(),
+            detail: String::new(),
+        },
+    ]
+}
+
 /// Looks at the unterminated tail of the output (the text after the last
-/// newline) and says whether pacman is asking something.
-pub fn prompt(tail: &str) -> Option<Prompt> {
+/// newline) and the recent complete lines, and says whether pacman is
+/// asking something.
+pub fn prompt(tail: &str, recent: &[String]) -> Option<Prompt> {
     let t = tail.trim_end_matches(' ');
-    let is_question = t.ends_with("[Y/n]")
-        || t.ends_with("[y/N]")
-        || (t.starts_with("Enter a ") && t.ends_with("):"));
-    if !is_question {
+    let yes_no_default = if t.ends_with("[Y/n]") {
+        Some("y")
+    } else if t.ends_with("[y/N]") {
+        Some("n")
+    } else {
+        None
+    };
+    let numbered = t.starts_with("Enter a ") && t.ends_with("):");
+    if yes_no_default.is_none() && !numbered {
         return None;
     }
-    if t.trim_start() == ":: Proceed with installation? [Y/n]" {
-        Some(Prompt::Proceed)
-    } else {
-        Some(Prompt::Unsupported)
+    let text = t.trim_start();
+    if text == ":: Proceed with installation? [Y/n]" {
+        return Some(Prompt::Proceed);
     }
+    let question = match yes_no_default {
+        Some(default) => yes_no_question(text, default, recent),
+        None => provider_question(text, recent),
+    };
+    Some(question.map(Prompt::Relay).unwrap_or(Prompt::Unsupported))
+}
+
+fn strip_marker(text: &str) -> &str {
+    text.trim_end_matches("[Y/n]")
+        .trim_end_matches("[y/N]")
+        .trim_end()
+}
+
+fn yes_no_question(text: &str, default: &str, recent: &[String]) -> Option<Question> {
+    let body = strip_marker(text);
+    let q = |kind, context: Vec<String>, details| Question {
+        kind,
+        prompt: text.to_string(),
+        context,
+        answers: yes_no(),
+        default: default.to_string(),
+        details,
+    };
+
+    // ":: Replace %s with %s/%s?"
+    if let Some(rest) = body
+        .strip_prefix(":: Replace ")
+        .and_then(|r| r.strip_suffix('?'))
+    {
+        let (old, new) = rest.split_once(" with ")?;
+        if old.contains(' ') || new.contains(' ') {
+            return None;
+        }
+        return Some(q(
+            "replace",
+            vec![],
+            vec![("old", old.into()), ("new", new.into())],
+        ));
+    }
+    // ":: %s and %s are in conflict. Remove %s?"
+    // ":: %s and %s are in conflict (%s). Remove %s?"
+    if let Some(rest) = body.strip_prefix(":: ")
+        && let Some((pair, remove)) = rest.split_once(" are in conflict")
+    {
+        let (a, b) = pair.split_once(" and ")?;
+        let remove = remove.rsplit_once(" Remove ")?.1.strip_suffix('?')?;
+        if remove != a && remove != b {
+            return None;
+        }
+        let keep = if remove == a { b } else { a };
+        return Some(q(
+            "conflict",
+            vec![],
+            vec![("install", keep.into()), ("remove", remove.into())],
+        ));
+    }
+    // ":: Import PGP key %s, \"%s\"?"
+    if let Some(rest) = body
+        .strip_prefix(":: Import PGP key ")
+        .and_then(|r| r.strip_suffix('?'))
+    {
+        let (key, uid) = rest.split_once(", ")?;
+        let uid = uid.trim_matches('"');
+        return Some(q(
+            "import_key",
+            vec![],
+            vec![("key", key.into()), ("uid", uid.into())],
+        ));
+    }
+    // ":: File %s is corrupted (%s).\nDo you want to delete it?"
+    if body == "Do you want to delete it?" {
+        let line = recent.last()?;
+        let rest = line.trim_start().strip_prefix(":: File ")?;
+        let (file, reason) = rest.split_once(" is corrupted (")?;
+        let reason = reason.strip_suffix(").")?;
+        return Some(q(
+            "corrupted",
+            vec![line.clone()],
+            vec![("file", file.into()), ("reason", reason.into())],
+        ));
+    }
+    // ":: The following package(s) cannot be upgraded due to unresolvable
+    // dependencies:\n  pkgs\n\nDo you want to skip the above package(s) for this upgrade?"
+    if body == "Do you want to skip the above package for this upgrade?"
+        || body == "Do you want to skip the above packages for this upgrade?"
+    {
+        let start = recent
+            .iter()
+            .rposition(|l| l.contains("cannot be upgraded due to unresolvable dependencies"))?;
+        let context: Vec<String> = recent[start..].to_vec();
+        let packages: Vec<String> = context[1..]
+            .iter()
+            .flat_map(|l| l.split_whitespace().map(str::to_string).collect::<Vec<_>>())
+            .collect();
+        return Some(q("skip", context, vec![("packages", packages.join(" "))]));
+    }
+    // "%s is in IgnorePkg/IgnoreGroup. Install anyway?"
+    if let Some(package) = body.strip_suffix(" is in IgnorePkg/IgnoreGroup. Install anyway?") {
+        let package = package.trim_start_matches(":: ");
+        return Some(q("ignored", vec![], vec![("package", package.into())]));
+    }
+    None
+}
+
+/// ":: There are N providers available for DEP:\n:: Repository REPO\n   1) a  2) b\n\nEnter a number (default=1): "
+fn provider_question(text: &str, recent: &[String]) -> Option<Question> {
+    let default = text
+        .strip_prefix("Enter a number (default=")?
+        .strip_suffix("):")?;
+    let start = recent
+        .iter()
+        .rposition(|l| l.starts_with(":: There are ") && l.contains(" providers available for "))?;
+    let header = &recent[start];
+    let dependency = header
+        .split(" providers available for ")
+        .nth(1)?
+        .trim_end_matches(':');
+    let mut answers = Vec::new();
+    let mut repo = String::new();
+    for line in &recent[start + 1..] {
+        if let Some(r) = line.trim().strip_prefix(":: Repository ") {
+            repo = r.to_string();
+            continue;
+        }
+        // "   1) nvidia-utils  2) vulkan-intel  3) vulkan-radeon"
+        let mut words = line.split_whitespace().peekable();
+        while let Some(word) = words.next() {
+            let Some(number) = word.strip_suffix(')') else {
+                continue;
+            };
+            if number.parse::<u32>().is_err() {
+                continue;
+            }
+            if let Some(name) = words.next() {
+                answers.push(Answer {
+                    value: number.to_string(),
+                    label: name.to_string(),
+                    detail: repo.clone(),
+                });
+            }
+        }
+    }
+    if answers.is_empty() || !answers.iter().any(|a| a.value == default) {
+        return None;
+    }
+    Some(Question {
+        kind: "provider",
+        prompt: text.to_string(),
+        context: recent[start..].to_vec(),
+        answers,
+        default: default.to_string(),
+        details: vec![("dependency", dependency.to_string())],
+    })
 }
 
 #[cfg(test)]
@@ -233,27 +433,163 @@ mod tests {
 
     #[test]
     fn prompts() {
+        let none: Vec<String> = vec![];
         assert_eq!(
-            prompt(":: Proceed with installation? [Y/n] "),
+            prompt(":: Proceed with installation? [Y/n] ", &none),
             Some(Prompt::Proceed)
         );
+        assert_eq!(prompt("downloading kwin", &none), None);
+        assert_eq!(prompt("", &none), None);
+        // Fail closed on anything unrecognised.
         assert_eq!(
-            prompt(":: Replace foo with extra/bar? [Y/n] "),
+            prompt(":: Something new? [Y/n] ", &none),
             Some(Prompt::Unsupported)
         );
         assert_eq!(
-            prompt(":: a and b are in conflict. Remove b? [y/N] "),
+            prompt("Enter a selection (default=all): ", &none),
             Some(Prompt::Unsupported)
+        );
+    }
+
+    fn relayed(tail: &str, recent: &[&str]) -> Question {
+        let recent: Vec<String> = recent.iter().map(|s| s.to_string()).collect();
+        match prompt(tail, &recent) {
+            Some(Prompt::Relay(q)) => q,
+            other => panic!("expected a relayed question, got {other:?}"),
+        }
+    }
+
+    fn detail<'a>(q: &'a Question, key: &str) -> &'a str {
+        &q.details.iter().find(|(k, _)| *k == key).unwrap().1
+    }
+
+    #[test]
+    fn replace() {
+        let q = relayed(":: Replace foo with extra/bar? [Y/n] ", &[]);
+        assert_eq!(q.kind, "replace");
+        assert_eq!(q.default, "y");
+        assert_eq!(detail(&q, "old"), "foo");
+        assert_eq!(detail(&q, "new"), "extra/bar");
+    }
+
+    #[test]
+    fn conflict() {
+        let q = relayed(":: foo and bar are in conflict. Remove bar? [y/N] ", &[]);
+        assert_eq!((q.kind, q.default.as_str()), ("conflict", "n"));
+        assert_eq!(detail(&q, "remove"), "bar");
+        assert_eq!(detail(&q, "install"), "foo");
+        let q = relayed(
+            ":: foo and bar are in conflict (libx). Remove foo? [y/N] ",
+            &[],
+        );
+        assert_eq!(detail(&q, "remove"), "foo");
+        assert_eq!(detail(&q, "install"), "bar");
+    }
+
+    #[test]
+    fn import_key() {
+        let q = relayed(
+            ":: Import PGP key 0123ABCD, \"Someone <s@example.org>\"? [Y/n] ",
+            &[],
+        );
+        assert_eq!(q.kind, "import_key");
+        assert_eq!(detail(&q, "key"), "0123ABCD");
+        assert_eq!(detail(&q, "uid"), "Someone <s@example.org>");
+    }
+
+    #[test]
+    fn corrupted() {
+        let q = relayed(
+            "Do you want to delete it? [Y/n] ",
+            &[
+                ":: File /var/cache/pacman/pkg/a-1-1.pkg.tar.zst is corrupted (invalid or corrupted package (PGP signature)).",
+            ],
+        );
+        assert_eq!(q.kind, "corrupted");
+        assert_eq!(
+            detail(&q, "file"),
+            "/var/cache/pacman/pkg/a-1-1.pkg.tar.zst"
         );
         assert_eq!(
-            prompt("Enter a number (default=1): "),
+            detail(&q, "reason"),
+            "invalid or corrupted package (PGP signature)"
+        );
+        // Without the line before it, it is not recognised.
+        assert_eq!(
+            prompt("Do you want to delete it? [Y/n] ", &[]),
             Some(Prompt::Unsupported)
+        );
+    }
+
+    #[test]
+    fn skip() {
+        let q = relayed(
+            "Do you want to skip the above packages for this upgrade? [y/N] ",
+            &[
+                "checking dependencies...",
+                ":: The following packages cannot be upgraded due to unresolvable dependencies:",
+                "      foo  bar",
+                "",
+            ],
+        );
+        assert_eq!((q.kind, q.default.as_str()), ("skip", "n"));
+        assert_eq!(detail(&q, "packages"), "foo bar");
+        assert_eq!(q.context.len(), 3);
+    }
+
+    #[test]
+    fn provider() {
+        let q = relayed(
+            "Enter a number (default=1): ",
+            &[
+                "resolving dependencies...",
+                ":: There are 4 providers available for vulkan-driver:",
+                ":: Repository extra",
+                "   1) nvidia-utils  2) vulkan-intel  3) vulkan-radeon",
+                ":: Repository multilib",
+                "   4) vulkan-swrast",
+                "",
+            ],
+        );
+        assert_eq!(q.kind, "provider");
+        assert_eq!(q.default, "1");
+        assert_eq!(detail(&q, "dependency"), "vulkan-driver");
+        let names: Vec<_> = q
+            .answers
+            .iter()
+            .map(|a| (a.value.as_str(), a.label.as_str(), a.detail.as_str()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("1", "nvidia-utils", "extra"),
+                ("2", "vulkan-intel", "extra"),
+                ("3", "vulkan-radeon", "extra"),
+                ("4", "vulkan-swrast", "multilib")
+            ]
         );
         assert_eq!(
-            prompt(":: Import PGP key 1234, \"Someone <a@b>\"? [Y/n] "),
+            q.context[0],
+            ":: There are 4 providers available for vulkan-driver:"
+        );
+        // A default that is not among the options: fail closed.
+        let recent = vec![
+            ":: There are 1 providers available for x:".to_string(),
+            "   1) a".to_string(),
+        ];
+        assert_eq!(
+            prompt("Enter a number (default=7): ", &recent),
             Some(Prompt::Unsupported)
         );
-        assert_eq!(prompt("downloading kwin"), None);
-        assert_eq!(prompt(""), None);
+    }
+
+    #[test]
+    fn ignored() {
+        let q = relayed(
+            ":: foo is in IgnorePkg/IgnoreGroup. Install anyway? [Y/n] ",
+            &[],
+        );
+        assert_eq!(q.kind, "ignored");
+        assert_eq!(detail(&q, "package"), "foo");
     }
 }

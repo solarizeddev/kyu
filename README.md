@@ -2,11 +2,11 @@
 
 A KDE-native updater for Arch-based systems: a tray icon showing the number of pending repo and Flatpak updates, and (in later milestones) a panel that applies them through a privileged helper. Design and milestones: [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
-Current state: milestone 3. The tray icon shows pending updates, and clicking it opens the update panel: the list grouped by repo, "Update all", live progress per package, and pacman's output. A privileged helper runs `pacman -Syu`; the panel can close or crash without affecting it, and picks the update up again when reopened.
+Current state: milestone 4. The tray icon shows pending updates, and clicking it opens the update panel: the list grouped by repo, "Update all", live progress per package, and pacman's output. A privileged helper runs `pacman -Syu`. When pacman asks something (a provider, a conflict, a replacement, a key import), the panel shows the question with pacman's own text and default, and passes the answer back. The panel can close or crash without affecting the update, and picks it up again when reopened, including a question still waiting for an answer.
 
-| List | Updating | pacman output | Done | Question (stopped) |
+| List | Updating | Question | pacman output | Done |
 |---|---|---|---|---|
-| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-output.png) | ![](docs/screenshots/panel-finished.png) | ![](docs/screenshots/panel-question.png) |
+| ![](docs/screenshots/panel-list.png) | ![](docs/screenshots/panel-running.png) | ![](docs/screenshots/panel-question.png) | ![](docs/screenshots/panel-output.png) | ![](docs/screenshots/panel-finished.png) |
 
 The screenshots come from `tools/preview-panel.sh` with a fake pacman and a stand-in for Kirigami (Breeze colours, Fusion controls). On Plasma the panel uses the real Kirigami, your colour scheme and Plasma's control style.
 
@@ -64,7 +64,18 @@ build/bin/kyu-tray
 build/bin/kyu
 ```
 
-The helper test (`helper_session`) runs `kyu-helper --session` with a fake pacman on a private bus. It covers killing the client mid-update and reattaching, a second start while one is running, pacman's lock file, a question the helper must not answer, pacman failures, SIGTERM during an update, and a helper killed mid-update.
+The helper test (`helper_session`) runs `kyu-helper --session` with a fake pacman on a private bus. It covers:
+
+- killing the client mid-update and reattaching
+- a second start while one is running
+- pacman's lock file
+- each question type: answered, defaulted, refused, cancelled, timed out, answered over D-Bus by another client, and answered by a client that attached late
+- an unrecognised question (fails closed)
+- pacman failures
+- SIGTERM during an update
+- a helper killed mid-update
+
+`kyu-update` asks pacman's questions on the terminal: type an answer, press Enter for pacman's default, or type `c` to cancel.
 
 To try the helper without root, on your session bus, with a pacman stand-in:
 
@@ -100,7 +111,7 @@ cmake -S . -B build -DKYU_PREVIEW=ON
 tools/preview-panel.sh /tmp/running.png --start-update --delay 3300
 ```
 
-The script's header lists more examples (dark colours, output page, a failing or stopped update). Never package a preview build.
+The script's header lists more examples (dark colours, output page, questions with `MODE=provider|conflict|replace|key`, `--answer VALUE`). Never package a preview build.
 
 `kyu-check` exits 0 when every source was checked, 2 when one failed (the error is printed and stored in the state file), 1 when the state file could not be written.
 

@@ -12,10 +12,12 @@
 #   tools/preview-panel.sh list-dark.png --dark
 #   tools/preview-panel.sh running.png --start-update --delay 3300
 #   tools/preview-panel.sh output.png --start-update --page output --page-delay 2000 --delay 3300
-#   MODE=conflict tools/preview-panel.sh conflict.png --start-update --delay 2500
+#   MODE=provider tools/preview-panel.sh question.png --start-update --delay 1800
+#   MODE=provider tools/preview-panel.sh answered.png --start-update --answer 3 --delay 4000
+#   MODE=conflict tools/preview-panel.sh cancelled.png --start-update --answer cancel --delay 3000
 #
-# MODE (normal, conflict, fail, nothing) and DELAY (seconds per package) set
-# the fake pacman's behaviour. BUILD defaults to ./build.
+# MODE (see tests/helper/fake-pacman) and DELAY (seconds per package) set the
+# fake pacman's behaviour. BUILD defaults to ./build.
 set -eu
 out=$(realpath -m "$1"); shift
 src=$(cd "$(dirname "$0")/.." && pwd)
@@ -40,7 +42,8 @@ dbus-run-session -- sh -c '
         QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
         timeout 60 "$bin/kyu" --session-bus --screenshot "$out" "$@"
     code=$?
-    kill "$helper"
+    # SIGKILL: on SIGTERM the helper waits for a running update to finish.
+    kill -9 "$helper"
     exit $code
 ' sh "$work" "$bin" "$out" "$@" 2>&1 | grep -v -e 'fd limit' -e XDG_RUNTIME_DIR -e propagateSizeHints -e 'kyu-check' -e 'updates:' || true
 [ -f "$out" ] && echo "wrote $out"

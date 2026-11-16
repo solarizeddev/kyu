@@ -13,7 +13,7 @@ use zbus::{Connection, fdo, interface};
 use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 use crate::POLKIT_ACTION;
-use crate::state::{BeginError, Shared};
+use crate::state::{BeginError, ReplyError, Shared};
 use crate::transaction;
 
 #[derive(Debug, zbus::DBusError)]
@@ -25,6 +25,12 @@ pub enum HelperError {
     NotAuthorized(String),
     /// Another Kyu transaction is running.
     Busy(String),
+    /// No such question pending (already answered, or never asked).
+    NoQuestion(String),
+    /// Only the user who started the update (or root) may answer or cancel.
+    NotAllowed(String),
+    /// Not one of pacman's answers to this question.
+    InvalidAnswer(String),
     /// pacman's database lock exists: another package manager is running,
     /// or a previous run was interrupted.
     Locked(String),
@@ -45,15 +51,7 @@ impl Helper {
         #[zbus(connection)] conn: &Connection,
     ) -> Result<String, HelperError> {
         self.shared.touch();
-        let sender = header
-            .sender()
-            .ok_or_else(|| HelperError::Failed("message has no sender".into()))?
-            .to_owned();
-        let uid = fdo::DBusProxy::new(conn)
-            .await?
-            .get_connection_unix_user(sender.clone().into())
-            .await
-            .map_err(|e| HelperError::Failed(format!("cannot identify the caller: {e}")))?;
+        let uid = caller_uid(conn, &header).await?;
 
         if self.shared.is_running() {
             // Answer before asking for a password that would not be used.
@@ -92,6 +90,37 @@ impl Helper {
         Ok(id)
     }
 
+    /// Answers a relayed question (see the "question" record) with one of its
+    /// answer values. Only the user who started the update, or root.
+    async fn answer(
+        &self,
+        transaction: &str,
+        question: u64,
+        answer: &str,
+        #[zbus(header)] header: Header<'_>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> Result<(), HelperError> {
+        self.shared.touch();
+        let uid = caller_uid(conn, &header).await?;
+        self.shared
+            .answer(transaction, question, uid, answer)
+            .map_err(reply_error)
+    }
+
+    /// Stops pacman while it waits for an answer, before it changes any
+    /// package. Refused at any other time. Only the user who started the
+    /// update, or root.
+    async fn cancel(
+        &self,
+        transaction: &str,
+        #[zbus(header)] header: Header<'_>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> Result<(), HelperError> {
+        self.shared.touch();
+        let uid = caller_uid(conn, &header).await?;
+        self.shared.cancel(transaction, uid).map_err(reply_error)
+    }
+
     /// JSON object describing the helper's state; see docs/helper-protocol.md.
     async fn get_state(&self) -> String {
         self.shared.touch();
@@ -106,6 +135,26 @@ impl Helper {
         seq: u64,
         record: &str,
     ) -> zbus::Result<()>;
+}
+
+fn reply_error(e: ReplyError) -> HelperError {
+    match e {
+        ReplyError::NoQuestion(m) => HelperError::NoQuestion(m),
+        ReplyError::NotAllowed(m) => HelperError::NotAllowed(m),
+        ReplyError::InvalidAnswer(m) => HelperError::InvalidAnswer(m),
+    }
+}
+
+async fn caller_uid(conn: &Connection, header: &Header<'_>) -> Result<u32, HelperError> {
+    let sender = header
+        .sender()
+        .ok_or_else(|| HelperError::Failed("message has no sender".into()))?
+        .to_owned();
+    fdo::DBusProxy::new(conn)
+        .await?
+        .get_connection_unix_user(sender.into())
+        .await
+        .map_err(|e| HelperError::Failed(format!("cannot identify the caller: {e}")))
 }
 
 async fn authorize(conn: &Connection, header: &Header<'_>) -> Result<(), HelperError> {

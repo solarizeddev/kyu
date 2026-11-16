@@ -193,6 +193,98 @@ private Q_SLOTS:
         startTransaction(c);
         c.handleRecord(rec("question", {{QStringLiteral("text"), QStringLiteral(":: a and b are in conflict. Remove b? [y/N]")}}));
         QCOMPARE(c.question(), QStringLiteral(":: a and b are in conflict. Remove b? [y/N]"));
+        c.handleRecord(rec("finished", {{QStringLiteral("success"), false}, {QStringLiteral("summary"), QStringLiteral("Stopped at ...")}}));
+        QCOMPARE(c.resultTitle(), QStringLiteral("Update stopped"));
+    }
+
+    void providerQuestion()
+    {
+        PanelController c;
+        c.setOwnUid(1000);
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleRecord(rec("question",
+                           {{QStringLiteral("id"), 1},
+                            {QStringLiteral("handled"), true},
+                            {QStringLiteral("type"), QStringLiteral("provider")},
+                            {QStringLiteral("text"), QStringLiteral("Enter a number (default=1):")},
+                            {QStringLiteral("context"),
+                             QJsonArray{QStringLiteral(":: There are 2 providers available for vulkan-driver:"), QStringLiteral(":: Repository extra"),
+                                        QStringLiteral("   1) nvidia-utils  2) vulkan-radeon"), QString()}},
+                            {QStringLiteral("answers"),
+                             QJsonArray{QJsonObject{{QStringLiteral("value"), QStringLiteral("1")},
+                                                    {QStringLiteral("label"), QStringLiteral("nvidia-utils")},
+                                                    {QStringLiteral("detail"), QStringLiteral("extra")}},
+                                        QJsonObject{{QStringLiteral("value"), QStringLiteral("2")},
+                                                    {QStringLiteral("label"), QStringLiteral("vulkan-radeon")},
+                                                    {QStringLiteral("detail"), QStringLiteral("extra")}}}},
+                            {QStringLiteral("default"), QStringLiteral("1")},
+                            {QStringLiteral("details"), QJsonObject{{QStringLiteral("dependency"), QStringLiteral("vulkan-driver")}}},
+                            {QStringLiteral("timeoutSeconds"), 1800}}));
+        QCOMPARE(c.screen(), QStringLiteral("question"));
+        QCOMPARE(c.questionTitle(), QStringLiteral("Pick a provider for vulkan-driver"));
+        QCOMPARE(c.pausedText(), QStringLiteral("Paused, nothing changed yet"));
+        QVERIFY(c.canAnswer());
+        const auto options = c.questionOptions();
+        QCOMPARE(options.size(), 2);
+        QCOMPARE(options[0].toMap().value(QStringLiteral("detail")).toString(), QStringLiteral("extra · pacman's default"));
+        QCOMPARE(options[1].toMap().value(QStringLiteral("label")).toString(), QStringLiteral("vulkan-radeon"));
+        // pacman's text, verbatim, without blank lines.
+        QCOMPARE(c.questionPacman().split(QLatin1Char('\n')).size(), 4);
+        QVERIFY(c.questionNote().contains(QStringLiteral("30 minutes")));
+
+        c.handleRecord(rec("answered",
+                           {{QStringLiteral("id"), 1},
+                            {QStringLiteral("question"), QStringLiteral("Enter a number (default=1):")},
+                            {QStringLiteral("answer"), QStringLiteral("2")},
+                            {QStringLiteral("uid"), 1000}}));
+        QCOMPARE(c.screen(), QStringLiteral("running"));
+        QVERIFY(!c.canAnswer());
+    }
+
+    void conflictWordingAndOtherUsers()
+    {
+        PanelController c;
+        c.setOwnUid(1001); // not the user who started the update
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleRecord(rec("question",
+                           {{QStringLiteral("id"), 1},
+                            {QStringLiteral("handled"), true},
+                            {QStringLiteral("type"), QStringLiteral("conflict")},
+                            {QStringLiteral("text"), QStringLiteral(":: foo and bar are in conflict. Remove bar? [y/N]")},
+                            {QStringLiteral("default"), QStringLiteral("n")},
+                            {QStringLiteral("details"),
+                             QJsonObject{{QStringLiteral("install"), QStringLiteral("foo")}, {QStringLiteral("remove"), QStringLiteral("bar")}}}}));
+        QCOMPARE(c.questionTitle(), QStringLiteral("foo conflicts with bar"));
+        const auto options = c.questionOptions();
+        QCOMPARE(options[0].toMap().value(QStringLiteral("label")).toString(), QStringLiteral("Remove bar"));
+        QCOMPARE(options[1].toMap().value(QStringLiteral("detail")).toString(),
+                 QStringLiteral("pacman stops the update; nothing is changed · pacman's default"));
+        QVERIFY(!c.canAnswer());
+        QVERIFY(c.questionNote().startsWith(QStringLiteral("uid 1000 started this update")));
+
+        c.setOwnUid(0);
+        QVERIFY(c.canAnswer()); // root may answer
+    }
+
+    void skipOffersOnlyCancel()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleRecord(rec("question",
+                           {{QStringLiteral("id"), 1},
+                            {QStringLiteral("handled"), true},
+                            {QStringLiteral("type"), QStringLiteral("skip")},
+                            {QStringLiteral("default"), QStringLiteral("n")},
+                            {QStringLiteral("details"), QJsonObject{{QStringLiteral("packages"), QStringLiteral("foo bar")}}}}));
+        QVERIFY(c.questionOptions().isEmpty());
+        QVERIFY(c.questionText().contains(QStringLiteral("partial upgrade")));
+        c.handleRecord(rec("cancelled", {{QStringLiteral("id"), 1}, {QStringLiteral("uid"), 1000}}));
+        QCOMPARE(c.screen(), QStringLiteral("running"));
+        c.handleRecord(rec("finished", {{QStringLiteral("success"), false}, {QStringLiteral("summary"), QStringLiteral("Cancelled at ...")}}));
+        QCOMPARE(c.resultTitle(), QStringLiteral("Update cancelled"));
     }
 
     void startErrorsAreQuoted()

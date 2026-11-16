@@ -43,6 +43,12 @@ public:
     // so this is asynchronous; startFinished() reports the result.
     void startUpdate();
 
+    // Answers question `id` of the followed transaction with one of its
+    // answer values, or cancels the update at that question. Results arrive
+    // as replyFinished(); the effect shows up as an answered/cancelled record.
+    void answer(qulonglong id, const QString &value);
+    void cancel();
+
     QString transaction() const
     {
         return m_tx;
@@ -61,6 +67,8 @@ Q_SIGNALS:
     // The helper left the bus while we followed an unfinished transaction
     // (it crashed or was killed). The log stays where it was.
     void helperLost(const QString &logPath);
+    // Empty errorName on success.
+    void replyFinished(const QString &errorName, const QString &errorMessage);
 
 private Q_SLOTS:
     void onEvent(const QString &transaction, qulonglong seq, const QString &record);
@@ -68,6 +76,7 @@ private Q_SLOTS:
 private:
     void deliver(const QJsonObject &record, qulonglong seq);
     void readLog();
+    void callForReply(const QString &method, const QVariantList &args);
 
     QDBusConnection m_bus;
     bool m_finished = false;

@@ -114,6 +114,31 @@ void HelperClient::startUpdate()
     });
 }
 
+void HelperClient::answer(qulonglong id, const QString &value)
+{
+    callForReply(QStringLiteral("Answer"), {m_tx, QVariant::fromValue(id), value});
+}
+
+void HelperClient::cancel()
+{
+    callForReply(QStringLiteral("Cancel"), {m_tx});
+}
+
+void HelperClient::callForReply(const QString &method, const QVariantList &args)
+{
+    auto call = QDBusMessage::createMethodCall(QString::fromLatin1(Service),
+                                               QString::fromLatin1(Path),
+                                               QString::fromLatin1(Interface),
+                                               method);
+    call.setArguments(args);
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<> reply = *w;
+        Q_EMIT replyFinished(reply.isError() ? reply.error().name() : QString(), reply.isError() ? reply.error().message() : QString());
+    });
+}
+
 void HelperClient::onEvent(const QString &transaction, qulonglong seq, const QString &recordJson)
 {
     const QJsonObject record = parseRecord(recordJson.toUtf8());

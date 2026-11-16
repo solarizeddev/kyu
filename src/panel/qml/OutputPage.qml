@@ -26,7 +26,7 @@ ColumnLayout {
         }
         Kirigami.Heading {
             level: 2
-            visible: Panel.screen === "running"
+            visible: Panel.screen === "running" || Panel.screen === "question"
             text: Panel.percent + "%"
         }
     }

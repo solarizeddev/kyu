@@ -211,12 +211,13 @@ QCommandLineOption screenshot(QStringLiteral("screenshot"), QStringLiteral("Prev
 QCommandLineOption delay(QStringLiteral("delay"), QStringLiteral("Preview: wait MS before the screenshot."), QStringLiteral("ms"), QStringLiteral("1500"));
 QCommandLineOption startUpdate(QStringLiteral("start-update"), QStringLiteral("Preview: press Update all after loading."));
 QCommandLineOption page(QStringLiteral("page"), QStringLiteral("Preview: open \"output\" or \"changes\" after MS (--page-delay)."), QStringLiteral("name"));
+QCommandLineOption answer(QStringLiteral("answer"), QStringLiteral("Preview: answer pacman's question with VALUE (\"cancel\" cancels)."), QStringLiteral("value"));
 QCommandLineOption pageDelay(QStringLiteral("page-delay"), QStringLiteral("Preview: delay for --page."), QStringLiteral("ms"), QStringLiteral("500"));
 }
 
 void addOptions(QCommandLineParser &parser)
 {
-    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay});
+    parser.addOptions({dark, screenshot, delay, startUpdate, page, pageDelay, answer});
 }
 
 void setUp(QQmlApplicationEngine &engine, const QCommandLineParser &parser)
@@ -275,6 +276,21 @@ void run(QQmlApplicationEngine &engine, const QCommandLineParser &parser, PanelC
     }
     if (parser.isSet(startUpdate)) {
         QTimer::singleShot(300, &panel, &PanelController::updateAll);
+    }
+    if (parser.isSet(answer)) {
+        // As if the user picked it and pressed Continue (or Cancel).
+        const QString value = parser.value(answer);
+        QObject::connect(&panel, &PanelController::changed, &panel, [&panel, value] {
+            if (panel.screen() == QLatin1String("question") && !panel.replying()) {
+                QTimer::singleShot(300, &panel, [&panel, value] {
+                    if (value == QLatin1String("cancel")) {
+                        panel.cancelUpdate();
+                    } else {
+                        panel.answer(value);
+                    }
+                });
+            }
+        });
     }
     if (parser.isSet(page)) {
         const QString name = parser.value(page);

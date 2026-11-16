@@ -3,9 +3,10 @@
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde_json::{Map, Value, json};
+use tokio::sync::oneshot;
 use zbus::Connection;
 use zbus::object_server::SignalEmitter;
 
@@ -32,6 +33,29 @@ impl Phase {
     }
 }
 
+/// What the user decided about a relayed question.
+pub enum Reply {
+    Answer { value: String, uid: u32 },
+    Cancel { uid: u32 },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReplyError {
+    /// No such transaction or question, or it was already answered.
+    NoQuestion(String),
+    /// Caller is not the user who started the update (or root).
+    NotAllowed(String),
+    /// Not one of pacman's options.
+    InvalidAnswer(String),
+}
+
+struct PendingQuestion {
+    id: u64,
+    values: Vec<String>,
+    sender: oneshot::Sender<Reply>,
+}
+
+#[derive(Debug)]
 pub enum BeginError {
     Busy(String),
     Failed(String),
@@ -44,6 +68,8 @@ pub struct Config {
     pub pacman: PathBuf,
     pub db_lock: PathBuf,
     pub log_dir: PathBuf,
+    /// How long pacman may wait for an answer before the helper stops it.
+    pub question_timeout: Duration,
 }
 
 #[derive(Default)]
@@ -58,7 +84,7 @@ struct Transaction {
     action: String,
     package: String,
     summary: String,
-    pending_question: String,
+    question: Value,
 }
 
 struct Inner {
@@ -70,6 +96,7 @@ struct Inner {
     previous: Option<(PathBuf, Map<String, Value>)>,
     last_activity: Instant,
     exit_when_done: bool,
+    pending: Option<PendingQuestion>,
 }
 
 pub struct Shared {
@@ -91,6 +118,7 @@ impl Shared {
                 previous,
                 last_activity: Instant::now(),
                 exit_when_done: false,
+                pending: None,
             }),
             conn: OnceLock::new(),
         })
@@ -228,6 +256,75 @@ impl Shared {
         }
     }
 
+    /// Registers a relayed question, then announces it. The answer (or a
+    /// cancel) arrives on the returned channel.
+    pub async fn wait_for_reply(
+        &self,
+        id: u64,
+        values: Vec<String>,
+        record: Value,
+    ) -> oneshot::Receiver<Reply> {
+        let (sender, receiver) = oneshot::channel();
+        self.lock().pending = Some(PendingQuestion { id, values, sender });
+        self.emit("question", record).await;
+        receiver
+    }
+
+    pub fn clear_question(&self) {
+        self.lock().pending = None;
+    }
+
+    /// Answer(transaction, question, answer) from D-Bus.
+    pub fn answer(&self, tx: &str, id: u64, uid: u32, value: &str) -> Result<(), ReplyError> {
+        let mut inner = self.lock();
+        Self::check_reply(&inner, tx, Some(id), uid)?;
+        let pending = inner.pending.as_ref().expect("checked");
+        if !pending.values.iter().any(|v| v == value) {
+            return Err(ReplyError::InvalidAnswer(format!(
+                "\"{value}\" is not one of pacman's answers ({})",
+                pending.values.join(", ")
+            )));
+        }
+        let pending = inner.pending.take().expect("checked");
+        inner.last_activity = Instant::now();
+        let _ = pending.sender.send(Reply::Answer {
+            value: value.to_string(),
+            uid,
+        });
+        Ok(())
+    }
+
+    /// Cancel(transaction) from D-Bus: only while pacman waits for an answer,
+    /// which is before it changes any package.
+    pub fn cancel(&self, tx: &str, uid: u32) -> Result<(), ReplyError> {
+        let mut inner = self.lock();
+        Self::check_reply(&inner, tx, None, uid)?;
+        let pending = inner.pending.take().expect("checked");
+        let _ = pending.sender.send(Reply::Cancel { uid });
+        Ok(())
+    }
+
+    fn check_reply(inner: &Inner, tx: &str, id: Option<u64>, uid: u32) -> Result<(), ReplyError> {
+        let current = inner
+            .tx
+            .as_ref()
+            .filter(|t| t.id == tx && inner.phase == Phase::Running)
+            .ok_or_else(|| ReplyError::NoQuestion(format!("transaction {tx} is not running")))?;
+        if uid != current.uid && uid != 0 {
+            return Err(ReplyError::NotAllowed(format!(
+                "only the user who started the update (uid {}) can answer or cancel it",
+                current.uid
+            )));
+        }
+        match &inner.pending {
+            Some(p) if id.is_none_or(|id| id == p.id) => Ok(()),
+            Some(p) => Err(ReplyError::NoQuestion(format!("pacman is waiting on question {}, not {}", p.id, id.unwrap_or(0)))),
+            None => Err(ReplyError::NoQuestion(
+                "pacman is not waiting for an answer. Kyu stops pacman only at a question, before it changes packages".into(),
+            )),
+        }
+    }
+
     pub fn exit_when_done(&self) -> bool {
         self.lock().exit_when_done
     }
@@ -255,7 +352,7 @@ impl Shared {
                     "action": tx.action,
                     "package": tx.package,
                     "summary": tx.summary,
-                    "question": tx.pending_question,
+                    "question": tx.question,
                 }),
             );
         } else if let Some((path, last)) = &inner.previous {
@@ -295,11 +392,94 @@ fn apply(tx: &mut Transaction, kind: &str, fields: &Value) {
             tx.action = s("action");
             tx.package = s("package");
         }
-        "question" => tx.pending_question = s("text"),
+        "question" => tx.question = fields.clone(),
+        "answered" | "cancelled" | "timeout" => tx.question = Value::Null,
         "finished" => {
             tx.summary = s("summary");
-            tx.pending_question.clear();
+            tx.question = Value::Null;
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shared(name: &str) -> Arc<Shared> {
+        let dir =
+            std::env::temp_dir().join(format!("kyu-state-test-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        Shared::new(Config {
+            session: true,
+            pacman: PathBuf::from("/bin/false"),
+            db_lock: dir.join("db.lck"),
+            log_dir: dir,
+            question_timeout: Duration::from_secs(60),
+        })
+    }
+
+    #[tokio::test]
+    async fn answers_are_checked() {
+        let s = shared("answers");
+        let tx = s.begin(1000).unwrap();
+        // Nothing asked yet.
+        assert!(matches!(
+            s.answer(&tx, 1, 1000, "y"),
+            Err(ReplyError::NoQuestion(_))
+        ));
+        assert!(matches!(
+            s.cancel(&tx, 1000),
+            Err(ReplyError::NoQuestion(_))
+        ));
+
+        let mut reply = s
+            .wait_for_reply(1, vec!["1".into(), "2".into()], json!({}))
+            .await;
+        assert!(matches!(
+            s.answer("other-tx", 1, 1000, "2"),
+            Err(ReplyError::NoQuestion(_))
+        ));
+        assert!(matches!(
+            s.answer(&tx, 2, 1000, "2"),
+            Err(ReplyError::NoQuestion(_))
+        ));
+        assert!(matches!(
+            s.answer(&tx, 1, 1001, "2"),
+            Err(ReplyError::NotAllowed(_))
+        ));
+        assert!(matches!(
+            s.answer(&tx, 1, 1000, "3"),
+            Err(ReplyError::InvalidAnswer(_))
+        ));
+        assert!(
+            reply.try_recv().is_err(),
+            "rejected answers must not reach pacman"
+        );
+
+        s.answer(&tx, 1, 1000, "2").unwrap();
+        assert!(
+            matches!(reply.try_recv(), Ok(Reply::Answer { ref value, uid: 1000 }) if value == "2")
+        );
+        // Answered once only.
+        assert!(matches!(
+            s.answer(&tx, 1, 1000, "2"),
+            Err(ReplyError::NoQuestion(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn root_may_cancel() {
+        let s = shared("cancel");
+        let tx = s.begin(1000).unwrap();
+        let mut reply = s
+            .wait_for_reply(1, vec!["y".into(), "n".into()], json!({}))
+            .await;
+        assert!(matches!(
+            s.cancel(&tx, 1001),
+            Err(ReplyError::NotAllowed(_))
+        ));
+        s.cancel(&tx, 0).unwrap();
+        assert!(matches!(reply.try_recv(), Ok(Reply::Cancel { uid: 0 })));
     }
 }

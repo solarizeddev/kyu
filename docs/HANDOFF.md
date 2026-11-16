@@ -50,12 +50,12 @@ KAuth suits short one-shot actions with one-way progress. The helper needs more 
 ### Helper requirements (from the language review, for milestones 2 and 4)
 
 - **Reattach needs live state, not only the log.** Add a D-Bus `GetState` (phase, pending prompt, transaction id). Keep the log for history.
-- **Prompt ownership.** Only the uid that started the transaction may answer or reattach. Define what happens when a prompt is pending and no panel is open: wait, or time out and abort.
+- **Prompt ownership.** Done in milestone 4: only the uid that started the transaction (or root) may answer or cancel; anyone may reattach and read. A pending question waits up to 30 minutes, then the helper stops pacman.
 - **Fixed operations only.** The D-Bus API never takes client-supplied arguments, package lists or environment.
 - **Lifetime.** Do not kill pacman on SIGHUP or service stop mid-transaction. Hold a logind inhibitor against shutdown and sleep while running. Handle a stale `db.lck`.
 - **Show the real transaction.** The `checkupdates` list and the actual `-Syu` set can differ (mirror changed in between). Report the real set before committing.
 - **Locale.** Parsing needs `LC_ALL=C`, which conflicts with UI rule 3 (quote pacman's messages): the quotes would be in English. Decide per message, or parse with C and show localized text separately.
-- **Prompts are not a stable interface.** A `--print` pre-pass will not surface every question. Pin tested pacman versions and fail closed on unknown prompts, or reconsider libalpm's question callback just for prompts.
+- **Prompts are not a stable interface.** A `--print` pre-pass will not surface every question. Milestone 4 fails closed on unknown prompts; versions are not pinned. libalpm's question callback remains the robust alternative if pacman's wording churns.
 - **"Update at shutdown"** (in the Updates list menu) has no mechanism yet. It needs something like systemd offline updates, which is a separate design.
 
 ## UI rules
@@ -139,9 +139,33 @@ Colour roles used in the sketches and their Kirigami equivalents:
 - Reopening the panel mid-update shows the running screen with progress so far (replayed from the helper's log). Tested by killing the panel mid-update and starting it again, and by starting a second panel (it hands off to the first and exits).
 - The panel reads history from the helper's log in `/var/log/kyu/`, not the journal; the log sketch's "full log stays in the system journal" line is superseded.
 - `PanelController` is covered by `tests/test_panel.cpp` (list grouping, transaction progress, failures, start errors, lost helper). The QML itself has only been run against the preview stand-in, not real Kirigami.
-- Not in this milestone: restart detection and .pacnew review (milestone 6), hold a package / update at shutdown (no mechanism yet), package details screen, prompts (milestone 4).
+- Not in this milestone: restart detection and .pacnew review (milestone 6), hold a package / update at shutdown (no mechanism yet), package details screen.
+
+**Milestone 4 (prompts): done.** Protocol: `docs/helper-protocol.md`, section "Questions".
+
+- The helper recognises pacman's questions and relays them as structured `question` records. pacman then waits:
+  - provider choice
+  - package conflict
+  - replacement
+  - PGP key import
+  - corrupted package file
+  - packages that cannot be upgraded
+  - IgnorePkg
+- Each record carries pacman's text verbatim, its context lines (the provider list), the allowed answers, pacman's default, and the parsed facts (package names, key, file).
+- New D-Bus methods: `Answer(transaction, question, answer)` and `Cancel(transaction)`. Only the uid that started the update, or root, may use them. Answers must be one of pacman's options. Cancel is accepted only while pacman waits, which is before it changes any package.
+- No answer within 30 minutes: the helper stops pacman. Unrecognised questions still stop pacman (fail closed).
+- Panel: a question screen per the ask sketch.
+  - Header: "Paused, nothing changed yet" (or how many changed so far).
+  - A title and one factual sentence per question type.
+  - Options worded by what pacman will do. pacman's default is marked "pacman's default"; the sketch's hardware-based "Suggested" was not built (rule 7).
+  - pacman's text verbatim.
+  - Continue and "Cancel the update".
+- "Skip these packages" is never offered: it is a partial upgrade (rule 4), so that question only offers Cancel.
+- Other users see who may answer.
+- `kyu-update` asks the same questions on the terminal.
+- Tests: the parser against each pacman question format; the answer rules (wrong uid, wrong value, stale or repeated answers, root); end-to-end runs with a fake pacman for every type and path; and the panel answering and cancelling (preview screenshots).
+- Not done: pacman versions are not pinned. A question whose wording changes in a future pacman falls into "unrecognised" and stops the update with nothing changed, rather than being answered wrongly. The parser is in `helper/src/parse.rs`, with a test per format.
 
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.
 - The helper reports the real transaction size ("Packages (N)") but does not yet compare it with the checker's list before answering "Proceed" (see "Helper requirements").
-- Prompt ownership (only the starting uid may answer) is recorded per transaction (`uid`), but there is nothing to answer until milestone 4.

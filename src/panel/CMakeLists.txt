@@ -18,6 +18,7 @@ qt_add_resources(kyu panel_qml PREFIX "/" FILES
     qml/PackageRow.qml
     qml/ListScreen.qml
     qml/RunningScreen.qml
+    qml/QuestionScreen.qml
     qml/OutputPage.qml
     qml/FinishedScreen.qml
     qml/ChangesPage.qml

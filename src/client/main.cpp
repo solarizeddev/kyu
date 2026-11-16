@@ -8,8 +8,11 @@
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSocketNotifier>
 #include <QTextStream>
 #include <QTimer>
+
+#include <unistd.h>
 
 namespace
 {
@@ -57,10 +60,32 @@ void printRecord(const QJsonObject &r, bool quiet)
                   << r.value(QStringLiteral("action")).toString() << " " << r.value(QStringLiteral("package")).toString() << Qt::endl;
         }
     } else if (kind == QLatin1String("answered")) {
-        err() << "kyu: answered \"" << r.value(QStringLiteral("question")).toString() << "\" with "
-              << r.value(QStringLiteral("answer")).toString() << " (" << r.value(QStringLiteral("reason")).toString() << ")" << Qt::endl;
+        const QString why = r.contains(QStringLiteral("reason")) ? r.value(QStringLiteral("reason")).toString()
+                                                                 : QStringLiteral("answered by uid %1").arg(r.value(QStringLiteral("uid")).toInteger());
+        err() << "kyu: answered \"" << r.value(QStringLiteral("question")).toString() << "\" with " << r.value(QStringLiteral("answer")).toString()
+              << " (" << why << ")" << Qt::endl;
     } else if (kind == QLatin1String("question")) {
-        err() << "kyu: pacman asked \"" << r.value(QStringLiteral("text")).toString() << "\"; stopping it" << Qt::endl;
+        if (!r.value(QStringLiteral("handled")).toBool()) {
+            err() << "kyu: pacman asked \"" << r.value(QStringLiteral("text")).toString() << "\", which Kyu does not recognise; stopping it"
+                  << Qt::endl;
+            return;
+        }
+        // pacman's own text, then what can be typed.
+        for (const auto &line : r.value(QStringLiteral("context")).toArray()) {
+            err() << line.toString() << Qt::endl;
+        }
+        err() << r.value(QStringLiteral("text")).toString() << Qt::endl;
+        QStringList values;
+        for (const auto &a : r.value(QStringLiteral("answers")).toArray()) {
+            values.append(a.toObject().value(QStringLiteral("value")).toString());
+        }
+        err() << "kyu: type " << values.join(QLatin1Char('/')) << " (Enter: pacman's default, "
+              << r.value(QStringLiteral("default")).toString() << "), or c to cancel the update. "
+              << "The panel can answer too." << Qt::endl;
+    } else if (kind == QLatin1String("cancelled")) {
+        err() << "kyu: cancelled; stopping pacman" << Qt::endl;
+    } else if (kind == QLatin1String("timeout")) {
+        err() << "kyu: no answer within " << r.value(QStringLiteral("seconds")).toInteger() << " s; stopping pacman" << Qt::endl;
     } else if (kind == QLatin1String("finished")) {
         err() << "kyu: " << r.value(QStringLiteral("summary")).toString() << Qt::endl;
     }
@@ -112,8 +137,54 @@ int main(int argc, char **argv)
         err() << "kyu-update: cannot connect to the bus: " << error << Qt::endl;
         return NoHelper;
     }
+    // Answers to pacman's questions come from stdin, one line each.
+    qulonglong openQuestion = 0;
+    QString defaultAnswer;
+    QByteArray typed;
+    QSocketNotifier input(STDIN_FILENO, QSocketNotifier::Read);
+    input.setEnabled(false);
+    bool stdinOpen = true;
+    auto answerTyped = [&] {
+        qsizetype end;
+        while (openQuestion && (end = typed.indexOf('\n')) >= 0) {
+            const QString line = QString::fromLocal8Bit(typed.left(end)).trimmed();
+            typed.remove(0, end + 1);
+            if (line == QLatin1String("c")) {
+                client.cancel();
+            } else {
+                client.answer(openQuestion, line.isEmpty() ? defaultAnswer : line);
+            }
+        }
+    };
+    QObject::connect(&input, &QSocketNotifier::activated, &app, [&] {
+        char buffer[256];
+        const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof buffer);
+        if (n <= 0) {
+            stdinOpen = false; // EOF: leave it to the panel
+            input.setEnabled(false);
+            return;
+        }
+        typed.append(buffer, n);
+        answerTyped();
+    });
+    QObject::connect(&client, &HelperClient::replyFinished, &app, [](const QString &name, const QString &message) {
+        if (!name.isEmpty()) {
+            err() << "kyu: " << name.section(QLatin1Char('.'), -1) << ": " << message << Qt::endl;
+        }
+    });
+
     QObject::connect(&client, &HelperClient::record, &app, [&](const QJsonObject &r) {
         printRecord(r, beQuiet);
+        const QString kind = r.value(QStringLiteral("kind")).toString();
+        if (kind == QLatin1String("question") && r.value(QStringLiteral("handled")).toBool()) {
+            openQuestion = static_cast<qulonglong>(r.value(QStringLiteral("id")).toInteger());
+            defaultAnswer = r.value(QStringLiteral("default")).toString();
+            input.setEnabled(stdinOpen);
+            answerTyped(); // lines typed ahead
+        } else if (kind == QLatin1String("answered") || kind == QLatin1String("cancelled") || kind == QLatin1String("timeout")) {
+            openQuestion = 0;
+            input.setEnabled(false);
+        }
         if (r.value(QStringLiteral("kind")).toString() == QLatin1String("finished")) {
             app.exit(r.value(QStringLiteral("success")).toBool() ? Success : UpdateFailed);
         }

@@ -24,9 +24,11 @@ pub const OBJECT_PATH: &str = "/io/github/solarizeddev/kyu/Helper";
 pub const POLKIT_ACTION: &str = "io.github.solarizeddev.kyu.update";
 
 const IDLE_EXIT: Duration = Duration::from_secs(5 * 60);
+const QUESTION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 const USAGE: &str = "\
 Usage: kyu-helper [--session [--pacman PATH] [--db-lock PATH] [--log-dir PATH]] [--idle-exit SECONDS]
+                  [--question-timeout SECONDS]
 
 Runs on the system bus as root, started by D-Bus activation.
 
@@ -36,6 +38,9 @@ Runs on the system bus as root, started by D-Bus activation.
   --db-lock PATH    pacman database lock to check (session mode only)
   --log-dir PATH    transaction log directory (session mode only)
   --idle-exit SECS  exit after this long without a transaction (default 300)
+  --question-timeout SECS
+                    stop pacman if a question is not answered in time
+                    (default 1800)
 ";
 
 fn parse_args() -> Result<(Config, Duration), String> {
@@ -44,6 +49,7 @@ fn parse_args() -> Result<(Config, Duration), String> {
     let mut db_lock = None;
     let mut log_dir = None;
     let mut idle = IDLE_EXIT;
+    let mut question_timeout = QUESTION_TIMEOUT;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or_else(|| format!("{name} needs a value"));
@@ -57,6 +63,13 @@ fn parse_args() -> Result<(Config, Duration), String> {
                 idle = Duration::from_secs(
                     secs.parse()
                         .map_err(|_| format!("bad --idle-exit value: {secs}"))?,
+                );
+            }
+            "--question-timeout" => {
+                let secs = value("--question-timeout")?;
+                question_timeout = Duration::from_secs(
+                    secs.parse()
+                        .map_err(|_| format!("bad --question-timeout value: {secs}"))?,
                 );
             }
             "-h" | "--help" => {
@@ -78,6 +91,7 @@ fn parse_args() -> Result<(Config, Duration), String> {
             pacman: pacman.unwrap_or_else(|| PathBuf::from("/usr/bin/pacman")),
             db_lock,
             log_dir: log_dir.unwrap_or_else(|| PathBuf::from("/var/log/kyu")),
+            question_timeout,
         },
         idle,
     ))

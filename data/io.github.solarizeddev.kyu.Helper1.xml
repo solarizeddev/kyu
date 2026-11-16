@@ -14,6 +14,19 @@
     <method name="StartUpdate">
       <arg name="transaction" type="s" direction="out"/>
     </method>
+    <!-- Answers a relayed question (a "question" record with handled: true) with
+         one of its answer values. Only the user who started the update, or root.
+         Errors: NoQuestion, NotAllowed, InvalidAnswer. -->
+    <method name="Answer">
+      <arg name="transaction" type="s" direction="in"/>
+      <arg name="question" type="t" direction="in"/>
+      <arg name="answer" type="s" direction="in"/>
+    </method>
+    <!-- Stops pacman while it waits for an answer, before it changes any
+         package. Refused at any other time. Errors: NoQuestion, NotAllowed. -->
+    <method name="Cancel">
+      <arg name="transaction" type="s" direction="in"/>
+    </method>
     <!-- JSON object describing the helper's state. -->
     <method name="GetState">
       <arg name="state" type="s" direction="out"/>

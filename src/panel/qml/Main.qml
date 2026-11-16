@@ -40,6 +40,7 @@ QQC2.ApplicationWindow {
             Loader {
                 anchors.fill: parent
                 sourceComponent: Panel.screen === "running" ? runningScreen
+                               : Panel.screen === "question" ? questionScreen
                                : Panel.screen === "finished" ? finishedScreen
                                : listScreen
             }
@@ -48,6 +49,7 @@ QQC2.ApplicationWindow {
 
     Component { id: listScreen; ListScreen {} }
     Component { id: runningScreen; RunningScreen { onShowOutput: root.showOutput() } }
+    Component { id: questionScreen; QuestionScreen { onShowOutput: root.showOutput() } }
     Component {
         id: finishedScreen
         FinishedScreen {
