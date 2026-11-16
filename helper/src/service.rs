@@ -64,10 +64,17 @@ impl Helper {
 
         let lock = &self.shared.config.db_lock;
         if lock.exists() {
-            return Err(HelperError::Locked(format!(
-                "{} exists. Another package manager may be running. If none is, a previous update was interrupted.",
-                lock.display()
-            )));
+            return Err(HelperError::Locked(
+                match crate::lock::in_use(&self.shared.config.roots.proc_dir, lock) {
+                    Some(reason) => {
+                        format!("{reason}: another package manager is using the database.")
+                    }
+                    None => format!(
+                        "{} exists, but no running process holds it: a previous update was interrupted. RemoveStaleLock removes it.",
+                        lock.display()
+                    ),
+                },
+            ));
         }
 
         let inhibitor = if self.shared.config.session {
@@ -119,6 +126,36 @@ impl Helper {
         self.shared.touch();
         let uid = caller_uid(conn, &header).await?;
         self.shared.cancel(transaction, uid).map_err(reply_error)
+    }
+
+    /// Removes pacman's db.lck when no process holds it (left over from an
+    /// interrupted run). Refused while any process holds it or pacman runs.
+    async fn remove_stale_lock(
+        &self,
+        #[zbus(header)] header: Header<'_>,
+        #[zbus(connection)] conn: &Connection,
+    ) -> Result<(), HelperError> {
+        self.shared.touch();
+        if self.shared.is_running() {
+            return Err(HelperError::Busy("an update is running".into()));
+        }
+        if !self.shared.config.session {
+            authorize(conn, &header).await?;
+        }
+        let lock = &self.shared.config.db_lock;
+        if !lock.exists() {
+            return Err(HelperError::Failed(format!(
+                "{} does not exist",
+                lock.display()
+            )));
+        }
+        if let Some(reason) = crate::lock::in_use(&self.shared.config.roots.proc_dir, lock) {
+            return Err(HelperError::Locked(reason));
+        }
+        std::fs::remove_file(lock)
+            .map_err(|e| HelperError::Failed(format!("cannot remove {}: {e}", lock.display())))?;
+        eprintln!("kyu-helper: removed stale {}", lock.display());
+        Ok(())
     }
 
     /// JSON object describing the helper's state; see docs/helper-protocol.md.

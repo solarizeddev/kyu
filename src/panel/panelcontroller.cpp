@@ -1,6 +1,7 @@
 #include "panelcontroller.h"
 
 #include "checkscheduler.h"
+#include "failuretext.h"
 #include "flatpakfollower.h"
 #include "helperclient.h"
 #include "statewatcher.h"
@@ -91,6 +92,13 @@ void PanelController::setHelper(HelperClient *helper, bool sessionBus)
     connect(helper, &HelperClient::startFinished, this, &PanelController::handleStartFinished);
     connect(helper, &HelperClient::helperLost, this, &PanelController::handleHelperLost);
     connect(helper, &HelperClient::replyFinished, this, &PanelController::handleReplyFinished);
+    connect(helper, &HelperClient::lockRemoved, this, [this](const QString &errorName, const QString &errorMessage) {
+        m_removingLock = false;
+        m_message = errorName.isEmpty() ? QString()
+                                        : QStringLiteral("Could not remove the lock: %1").arg(errorMessage);
+        refreshHelperState();
+        Q_EMIT changed();
+    });
 }
 
 void PanelController::setCheckScheduler(CheckScheduler *scheduler)
@@ -130,10 +138,54 @@ bool PanelController::attach()
         Q_EMIT changed();
         return false;
     }
+    setHelperState(*state);
     if (state->value(QStringLiteral("phase")).toString() == QLatin1String("running")) {
         m_helper->follow(*state);
     }
     return true;
+}
+
+void PanelController::setHelperState(const QJsonObject &state)
+{
+    m_previous = state.value(QStringLiteral("previous")).toObject();
+    m_lock = state.value(QStringLiteral("lock")).toObject();
+    Q_EMIT changed();
+}
+
+void PanelController::refreshHelperState()
+{
+    QString error;
+    if (m_helper) {
+        if (auto state = m_helper->state(&error)) {
+            setHelperState(*state);
+        }
+    }
+}
+
+QString PanelController::interruptedText() const
+{
+    if (!m_previous.value(QStringLiteral("interrupted")).toBool() || m_inRun) {
+        return {};
+    }
+    return QStringLiteral("The last update (%1) did not finish: its log ends without a result, so pacman may have stopped partway. "
+                          "Update all runs pacman -Syu again, which completes it. Log: %2")
+        .arg(m_previous.value(QStringLiteral("tx")).toString(), m_previous.value(QStringLiteral("log")).toString());
+}
+
+bool PanelController::canRemoveLock() const
+{
+    return m_lock.value(QStringLiteral("exists")).toBool() && m_lock.value(QStringLiteral("holder")).isNull() && !m_inRun
+        && !m_removingLock;
+}
+
+void PanelController::removeStaleLock()
+{
+    if (!canRemoveLock() || !m_helper) {
+        return;
+    }
+    m_removingLock = true;
+    Q_EMIT changed();
+    m_helper->removeStaleLock();
 }
 
 void PanelController::setUpdateState(const Kyu::UpdateState &state, bool checking)
@@ -306,6 +358,7 @@ void PanelController::handleStartFinished(const QString &transaction, const QStr
             m_message = QStringLiteral("Not authorized: %1").arg(errorMessage);
         } else if (kind == QLatin1String("Locked")) {
             m_message = QStringLiteral("pacman's database is locked: %1").arg(errorMessage);
+            refreshHelperState();
         } else {
             m_message = QStringLiteral("Could not start the update: %1").arg(errorMessage);
         }
@@ -413,6 +466,7 @@ void PanelController::handleRecord(const QJsonObject &r)
         m_pending = {};
         m_replying = false;
         m_restart = r.value(QStringLiteral("restart")).toObject();
+        m_failure = r.value(QStringLiteral("failure")).toObject();
         m_configs = r.value(QStringLiteral("configs")).toArray();
         m_pacmanDone = true;
         m_updates.finishKind(QStringLiteral("pacman"), m_success);
@@ -449,6 +503,8 @@ void PanelController::beginRun()
     m_summary.clear();
     m_restart = {};
     m_configs = {};
+    m_failure = {};
+    m_previous = {};
     m_fpDone = false;
     m_fpSuccess = false;
     m_fpSkipped = false;
@@ -942,6 +998,35 @@ QVariantList PanelController::changes() const
         });
     }
     return list;
+}
+
+QString PanelController::failureTitle() const
+{
+    return describeFailure(m_failure).title;
+}
+
+QString PanelController::failureText() const
+{
+    return describeFailure(m_failure).text;
+}
+
+QStringList PanelController::failureItems() const
+{
+    return describeFailure(m_failure).items;
+}
+
+QStringList PanelController::failureLines() const
+{
+    QStringList lines;
+    for (const auto &l : m_failure.value(QStringLiteral("lines")).toArray()) {
+        lines.append(l.toString());
+    }
+    return lines;
+}
+
+QString PanelController::failureCommand() const
+{
+    return describeFailure(m_failure).command;
 }
 
 bool PanelController::restartRequired() const

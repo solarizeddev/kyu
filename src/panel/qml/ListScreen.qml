@@ -56,13 +56,20 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit
         Layout.rightMargin: Kirigami.Units.gridUnit
-        visible: Panel.message.length > 0 || Panel.checkProblems.length > 0
+        visible: Panel.message.length > 0 || Panel.checkProblems.length > 0 || Panel.interruptedText.length > 0 || Panel.canRemoveLock
         spacing: Kirigami.Units.smallSpacing
         Repeater {
             model: Panel.checkProblems
             Message { required property string modelData; text: modelData }
         }
         Message { text: Panel.message; iconName: "dialog-error" }
+        Message { text: Panel.interruptedText }
+        QQC2.Button {
+            visible: Panel.canRemoveLock
+            text: "Remove the stale lock"
+            icon.name: "object-unlocked"
+            onClicked: Panel.removeStaleLock()
+        }
     }
 
     // The distro's news since the last full upgrade, before updating.

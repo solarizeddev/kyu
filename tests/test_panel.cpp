@@ -482,6 +482,54 @@ private Q_SLOTS:
         QCOMPARE(missing[0].toMap().value(QStringLiteral("kind")).toString(), QStringLiteral("error"));
     }
 
+    void failureIsExplained()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        startTransaction(c);
+        c.handleRecord(rec("finished",
+                           {{QStringLiteral("success"), false},
+                            {QStringLiteral("summary"), QStringLiteral("pacman: failed to commit transaction (conflicting files). No packages were changed.")},
+                            {QStringLiteral("failure"),
+                             QJsonObject{{QStringLiteral("kind"), QStringLiteral("files")},
+                                         {QStringLiteral("files"), QJsonArray{QStringLiteral("mesa: /usr/lib/libx.so")}},
+                                         {QStringLiteral("fileCount"), 1},
+                                         {QStringLiteral("lines"), QJsonArray{QStringLiteral("error: failed to commit transaction (conflicting files)")}}}}}));
+        QCOMPARE(c.resultTitle(), QStringLiteral("Update failed"));
+        QCOMPARE(c.failureTitle(), QStringLiteral("Files already exist"));
+        QVERIFY(c.failureText().startsWith(QStringLiteral("One file the update would install is already on disk")));
+        QCOMPARE(c.failureItems(), QStringList{QStringLiteral("mesa: /usr/lib/libx.so")});
+        QCOMPARE(c.failureLines().size(), 1);
+
+        // A new run starts with no failure.
+        startTransaction(c);
+        QVERIFY(c.failureTitle().isEmpty());
+    }
+
+    void interruptedUpdateAndStaleLock()
+    {
+        PanelController c;
+        c.setUpdateState(sample());
+        c.setHelperState({{QStringLiteral("phase"), QStringLiteral("idle")},
+                          {QStringLiteral("previous"),
+                           QJsonObject{{QStringLiteral("tx"), QStringLiteral("20261116T101723Z-00")},
+                                       {QStringLiteral("log"), QStringLiteral("/var/log/kyu/20261116T101723Z-00.jsonl")},
+                                       {QStringLiteral("interrupted"), true}}},
+                          {QStringLiteral("lock"),
+                           QJsonObject{{QStringLiteral("path"), QStringLiteral("/var/lib/pacman/db.lck")},
+                                       {QStringLiteral("exists"), true},
+                                       {QStringLiteral("holder"), QJsonValue::Null}}}});
+        QVERIFY(c.interruptedText().contains(QStringLiteral("did not finish")));
+        QVERIFY(c.canRemoveLock());
+
+        // Held by another process: not offered.
+        c.setHelperState({{QStringLiteral("lock"),
+                           QJsonObject{{QStringLiteral("exists"), true},
+                                       {QStringLiteral("holder"), QJsonObject{{QStringLiteral("pid"), 77}, {QStringLiteral("name"), QStringLiteral("pamac-daemon")}}}}}});
+        QVERIFY(!c.canRemoveLock());
+        QVERIFY(c.interruptedText().isEmpty());
+    }
+
     void startErrorsAreQuoted()
     {
         PanelController c;

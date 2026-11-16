@@ -2,6 +2,7 @@
 // reattaches to one that is running. A stand-in for the update panel until
 // milestone 3, and the tool for testing that an update survives its UI.
 
+#include "failuretext.h"
 #include "helperclient.h"
 
 #include <QCommandLineParser>
@@ -117,6 +118,16 @@ void printRecord(const QJsonObject &r, bool quiet)
         if (!r.value(QStringLiteral("configs")).toArray().isEmpty()) {
             err() << "kyu: to compare and merge: sudo pacdiff" << Qt::endl;
         }
+        const FailureText why = describeFailure(r.value(QStringLiteral("failure")).toObject());
+        if (!why.title.isEmpty()) {
+            err() << "kyu: " << why.title << ". " << why.text << Qt::endl;
+            for (const QString &item : why.items) {
+                err() << "kyu:   " << item << Qt::endl;
+            }
+            if (!why.command.isEmpty()) {
+                err() << "kyu: command: " << why.command << Qt::endl;
+            }
+        }
     }
 }
 
@@ -155,7 +166,9 @@ int main(int argc, char **argv)
     QCommandLineOption quiet(QStringLiteral("quiet"), QStringLiteral("Show progress lines instead of pacman's output."));
     QCommandLineOption session(QStringList{QStringLiteral("session"), QStringLiteral("session-bus")},
                                QStringLiteral("Use a helper on the session bus (development)."));
-    parser.addOptions({attach, state, quiet, session});
+    QCommandLineOption removeLock(QStringLiteral("remove-stale-lock"),
+                                  QStringLiteral("Remove pacman's db.lck if no running process holds it (left over from an interrupted update)."));
+    parser.addOptions({attach, state, quiet, session, removeLock});
     parser.process(app);
 
     HelperClient client(parser.isSet(session) ? HelperClient::Bus::Session : HelperClient::Bus::System);
@@ -234,6 +247,20 @@ int main(int argc, char **argv)
     if (parser.isSet(state)) {
         out() << QJsonDocument(*current).toJson(QJsonDocument::Indented);
         return Success;
+    }
+    if (parser.isSet(removeLock)) {
+        QObject::connect(&client, &HelperClient::lockRemoved, &app, [&](const QString &name, const QString &message) {
+            if (name.isEmpty()) {
+                out() << "kyu-update: removed " << current->value(QStringLiteral("lock")).toObject().value(QStringLiteral("path")).toString()
+                      << Qt::endl;
+                app.exit(Success);
+            } else {
+                err() << "kyu-update: " << name.section(QLatin1Char('.'), -1) << ": " << message << Qt::endl;
+                app.exit(name.startsWith(QLatin1String("io.github.solarizeddev.kyu.")) ? Refused : NoHelper);
+            }
+        });
+        client.removeStaleLock();
+        return app.exec();
     }
 
     const QString phase = current->value(QStringLiteral("phase")).toString();

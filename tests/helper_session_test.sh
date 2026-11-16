@@ -95,6 +95,7 @@ gdbus introspect --session --dest io.github.solarizeddev.kyu.Helper \
     --object-path /io/github/solarizeddev/kyu/Helper --xml >"$work/introspect.xml"
 for item in 'method name="StartUpdate"' 'method name="GetState"' 'signal name="Event"' \
             'method name="Answer"' 'method name="Cancel"' 'name="question" type="t"' 'name="answer" type="s"' \
+            'method name="RemoveStaleLock"' \
             'name="transaction" type="s"' 'name="seq" type="t"' 'name="record" type="s"'; do
     grep -qF "$item" "$work/introspect.xml" || fail "introspection lacks $item"
     grep -qF "$item" "$here/../data/io.github.solarizeddev.kyu.Helper1.xml" || fail "XML file lacks $item"
@@ -252,6 +253,38 @@ echo "pacman failure is quoted with what had changed"
 mode fail
 expect_code 1 failed
 contains failed 'kyu: pacman: failed to commit transaction (conflicting files). 2 upgraded before the error.'
+
+echo "failures are classified from pacman's own lines"
+for failure in network mirror keyring files disk; do
+    mode "$failure"
+    expect_code 1 "failure-$failure"
+    tail -n 1 "$(ls "$work"/logs/*.jsonl | tail -n 1)" | grep -q "\"kind\":\"$failure\"" ||
+        fail "$failure: finished record lacks failure kind $failure"
+    contains "failure-$failure" 'No packages were changed.'
+done
+contains failure-network 'kyu: No connection to the mirrors'
+contains failure-mirror 'kyu: A mirror is out of date'
+contains failure-keyring 'kyu: Package signatures could not be checked'
+contains failure-files 'mesa: /usr/lib/libkyutest.so'
+contains failure-disk 'kyu: Not enough disk space'
+
+echo "a stale lock (no process holds it) can be removed; a held one cannot"
+touch "$work/db.lck"
+expect_code 3 stale
+contains stale 'no running process holds it'
+mkdir -p "$work/proc/77/fd"
+echo pamac-daemon >"$work/proc/77/comm"
+ln -s "$work/db.lck" "$work/proc/77/fd/5"
+expect_code 3 held
+contains held 'held by pid 77 (pamac-daemon)'
+expect_code 3 held-remove --remove-stale-lock
+contains held-remove 'held by pid 77 (pamac-daemon)'
+[ -e "$work/db.lck" ] || fail "a held lock was removed"
+rm -r "$work/proc/77"
+expect_code 0 stale-remove --remove-stale-lock
+contains stale-remove 'removed'
+[ ! -e "$work/db.lck" ] || fail "stale lock not removed"
+"$bin/kyu-update" --session --state | grep -q '"exists": false' || fail "GetState lock info"
 
 echo "nothing to do"
 mode nothing

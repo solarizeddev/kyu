@@ -103,7 +103,7 @@ Colour roles used in the sketches and their Kirigami equivalents:
 4. **Prompts.** Providers, conflicts, replaced packages, keyring imports, relayed helper -> panel. Hardest part.
 5. **Flatpak in the same list.**
 6. **After-update care.** Restart detection, .pacnew files, distro news before big updates.
-7. **Failure states** (not sketched yet): out-of-sync mirror, keyring error, interrupted update and reattach, no network, lock file present.
+7. **Failure states** (not sketched yet; done, see Status): out-of-sync mirror, keyring error, interrupted update and reattach, no network, lock file present.
 8. **Later, optional:** upgrade simulation (dry run) before applying, watched packages, AUR as a separate step, settings.
 
 ## Open questions
@@ -208,6 +208,19 @@ Colour roles used in the sketches and their Kirigami equivalents:
   - kyu-check with a local feed and a fake modules directory
   - the panel's list and finished states, and the diff
 - Not done: news is not "only before big updates". It is shown whenever there are pacman updates and news newer than the last full upgrade. Arch's feed only carries announcements that matter for updates, so a size threshold seemed like guessing.
+
+**Milestone 7 (failure states): done.**
+
+- **Failure kinds:** the helper classifies a failed transaction from pacman's own lines into `network`, `mirror` (404/410 on package files), `keyring`, `files` (exists in filesystem), `disk`, `dependencies` or `lock`, and keeps the evidence lines verbatim (`docs/helper-protocol.md`, "Failures").
+- **What the user sees:** the panel's finished screen and `kyu-update` explain each kind in a fact-based way, show what it is about (hosts, files, packages) and pacman's lines, and give the usual fix as a command to copy.
+  - Out-of-date mirror on Manjaro: `pacman-mirrors --fasttrack`; on Arch, a pointer to `/etc/pacman.d/mirrorlist`.
+  - Keyring: `pacman -Sy --needed <installed *-keyring> && pacman -Su`.
+  - Disk space: `paccache -r`.
+  - Kyu does not run these itself.
+- **Lock file:** libalpm holds `db.lck` open for a whole transaction, so the helper finds the holder through `/proc/*/fd`. `StartUpdate`'s refusal names the holder, or says that nothing holds the lock. `RemoveStaleLock` (same polkit action) removes it only when no process holds it and no `pacman` process runs. The panel offers "Remove the stale lock" in exactly that case; `kyu-update --remove-stale-lock` does the same.
+- **Interrupted update:** when the helper's newest log ends without a result, the panel's list says so, with the log path and the fact that Update all runs `pacman -Syu` again, which completes the update.
+- **No network for checks:** checkupdates and libflatpak failures were already quoted on the list (milestones 1 and 5).
+- **Tests:** classification against recorded pacman 7 lines (Rust); lock holder detection with a fake `/proc` (Rust); end to end with a fake pacman for each failure kind, a stale lock removed and a held one refused (session test); the panel's failure, interrupted and lock states.
 
 Open items carried forward:
 - User-visible strings (tray and panel) use `QStringLiteral`, not KI18n. Without KF6 the tray falls back to `QSystemTrayIcon` (configure with `-DKYU_REQUIRE_KSNI=ON` for real builds). The KStatusNotifierItem code path has not been compiled yet, and the panel has not run with the real Kirigami, because the development container had no KF6. No PKGBUILD yet.

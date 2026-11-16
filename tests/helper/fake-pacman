@@ -3,6 +3,7 @@
 # with LC_ALL=C and --noprogressbar. Behaviour comes from files next to it,
 # because the helper clears the environment:
 #   mode   normal | nothing | fail | provider | conflict | replace | key | unknown
+#          network | mirror | keyring | files | disk  (failures, as pacman 7 words them)
 #   delay  seconds per package (default 0)
 #   pacnew settings file to report a .pacnew for (default /etc/kyu-test.conf)
 dir=$(dirname "$0")
@@ -13,6 +14,12 @@ delay=$(cat "$dir/delay" 2>/dev/null || echo 0)
 [ "$*" = "-Syu --noprogressbar --color never" ] || { echo "error: unexpected arguments: $*" >&2; exit 1; }
 
 echo ":: Synchronizing package databases..."
+if [ "$mode" = network ]; then
+    echo "error: failed retrieving file 'core.db' from mirror.example.org : Could not resolve host: mirror.example.org" >&2
+    echo "error: failed retrieving file 'extra.db' from mirror.example.org : Could not resolve host: mirror.example.org" >&2
+    echo "error: failed to synchronize all databases (failed to retrieve some files)" >&2
+    exit 1
+fi
 echo " core is up to date"
 echo " extra is up to date"
 echo ":: Starting full system upgrade..."
@@ -71,6 +78,13 @@ printf ':: Proceed with installation? [Y/n] ' >&2
 read -r answer
 [ "$answer" = y ] || { echo "error: expected answer y, got '$answer'" >&2; exit 1; }
 echo ":: Retrieving packages..."
+if [ "$mode" = mirror ]; then
+    echo "error: failed retrieving file 'mesa-1:26.2.3-1-x86_64.pkg.tar.zst' from mirror.example.org : The requested URL returned error: 404" >&2
+    echo "warning: failed to retrieve some files" >&2
+    echo "error: failed to commit transaction (failed to retrieve some files)" >&2
+    echo "Errors occurred, no packages were upgraded."
+    exit 1
+fi
 echo "checking keyring..."
 if [ "$mode" = key ]; then
     printf ':: Import PGP key 0123ABCD, "Packager <p@example.org>"? [Y/n] ' >&2
@@ -82,6 +96,27 @@ if [ "$mode" = key ]; then
     fi
 fi
 echo "checking package integrity..."
+if [ "$mode" = keyring ]; then
+    echo "error: mesa: signature from \"Someone <s@example.org>\" is unknown trust" >&2
+    echo "error: failed to commit transaction (invalid or corrupted package (PGP signature))" >&2
+    echo "Errors occurred, no packages were upgraded."
+    exit 1
+fi
+if [ "$mode" = files ]; then
+    echo "checking for file conflicts..."
+    echo "error: failed to commit transaction (conflicting files)" >&2
+    echo "mesa: /usr/lib/libkyutest.so exists in filesystem"
+    echo "mesa: /usr/share/kyutest/data exists in filesystem"
+    echo "Errors occurred, no packages were upgraded."
+    exit 1
+fi
+if [ "$mode" = disk ]; then
+    echo "checking available disk space..."
+    echo "error: Partition / too full: 50000 blocks needed, 1200 blocks free" >&2
+    echo "error: failed to commit transaction (not enough free disk space)" >&2
+    echo "Errors occurred, no packages were upgraded."
+    exit 1
+fi
 echo ":: Processing package changes..."
 for p in $packages; do
     case "$p" in

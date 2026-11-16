@@ -1,4 +1,4 @@
-add_library(kyuclient STATIC helperclient.cpp)
+add_library(kyuclient STATIC helperclient.cpp failuretext.cpp)
 target_include_directories(kyuclient PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(kyuclient PUBLIC Qt6::Core Qt6::DBus)
 

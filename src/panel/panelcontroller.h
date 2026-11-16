@@ -35,6 +35,8 @@ class PanelController : public QObject
     Q_PROPERTY(QString flatpakNote READ flatpakNote NOTIFY changed)
     Q_PROPERTY(bool canUpdate READ canUpdate NOTIFY changed)
     Q_PROPERTY(QString newsTitle READ newsTitle NOTIFY changed)
+    Q_PROPERTY(QString interruptedText READ interruptedText NOTIFY changed)
+    Q_PROPERTY(bool canRemoveLock READ canRemoveLock NOTIFY changed)
     Q_PROPERTY(QVariantList newsItems READ newsItems NOTIFY changed)
     Q_PROPERTY(QString newsError READ newsError NOTIFY changed)
     Q_PROPERTY(bool starting READ starting NOTIFY changed)
@@ -73,6 +75,11 @@ class PanelController : public QObject
     Q_PROPERTY(QVariantList processes READ processes NOTIFY changed)
     Q_PROPERTY(int processCount READ processCount NOTIFY changed)
     Q_PROPERTY(QVariantList configs READ configs NOTIFY changed)
+    Q_PROPERTY(QString failureTitle READ failureTitle NOTIFY changed)
+    Q_PROPERTY(QString failureText READ failureText NOTIFY changed)
+    Q_PROPERTY(QStringList failureItems READ failureItems NOTIFY changed)
+    Q_PROPERTY(QStringList failureLines READ failureLines NOTIFY changed)
+    Q_PROPERTY(QString failureCommand READ failureCommand NOTIFY changed)
 
 public:
     explicit PanelController(QObject *parent = nullptr);
@@ -98,6 +105,10 @@ public:
     QString flatpakNote() const;
     bool canUpdate() const;
     QString newsTitle() const;
+    QString interruptedText() const;
+    bool canRemoveLock() const;
+    // GetState's "previous" and "lock" (tests set them directly).
+    void setHelperState(const QJsonObject &state);
     QVariantList newsItems() const;
     QString newsError() const;
     bool starting() const { return m_starting; }
@@ -135,6 +146,11 @@ public:
     QVariantList processes() const;
     int processCount() const;
     QVariantList configs() const;
+    QString failureTitle() const;
+    QString failureText() const;
+    QStringList failureItems() const;
+    QStringList failureLines() const;
+    QString failureCommand() const;
 
     // `diff -u PATH SAVED` as lines {text, kind: hunk/add/remove/context/header},
     // or a single {text, kind: "error"} line.
@@ -160,6 +176,7 @@ public Q_SLOTS:
     Q_INVOKABLE void answer(const QString &value);
     Q_INVOKABLE void cancelUpdate();
     Q_INVOKABLE void restartNow();
+    Q_INVOKABLE void removeStaleLock();
     Q_INVOKABLE void copyText(const QString &text);
     Q_INVOKABLE void openLink(const QString &url);
 
@@ -229,6 +246,11 @@ private:
     QString m_summary;
     QJsonObject m_restart; // from the helper's finished record
     QJsonArray m_configs;
+    QJsonObject m_failure;
+    QJsonObject m_previous; // GetState "previous": the last transaction before the helper restarted
+    QJsonObject m_lock; // GetState "lock"
+    bool m_removingLock = false;
+    void refreshHelperState();
     int m_exitCode = 0;
     bool m_haveExitCode = false;
 };

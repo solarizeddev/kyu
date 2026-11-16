@@ -19,7 +19,9 @@
 #   MODE=conflict tools/preview-panel.sh cancelled.png --start-update --answer cancel --delay 3000
 #
 # MODE (see tests/helper/fake-pacman) and DELAY (seconds per package) set the
-# fake pacman's behaviour. BUILD defaults to ./build.
+# fake pacman's behaviour. STALE_LOCK=1 leaves a db.lck that no process holds;
+# INTERRUPTED=1 seeds a helper log that ends without a result. BUILD defaults
+# to ./build.
 set -eu
 out=$(realpath -m "$1"); shift
 src=$(cd "$(dirname "$0")/.." && pwd)
@@ -49,6 +51,12 @@ mkdir -p "$work/etc"
 printf '[General]\nNumlock=on\n\n[Theme]\nCurrent=breeze\n' >"$work/etc/sddm.conf"
 printf '[General]\nNumlock=none\nHaltCommand=/usr/bin/systemctl poweroff\n\n[Theme]\nCurrent=breeze\n' >"$work/etc/sddm.conf.pacnew"
 echo "$work/etc/sddm.conf" >"$work/fake/pacnew"
+[ "${STALE_LOCK:-}" = 1 ] && touch "$work/db.lck"
+if [ "${INTERRUPTED:-}" = 1 ]; then
+    mkdir -p "$work/logs"
+    printf '{"v":1,"tx":"20261116T101723Z-00","seq":1,"time":"2026-11-16T10:17:23Z","kind":"started","uid":1000}\n' \
+        >"$work/logs/20261116T101723Z-00.jsonl"
+fi
 echo "${MODE:-normal}" >"$work/fake/mode"
 echo "${DELAY:-1}" >"$work/fake/delay"
 

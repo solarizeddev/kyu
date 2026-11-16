@@ -35,6 +35,8 @@ Only root may own the service name. Anyone may call it. `GetState` and the signa
 
 **`Cancel(s transaction)`.** Stops pacman (SIGINT) while it waits for an answer. Refused with `NoQuestion` at any other time: every pacman question comes before it changes a package, so this is the one point where stopping it is safe. Same `NotAllowed` rule as `Answer`.
 
+**`RemoveStaleLock()`.** Removes pacman's `db.lck` when no running process holds it. libalpm keeps the lock file open for the whole transaction, so the holder is found through `/proc/*/fd`; a lock nobody holds is left over from a run that was killed. Refused with `Locked` (naming the holder's pid and name) while a process holds it or any process named `pacman` runs, with `Busy` during a Kyu update, and behind the same polkit action as `StartUpdate`. `StartUpdate`'s own `Locked` error says which of the two cases it is.
+
 **`GetState() → s json`.** For example:
 
 ```json
@@ -53,6 +55,7 @@ Only root may own the service name. Anyone may call it. `GetState` and the signa
 ```
 
 - `phase` is one of `idle`, `running`, `finished` or `failed`.
+- `lock` is `{path, exists, holder: {pid, name} | null}` for pacman's database lock.
 - `transaction` is the current or last transaction since the helper started. `question` is the pending question record (see below) or `null`.
 - After the helper has exited for being idle and been restarted, there is no `transaction`. Instead there is `previous`: `{tx, log, interrupted, success, summary}`, read from the newest log file. `interrupted: true` means that log has no `finished` record: the helper died mid-update.
 
@@ -79,7 +82,7 @@ Every record has `v`, `tx`, `seq` (1, 2, 3, … per transaction), `time` (UTC, R
 | `answered` | `id`, `question`, `answer`, `uid` | a user answered a relayed question |
 | `cancelled` | `id`, `uid` | a user cancelled at a question; pacman gets SIGINT |
 | `timeout` | `id`, `seconds` | nobody answered in time; pacman gets SIGINT |
-| `finished` | `success`, `exitCode`, `summary`, `changed`, `configs`, `restart` | last record; see After the update |
+| `finished` | `success`, `exitCode`, `summary`, `changed`, `configs`, `restart`, `failure` | last record; see After the update and Failures |
 
 `summary` states what happened. Examples:
 - `3 upgraded`
@@ -113,6 +116,22 @@ Everything here is derived from the running system (HANDOFF.md rule 7), never fr
 - **`kernel`:** the running kernel (`/proc/sys/kernel/osrelease`) has been replaced when its `/usr/lib/modules/<release>` directory is gone. `installed` is the module directory whose `pkgbase` matches the running kernel's package; that package comes from `BOOT_IMAGE=/boot/vmlinuz-<pkgbase>` in `/proc/cmdline`. `kernel` is `null` when there is no modules directory at all, as in a container.
 - **`processes`:** processes whose `/proc/PID/maps` maps a shared library under `/usr/lib` or `/lib` that is marked `(deleted)`, meaning the update replaced it while they ran. At most 200 are listed; `processCount` is the full number.
 - **`required`:** the kernel was replaced, or `systemd` (PID 1) maps a replaced library.
+
+## Failures
+
+When pacman fails (not when the helper stopped it at a question), `failure` says why, classified from pacman's own lines (LC_ALL=C). It is `null` when nothing matched; the summary still quotes pacman's last error.
+
+| `kind` | Recognised by | Extra fields |
+|---|---|---|
+| `lock` | `unable to lock database` | |
+| `network` | every `failed retrieving file` line fails to resolve or connect | `hosts` |
+| `mirror` | a `failed retrieving file` line with HTTP 404 or 410 | `files`, `hosts` |
+| `keyring` | `unknown trust`, `(PGP signature)`, `required key missing from keyring`, `could not be looked up remotely` | `packages` |
+| `files` | `conflicting files` | `files` (`package: path`, first 50), `fileCount` |
+| `disk` | `too full`, `not enough free disk space` | |
+| `dependencies` | `could not satisfy dependencies` | |
+
+`lines` holds the evidence verbatim (at most 20 lines). The clients' explanations and commands are in `src/client/failuretext.cpp`. The keyring command updates the installed `*-keyring` packages first and then the rest, in one line (`pacman -Sy --needed … && pacman -Su`), so it is not a partial upgrade.
 
 ## Following a transaction without gaps
 

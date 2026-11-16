@@ -21,6 +21,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 
 use crate::aftercare;
+use crate::failure;
 use crate::parse::{self, Action, LineInfo, Prompt, Question};
 use crate::state::{Reply, Shared};
 
@@ -69,6 +70,8 @@ struct Tally {
     questions: u64,
     /// .pacnew/.pacsave files pacman reported.
     configs: Vec<serde_json::Value>,
+    /// Error lines and friends, to say why an update failed.
+    evidence: failure::Evidence,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -270,6 +273,9 @@ pub async fn run(shared: Arc<Shared>, uid: u32, _inhibitor: Option<OwnedFd>) {
                 // Settings files pacman did not overwrite (.pacnew) or kept
                 // from removed packages (.pacsave).
                 "configs": tally.configs,
+                // Why it failed, from pacman's own lines (null on success or
+                // when the helper stopped pacman at a question).
+                "failure": if success || tally.stopped.is_some() { serde_json::Value::Null } else { tally.evidence.classify().unwrap_or(serde_json::Value::Null) },
                 // Only when packages changed: what still runs old code.
                 "restart": if changed > 0 { aftercare::restart(&shared.config.roots) } else { serde_json::Value::Null },
             }),
@@ -353,6 +359,7 @@ async fn handle_line(shared: &Shared, tally: &mut Tally, stream: Stream, text: S
         tally.recent.pop_front();
     }
     tally.recent.push_back(text.clone());
+    tally.evidence.add(&text);
     shared
         .emit("output", json!({ "stream": stream.as_str(), "text": text }))
         .await;

@@ -27,6 +27,10 @@
     <method name="Cancel">
       <arg name="transaction" type="s" direction="in"/>
     </method>
+    <!-- Removes pacman's db.lck when no running process holds it (left over from
+         an interrupted update). polkit action io.github.solarizeddev.kyu.update.
+         Errors: Locked (held, with pid and name), Busy, NotAuthorized, Failed. -->
+    <method name="RemoveStaleLock"/>
     <!-- JSON object describing the helper's state. -->
     <method name="GetState">
       <arg name="state" type="s" direction="out"/>

@@ -48,6 +48,8 @@ public:
     // as replyFinished(); the effect shows up as an answered/cancelled record.
     void answer(qulonglong id, const QString &value);
     void cancel();
+    // RemoveStaleLock (polkit may ask for a password); result in lockRemoved().
+    void removeStaleLock();
 
     QString transaction() const
     {
@@ -69,6 +71,7 @@ Q_SIGNALS:
     void helperLost(const QString &logPath);
     // Empty errorName on success.
     void replyFinished(const QString &errorName, const QString &errorMessage);
+    void lockRemoved(const QString &errorName, const QString &errorMessage);
 
 private Q_SLOTS:
     void onEvent(const QString &transaction, qulonglong seq, const QString &record);

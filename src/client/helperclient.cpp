@@ -124,6 +124,20 @@ void HelperClient::cancel()
     callForReply(QStringLiteral("Cancel"), {m_tx});
 }
 
+void HelperClient::removeStaleLock()
+{
+    auto call = QDBusMessage::createMethodCall(QString::fromLatin1(Service),
+                                               QString::fromLatin1(Path),
+                                               QString::fromLatin1(Interface),
+                                               QStringLiteral("RemoveStaleLock"));
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(call, StartTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<> reply = *w;
+        Q_EMIT lockRemoved(reply.isError() ? reply.error().name() : QString(), reply.isError() ? reply.error().message() : QString());
+    });
+}
+
 void HelperClient::callForReply(const QString &method, const QVariantList &args)
 {
     auto call = QDBusMessage::createMethodCall(QString::fromLatin1(Service),

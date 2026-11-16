@@ -5,6 +5,8 @@
 //! a panel can close, crash or reattach without affecting the update.
 
 mod aftercare;
+mod failure;
+mod lock;
 mod log;
 mod parse;
 mod service;

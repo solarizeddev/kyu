@@ -43,6 +43,64 @@ ColumnLayout {
         Layout.rightMargin: Kirigami.Units.gridUnit
     }
 
+    // Why it failed: an explanation, what it is about, pacman's own lines.
+    Card {
+        visible: Panel.failureTitle.length > 0
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.gridUnit
+        Layout.rightMargin: Kirigami.Units.gridUnit
+        implicitHeight: failureColumn.implicitHeight + Kirigami.Units.largeSpacing * 3
+        ColumnLayout {
+            id: failureColumn
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.largeSpacing * 1.5
+            spacing: Kirigami.Units.smallSpacing
+            QQC2.Label {
+                text: Panel.failureTitle
+                font.weight: Font.DemiBold
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            QQC2.Label {
+                text: Panel.failureText
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            QQC2.Label {
+                visible: Panel.failureItems.length > 0
+                text: Panel.failureItems.slice(0, 8).join("\n") + (Panel.failureItems.length > 8 ? "\n… " + (Panel.failureItems.length - 8) + " more" : "")
+                font.family: Kirigami.Theme.fixedWidthFont.family
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                wrapMode: Text.WrapAnywhere
+                Layout.fillWidth: true
+            }
+            QQC2.Label {
+                text: "pacman:\n" + Panel.failureLines.slice(0, 6).join("\n")
+                font.family: Kirigami.Theme.fixedWidthFont.family
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                color: Kirigami.Theme.disabledTextColor
+                wrapMode: Text.WrapAnywhere
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                visible: Panel.failureCommand.length > 0
+                Layout.fillWidth: true
+                QQC2.Label {
+                    text: Panel.failureCommand
+                    font.family: Kirigami.Theme.fixedWidthFont.family
+                    font.pointSize: Kirigami.Theme.smallFont.pointSize
+                    wrapMode: Text.WrapAnywhere
+                    Layout.fillWidth: true
+                }
+                QQC2.Button {
+                    text: "Copy"
+                    icon.name: "edit-copy"
+                    onClicked: Panel.copyText(Panel.failureCommand)
+                }
+            }
+        }
+    }
+
     Card {
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.gridUnit

@@ -338,6 +338,7 @@ impl Shared {
             "v": FORMAT_VERSION,
             "phase": inner.phase.as_str(),
             "seq": inner.seq,
+            "lock": crate::lock::state(&self.config.roots.proc_dir, &self.config.db_lock),
         });
         if let Some(tx) = &inner.tx {
             let obj = state.as_object_mut().expect("object");
