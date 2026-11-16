@@ -34,9 +34,12 @@ ColumnLayout {
                 Layout.rightMargin: Kirigami.Units.gridUnit
                 spacing: Kirigami.Units.largeSpacing
                 Kirigami.Icon {
-                    source: Panel.outcome === "success" ? "emblem-success"
-                          : Panel.outcome === "failed" ? "dialog-error"
-                          : "dialog-warning"
+                    // Status icons drawn for large sizes (the emblem-* set
+                    // stops at 22 px).
+                    source: Panel.outcome === "success" ? "data-success"
+                          : Panel.outcome === "failed" ? "data-error"
+                          : "data-warning"
+                    fallback: Panel.outcome === "success" ? "dialog-positive" : Panel.outcome === "failed" ? "dialog-error" : "dialog-warning"
                     Layout.alignment: Qt.AlignHCenter
                     Layout.preferredWidth: Kirigami.Units.iconSizes.huge
                     Layout.preferredHeight: Kirigami.Units.iconSizes.huge
@@ -71,24 +74,18 @@ ColumnLayout {
                     type: Panel.outcome === "failed" ? "error" : "warning"
                     collapsible: false
                 }
-                Notice { text: Panel.transactionNote; type: "information" }
+                Notice { text: Panel.transactionNote; type: "information"; collapsible: false }
                 Notice {
                     visible: Panel.restartRequired
                     type: "warning"
                     title: "Restart to finish"
                     text: Panel.restartReason
-                    RowLayout {
+                    ButtonPair {
                         Layout.fillWidth: true
-                        spacing: Kirigami.Units.largeSpacing
-                        Item { Layout.fillWidth: true }
-                        QQC2.Button {
-                            text: "Later"
-                            onClicked: Panel.done()
-                        }
-                        PrimaryButton {
-                            text: "Restart now"
-                            onClicked: Panel.restartNow()
-                        }
+                        secondaryText: "Later"
+                        primaryText: "Restart now"
+                        onSecondaryClicked: Panel.done()
+                        onPrimaryClicked: Panel.restartNow()
                     }
                 }
 
@@ -115,7 +112,7 @@ ColumnLayout {
                         text: Panel.failureItems.slice(0, 8).join("\n") + (Panel.failureItems.length > 8 ? "\n… " + (Panel.failureItems.length - 8) + " more" : "")
                         font.family: Kirigami.Theme.fixedWidthFont.family
                         font.pointSize: Kirigami.Theme.smallFont.pointSize
-                        wrapMode: Text.WrapAnywhere
+                        wrapMode: Text.Wrap
                         Layout.fillWidth: true
                     }
                     QQC2.Label {
@@ -123,7 +120,7 @@ ColumnLayout {
                         font.family: Kirigami.Theme.fixedWidthFont.family
                         font.pointSize: Kirigami.Theme.smallFont.pointSize
                         color: Style.muted(Kirigami.Theme.textColor)
-                        wrapMode: Text.WrapAnywhere
+                        wrapMode: Text.Wrap
                         Layout.fillWidth: true
                     }
                     RowLayout {
@@ -135,7 +132,7 @@ ColumnLayout {
                             text: "$ " + Panel.failureCommand
                             font.family: Kirigami.Theme.fixedWidthFont.family
                             font.pointSize: Kirigami.Theme.smallFont.pointSize
-                            wrapMode: Text.WrapAnywhere
+                            wrapMode: Text.Wrap
                             Layout.fillWidth: true
                         }
                         QQC2.Button {

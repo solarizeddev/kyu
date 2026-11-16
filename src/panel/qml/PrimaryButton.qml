@@ -21,15 +21,15 @@ QQC2.Button {
         id: label
         text: button.text
         font: button.font
-        color: Kirigami.Theme.highlightedTextColor
-        opacity: button.enabled ? 1 : 0.6
+        color: button.enabled ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.disabledTextColor
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
     background: Rectangle {
         radius: Kirigami.Units.smallSpacing
-        color: !button.enabled ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.45)
+        // Disabled: no accent (it would still read as "press me").
+        color: !button.enabled ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.1)
              : button.down ? Qt.darker(Kirigami.Theme.highlightColor, 1.2)
              : button.hovered ? Qt.lighter(Kirigami.Theme.highlightColor, 1.1)
              : Kirigami.Theme.highlightColor

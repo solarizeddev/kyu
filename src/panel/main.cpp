@@ -59,8 +59,9 @@ int main(int argc, char **argv)
     // session management and removes it from the arguments.
     QCommandLineOption session(QStringLiteral("session-bus"), QStringLiteral("Use a helper on the session bus (development)."));
     parser.addOption(session);
-    QCommandLineOption style(QStringLiteral("style"), QStringLiteral("Look for this run: \"plasma\" or \"terminal\" (not saved)."), QStringLiteral("name"));
-    parser.addOption(style);
+    // Not "--style": QApplication takes that for the widget style.
+    QCommandLineOption look(QStringLiteral("look"), QStringLiteral("Look for this run: \"plasma\" or \"terminal\" (not saved)."), QStringLiteral("name"));
+    parser.addOption(look);
     TestDriver::addOptions(parser);
 #ifdef KYU_PREVIEW
     Preview::addOptions(parser);
@@ -80,12 +81,12 @@ int main(int argc, char **argv)
     HelperClient helper(parser.isSet(session) ? HelperClient::Bus::Session : HelperClient::Bus::System);
     FlatpakFollower flatpak;
     PanelController panel;
-    if (parser.isSet(style)) {
-        if (!PanelController::isStyle(parser.value(style))) {
-            qWarning("kyu: --style takes \"plasma\" or \"terminal\"");
+    if (parser.isSet(look)) {
+        if (!PanelController::isStyle(parser.value(look))) {
+            qWarning("kyu: --look takes \"plasma\" or \"terminal\"");
             return 2;
         }
-        panel.overrideStyle(parser.value(style));
+        panel.overrideStyle(parser.value(look));
     }
     panel.setStateWatcher(&watcher);
     panel.setCheckScheduler(&scheduler);

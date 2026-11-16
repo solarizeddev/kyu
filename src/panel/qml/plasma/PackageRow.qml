@@ -55,11 +55,17 @@ Rectangle {
         anchors.rightMargin: Kirigami.Units.gridUnit
         spacing: Kirigami.Units.largeSpacing
 
-        Kirigami.Icon {
+        Item {
             visible: row.tracking
-            source: row.status === "done" ? "emblem-success" : row.status === "failed" ? "emblem-error" : ""
-            Layout.preferredWidth: Kirigami.Units.iconSizes.small
-            Layout.preferredHeight: Kirigami.Units.iconSizes.small
+            Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+            Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
+            Kirigami.Icon {
+                anchors.centerIn: parent
+                width: Kirigami.Units.iconSizes.small
+                height: width
+                visible: !row.working
+                source: row.status === "done" ? "emblem-success" : row.status === "failed" ? "emblem-error" : ""
+            }
             QQC2.BusyIndicator {
                 anchors.fill: parent
                 visible: row.working

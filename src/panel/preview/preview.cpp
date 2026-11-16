@@ -51,6 +51,8 @@ class StubTheme : public QObject
     Q_PROPERTY(QColor neutralBackgroundColor READ neutralBackgroundColor NOTIFY changed)
     Q_PROPERTY(QColor negativeBackgroundColor READ negativeBackgroundColor NOTIFY changed)
     Q_PROPERTY(QColor positiveBackgroundColor READ positiveBackgroundColor NOTIFY changed)
+    Q_PROPERTY(QColor activeTextColor READ highlightColor NOTIFY changed)
+    Q_PROPERTY(QColor activeBackgroundColor READ activeBackgroundColor NOTIFY changed)
     Q_PROPERTY(QColor focusColor READ highlightColor NOTIFY changed)
     Q_PROPERTY(QColor hoverColor READ highlightColor NOTIFY changed)
     Q_PROPERTY(QFont defaultFont READ defaultFont CONSTANT)
@@ -104,6 +106,7 @@ public:
     QColor negativeTextColor() const { return QColor(QStringLiteral("#da4453")); }
     QColor neutralBackgroundColor() const { return QColor(QLatin1String(set().neutralBg)); }
     QColor negativeBackgroundColor() const { return QColor(QLatin1String(g_dark ? "#4d1f24" : "#f9dadd")); }
+    QColor activeBackgroundColor() const { return QColor(QLatin1String(g_dark ? "#1d3446" : "#d6ebf8")); }
     QColor positiveBackgroundColor() const { return QColor(QLatin1String(g_dark ? "#1d3b2a" : "#d6eedf")); }
     QFont defaultFont() const { return QApplication::font(); }
     QFont smallFont() const

@@ -1,5 +1,5 @@
-// pacman waits for an answer. Options worded from what pacman asks, pacman's
-// default marked, pacman's own text shown verbatim.
+// Terminal style: pacman waits for an answer. Numbered options (pacman's
+// default marked), pacman's own text verbatim, and the answer on Enter.
 import QtQuick
 import QtQml
 import QtQuick.Controls as QQC2
@@ -9,7 +9,7 @@ import org.kde.kirigami as Kirigami
 import ".."
 import "../Style.js" as Style
 
-ColumnLayout {
+TermScreen {
     id: screen
     signal showOutput()
     property string selected: Panel.questionDefault
@@ -20,7 +20,6 @@ ColumnLayout {
         }
         return ""
     }
-    spacing: 0
 
     function continueWithSelection() {
         if (hasOptions && Panel.canAnswer && !Panel.replying && selected.length > 0) {
@@ -28,10 +27,8 @@ ColumnLayout {
         }
     }
 
-    // Keys: the option numbers pick, Enter continues. Esc (in Main) only
-    // closes the window: pacman keeps waiting and the question stays. Only
-    // while the question is on screen (not under the output page). Enter on
-    // a focused button (Tab to "Cancel the update") clicks that button.
+    // Keys: the option numbers pick, Enter continues (Enter on a focused push
+    // button clicks it). Only while the question is on screen.
     readonly property bool keysActive: visible && Panel.canAnswer
     Instantiator {
         model: Math.min(Panel.questionOptions.length, 9)
@@ -55,183 +52,158 @@ ColumnLayout {
         }
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.gridUnit
-        spacing: Kirigami.Units.smallSpacing
-        QQC2.Label {
-            text: Panel.pausedText.toLowerCase()
-            font.family: Kirigami.Theme.fixedWidthFont.family
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.neutralTextColor
-        }
-        Kirigami.Heading {
-            level: 1
-            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.6
-            font.weight: Font.DemiBold
-            text: Panel.questionTitle
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-        QQC2.Label {
-            text: Panel.questionText
-            visible: text.length > 0
-            wrapMode: Text.Wrap
-            color: Style.muted(Kirigami.Theme.textColor)
-            Layout.fillWidth: true
-        }
+    TermBar {
+        text: Panel.pausedText.toLowerCase()
+        textColor: Kirigami.Theme.neutralTextColor
     }
 
-    Hairline {}
     QQC2.ScrollView {
+        id: scroll
         Layout.fillWidth: true
         Layout.fillHeight: true
         contentWidth: availableWidth
         clip: true
 
         ColumnLayout {
-            width: parent.width
-            spacing: 0
+            width: scroll.availableWidth
+            spacing: Kirigami.Units.largeSpacing
 
-            QQC2.ButtonGroup { id: answers }
-
-            Repeater {
-                model: Panel.questionOptions
-                delegate: Rectangle {
-                    id: option
-                    required property var modelData
-                    required property int index
-                    readonly property bool checked: screen.selected === modelData.value
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: Kirigami.Units.gridUnit
+                Layout.leftMargin: Kirigami.Units.gridUnit
+                Layout.rightMargin: Kirigami.Units.gridUnit
+                spacing: Kirigami.Units.smallSpacing
+                QQC2.Label {
+                    text: "? " + Panel.questionTitle
+                    font.weight: Font.Bold
+                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.2
+                    wrapMode: Text.Wrap
                     Layout.fillWidth: true
-                    implicitHeight: Math.max(Kirigami.Units.gridUnit * 2.4, optionRow.implicitHeight + Kirigami.Units.largeSpacing)
-                    color: checked ? Kirigami.Theme.alternateBackgroundColor : "transparent"
+                }
+                QQC2.Label {
+                    visible: text.length > 0
+                    text: Panel.questionText
+                    color: Style.muted(Kirigami.Theme.textColor)
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                }
+            }
 
-                    RowLayout {
-                        id: optionRow
-                        anchors.fill: parent
-                        anchors.leftMargin: Kirigami.Units.gridUnit - Kirigami.Units.smallSpacing
-                        anchors.rightMargin: Kirigami.Units.gridUnit
-                        spacing: Kirigami.Units.largeSpacing
-                        QQC2.RadioButton {
-                            QQC2.ButtonGroup.group: answers
-                            checked: option.checked
-                            enabled: Panel.canAnswer
-                            onToggled: if (checked) screen.selected = option.modelData.value
-                            Accessible.name: option.modelData.label + (option.modelData.detail.length > 0 ? ", " + option.modelData.detail : "")
-                        }
-                        QQC2.Label {
-                            text: option.index < 9 ? String(option.index + 1) : ""
-                            font.family: Kirigami.Theme.fixedWidthFont.family
-                            font.pointSize: Kirigami.Theme.smallFont.pointSize
-                            color: Style.muted(Kirigami.Theme.textColor)
-                            Accessible.ignored: true
-                        }
-                        // The name is what the person picks: it keeps one line
-                        // (up to 60% of the row) and the detail wraps first.
-                        TextMetrics { id: labelMetrics; font: optionLabel.font; text: optionLabel.text }
-                        QQC2.Label {
-                            id: optionLabel
-                            text: option.modelData.label
-                            font.family: Kirigami.Theme.fixedWidthFont.family
-                            wrapMode: Text.Wrap
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: Math.min(Math.ceil(labelMetrics.advanceWidth) + 1, optionRow.width * 0.6)
-                        }
-                        TextMetrics { id: detailMetrics; font: optionDetail.font; text: optionDetail.text }
-                        QQC2.Label {
-                            id: optionDetail
-                            text: option.modelData.detail
-                            visible: text.length > 0
-                            font: Kirigami.Theme.smallFont
-                            color: Style.muted(Kirigami.Theme.textColor)
-                            horizontalAlignment: Text.AlignRight
-                            wrapMode: Text.Wrap
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: Math.min(Math.ceil(detailMetrics.advanceWidth) + 1, Kirigami.Units.gridUnit * 10)
-                            Layout.maximumWidth: Layout.preferredWidth
-                            Layout.minimumWidth: Math.min(Layout.preferredWidth, Kirigami.Units.gridUnit * 3)
-                        }
-                    }
-                    Kirigami.Separator {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                    }
-                    MouseArea {
-                        anchors.fill: parent
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                Repeater {
+                    model: Panel.questionOptions
+                    delegate: QQC2.AbstractButton {
+                        id: option
+                        required property var modelData
+                        required property int index
+                        readonly property bool picked: screen.selected === modelData.value
+                        Layout.fillWidth: true
+                        leftPadding: Kirigami.Units.gridUnit
+                        rightPadding: Kirigami.Units.gridUnit
+                        topPadding: Kirigami.Units.smallSpacing * 1.5
+                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
                         enabled: Panel.canAnswer
-                        onClicked: screen.selected = option.modelData.value
-                        z: -1
+                        onClicked: screen.selected = modelData.value
+                        Accessible.role: Accessible.RadioButton
+                        Accessible.checked: picked
+                        Accessible.name: modelData.label + (modelData.detail.length > 0 ? ", " + modelData.detail : "")
+                        background: Rectangle {
+                            color: option.picked ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.18)
+                                 : option.hovered ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.06)
+                                 : "transparent"
+                        }
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.largeSpacing * 1.5
+                            QQC2.Label {
+                                text: (option.picked ? "(•) " : "( ) ") + (option.index < 9 ? String(option.index + 1) : " ")
+                                color: option.picked ? Kirigami.Theme.linkColor : Style.muted(Kirigami.Theme.textColor)
+                                font.weight: option.picked ? Font.Bold : Font.Normal
+                                Layout.alignment: Qt.AlignTop
+                            }
+                            ColumnLayout {
+                                spacing: 0
+                                Layout.fillWidth: true
+                                QQC2.Label {
+                                    text: option.modelData.label
+                                    font.weight: option.picked ? Font.Bold : Font.Normal
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
+                                }
+                                QQC2.Label {
+                                    visible: text.length > 0
+                                    text: option.modelData.detail
+                                    color: Style.muted(Kirigami.Theme.textColor)
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            QQC2.Label {
-                text: "pacman asked:"
-                color: Style.muted(Kirigami.Theme.textColor)
-                font: Kirigami.Theme.smallFont
+            ColumnLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.gridUnit
                 Layout.rightMargin: Kirigami.Units.gridUnit
-                Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
-            }
-            QQC2.Label {
-                text: Panel.questionPacman
-                font.family: Kirigami.Theme.fixedWidthFont.family
-                font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: Style.muted(Kirigami.Theme.textColor)
-                wrapMode: Text.WrapAnywhere
-                Layout.fillWidth: true
-                Layout.leftMargin: Kirigami.Units.gridUnit
-                Layout.rightMargin: Kirigami.Units.gridUnit
-                Layout.bottomMargin: Kirigami.Units.largeSpacing
+                Layout.bottomMargin: Kirigami.Units.gridUnit
+                spacing: 0
+                QQC2.Label {
+                    text: "pacman asked:"
+                    color: Style.muted(Kirigami.Theme.textColor)
+                }
+                QQC2.Label {
+                    text: Panel.questionPacman
+                    color: Style.muted(Kirigami.Theme.textColor)
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                }
+                Box {
+                    title: "error"
+                    text: Panel.message
+                    type: "error"
+                    Layout.topMargin: Kirigami.Units.largeSpacing
+                }
+                QQC2.Label {
+                    visible: text.length > 0
+                    text: Panel.questionNote
+                    color: Style.muted(Kirigami.Theme.textColor)
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    Layout.topMargin: Kirigami.Units.largeSpacing
+                }
             }
         }
     }
-    Hairline {}
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.gridUnit
-        Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
-        spacing: Kirigami.Units.largeSpacing
-        Notice {
-            text: Panel.message
-            type: "error"
+    KeyBar {
+        KeyButton {
+            visible: screen.hasOptions
+            key: "⏎"
+            text: Panel.replying ? "sending answer…" : "continue with " + screen.selectedLabel
+            primary: true
+            enabled: Panel.canAnswer && !Panel.replying && screen.selected.length > 0
+            onClicked: screen.continueWithSelection()
+            width: Math.min(implicitWidth, screen.width * 0.6)
         }
-        QQC2.Label {
-            text: Panel.questionNote
-            visible: text.length > 0
-            wrapMode: Text.Wrap
-            font: Kirigami.Theme.smallFont
-            color: Style.muted(Kirigami.Theme.textColor)
-            Layout.fillWidth: true
+        KeyButton {
+            visible: screen.hasOptions && Panel.questionOptions.length > 1
+            key: "1–" + Math.min(Panel.questionOptions.length, 9)
+            text: "pick"
+            passive: true
         }
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
-            QQC2.Button {
-                visible: screen.hasOptions
-                text: Panel.replying ? "Sending answer" : "Continue with " + screen.selectedLabel
-                highlighted: true
-                enabled: Panel.canAnswer && !Panel.replying && screen.selected.length > 0
-                onClicked: screen.continueWithSelection()
-                Layout.fillWidth: true
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-                font.weight: Font.DemiBold
-            }
-            QQC2.Button {
-                text: "Cancel the update"
-                highlighted: !screen.hasOptions
-                enabled: Panel.canAnswer && !Panel.replying
-                onClicked: Panel.cancelUpdate()
-                Layout.fillWidth: !screen.hasOptions
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-            }
+        KeyButton {
+            text: "cancel the update"
+            enabled: Panel.canAnswer && !Panel.replying
+            onClicked: Panel.cancelUpdate()
         }
-        KeyHints {
-            text: (screen.hasOptions ? "1–" + Math.min(Panel.questionOptions.length, 9) + " pick · ⏎ continue · " : "")
-                  + "esc close (pacman keeps waiting)"
+        KeyButton {
+            key: "esc"
+            text: "hide · pacman waits"
+            onClicked: screen.Window.window.close()
         }
     }
 }

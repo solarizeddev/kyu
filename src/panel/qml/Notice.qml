@@ -19,12 +19,12 @@ Rectangle {
 
     readonly property color tone: type === "error" ? Kirigami.Theme.negativeTextColor
                                 : type === "positive" ? Kirigami.Theme.positiveTextColor
-                                : type === "information" ? Kirigami.Theme.highlightColor
+                                : type === "information" ? Kirigami.Theme.activeTextColor
                                 : Kirigami.Theme.neutralTextColor
     visible: text.length > 0 || title.length > 0
     color: type === "error" ? Kirigami.Theme.negativeBackgroundColor
          : type === "positive" ? Kirigami.Theme.positiveBackgroundColor
-         : type === "information" ? Qt.rgba(tone.r, tone.g, tone.b, 0.15)
+         : type === "information" ? Kirigami.Theme.activeBackgroundColor
          : Kirigami.Theme.neutralBackgroundColor
     border.width: 1
     border.color: Qt.rgba(tone.r, tone.g, tone.b, 0.5)
@@ -69,11 +69,17 @@ Rectangle {
                 id: label
                 visible: text.length > 0
                 Layout.fillWidth: true
-                wrapMode: notice.monospace ? Text.WrapAnywhere : Text.Wrap
+                wrapMode: Text.Wrap
                 font.family: notice.monospace ? Kirigami.Theme.fixedWidthFont.family : Kirigami.Theme.defaultFont.family
                 maximumLineCount: notice.expanded || !notice.collapsible ? 1000 : 3
                 elide: Text.ElideRight
                 color: Kirigami.Theme.textColor
+            }
+            QQC2.Label {
+                visible: label.truncated && !notice.expanded
+                text: "Show all"
+                font: Kirigami.Theme.smallFont
+                color: Kirigami.Theme.linkColor
             }
             ColumnLayout {
                 id: extra

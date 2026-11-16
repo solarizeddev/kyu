@@ -1,188 +1,173 @@
-// What happened, stated plainly, and what is left to do.
+// Terminal style, after an update: one summary line with its mark, what is
+// left to do in boxes, the pages as keyed lines, and the last output lines.
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 import ".."
 import "../Style.js" as Style
 
-ColumnLayout {
+TermScreen {
+    id: screen
     signal showOutput()
     signal showChanges()
     signal showConfigs()
     signal showProcesses()
-    spacing: 0
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.gridUnit
-        spacing: Kirigami.Units.smallSpacing
-        Kirigami.Heading {
-            level: 1
-            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.6
-            font.weight: Font.DemiBold
-            text: (Panel.success ? "✓ " : "") + Panel.resultTitle
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-        QQC2.Label {
-            text: Panel.resultDetails
-            visible: text.length > 0
-            font.family: Kirigami.Theme.fixedWidthFont.family
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Style.muted(Kirigami.Theme.textColor)
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-        QQC2.Label {
-            text: Panel.transactionNote
-            visible: text.length > 0
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.neutralTextColor
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
+    readonly property bool ok: Panel.outcome === "success"
+
+    TermBar {
+        text: screen.ok ? "done" : Panel.outcome === "partial" ? "done, with errors" : Panel.outcome === "stopped" ? "stopped" : "failed"
+        textColor: screen.ok ? Kirigami.Theme.positiveTextColor : Panel.outcome === "failed" ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.neutralTextColor
     }
 
-    Hairline {}
     QQC2.ScrollView {
+        id: scroll
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.preferredHeight: 3
         contentWidth: availableWidth
         clip: true
 
         ColumnLayout {
-            width: parent.width
-            spacing: 0
+            width: scroll.availableWidth
+            spacing: Kirigami.Units.largeSpacing
 
-            // Result and restart, or failure, first.
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.margins: Kirigami.Units.gridUnit
-                spacing: Kirigami.Units.largeSpacing
-                Notice {
-                    text: Panel.resultText
-                    type: "error"
-                    collapsible: false
-                }
-                QQC2.Label {
-                    visible: Panel.restartRequired
-                    text: "Restart required"
-                    font.weight: Font.DemiBold
-                    color: Kirigami.Theme.neutralTextColor
-                }
-                QQC2.Label {
-                    visible: Panel.restartRequired
-                    text: Panel.restartReason
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.largeSpacing
-                    QQC2.Button {
-                        text: Panel.restartRequired ? "Restart now" : "Done"
-                        highlighted: true
-                        onClicked: Panel.restartRequired ? Panel.restartNow() : Panel.done()
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-                        font.weight: Font.DemiBold
-                    }
-                    QQC2.Button {
-                        visible: Panel.restartRequired
-                        text: "Later"
-                        onClicked: Panel.done()
-                        Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-                    }
-                }
-            }
-
-            // Why it failed: an explanation, what it is about, pacman's own lines.
-            Hairline { visible: Panel.failureTitle.length > 0 }
-            ColumnLayout {
-                visible: Panel.failureTitle.length > 0
-                Layout.fillWidth: true
-                Layout.margins: Kirigami.Units.gridUnit
+                Layout.topMargin: Kirigami.Units.gridUnit
+                Layout.leftMargin: Kirigami.Units.gridUnit
+                Layout.rightMargin: Kirigami.Units.gridUnit
                 spacing: Kirigami.Units.smallSpacing
                 QQC2.Label {
-                    text: Panel.failureTitle
-                    font.weight: Font.DemiBold
+                    text: (screen.ok ? "✓ " : Panel.outcome === "failed" ? "✗ " : "! ") + Panel.resultTitle
+                    font.weight: Font.Bold
+                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.2
+                    color: screen.ok ? Kirigami.Theme.textColor : Panel.outcome === "failed" ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.neutralTextColor
                     wrapMode: Text.Wrap
                     Layout.fillWidth: true
                 }
                 QQC2.Label {
-                    text: Panel.failureText
-                    wrapMode: Text.Wrap
-                    Layout.fillWidth: true
-                }
-                QQC2.Label {
-                    visible: Panel.failureItems.length > 0
-                    text: Panel.failureItems.slice(0, 8).join("\n") + (Panel.failureItems.length > 8 ? "\n… " + (Panel.failureItems.length - 8) + " more" : "")
-                    font.family: Kirigami.Theme.fixedWidthFont.family
-                    font.pointSize: Kirigami.Theme.smallFont.pointSize
-                    wrapMode: Text.WrapAnywhere
-                    Layout.fillWidth: true
-                }
-                QQC2.Label {
-                    text: "pacman:\n" + Panel.failureLines.slice(0, 6).join("\n")
-                    font.family: Kirigami.Theme.fixedWidthFont.family
-                    font.pointSize: Kirigami.Theme.smallFont.pointSize
+                    visible: text.length > 0
+                    text: Panel.resultDetails
                     color: Style.muted(Kirigami.Theme.textColor)
-                    wrapMode: Text.WrapAnywhere
+                    wrapMode: Text.Wrap
                     Layout.fillWidth: true
                 }
-                RowLayout {
-                    visible: Panel.failureCommand.length > 0
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Kirigami.Units.gridUnit
+                Layout.rightMargin: Kirigami.Units.gridUnit
+                spacing: Kirigami.Units.largeSpacing
+                Box {
+                    title: Panel.outcome === "failed" ? "failed" : "not everything finished"
+                    text: Panel.resultText
+                    type: Panel.outcome === "failed" ? "error" : "warning"
+                    collapsible: false
+                }
+                Box { title: "transaction"; text: Panel.transactionNote; type: "information" }
+                Box {
+                    visible: Panel.restartRequired
+                    title: "restart required"
+                    text: Panel.restartReason
+                    type: "warning"
+                    KeyButton { text: "restart now"; primary: true; onClicked: Panel.restartNow() }
+                    KeyButton { text: "later"; onClicked: Panel.done() }
+                }
+                ColumnLayout {
+                    visible: Panel.failureTitle.length > 0
                     Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
                     QQC2.Label {
-                        text: "$ " + Panel.failureCommand
-                        font.family: Kirigami.Theme.fixedWidthFont.family
-                        font.pointSize: Kirigami.Theme.smallFont.pointSize
-                        wrapMode: Text.WrapAnywhere
+                        text: "# " + Panel.failureTitle
+                        font.weight: Font.Bold
+                        wrapMode: Text.Wrap
                         Layout.fillWidth: true
                     }
-                    QQC2.Button {
-                        text: "Copy"
-                        icon.name: "edit-copy"
-                        onClicked: Panel.copyText(Panel.failureCommand)
+                    QQC2.Label {
+                        text: Panel.failureText
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+                    QQC2.Label {
+                        visible: Panel.failureItems.length > 0
+                        text: Panel.failureItems.slice(0, 8).join("\n") + (Panel.failureItems.length > 8 ? "\n… " + (Panel.failureItems.length - 8) + " more" : "")
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+                    QQC2.Label {
+                        text: Panel.failureLines.slice(0, 6).join("\n")
+                        color: Style.muted(Kirigami.Theme.textColor)
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+                    RowLayout {
+                        visible: Panel.failureCommand.length > 0
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.largeSpacing
+                        QQC2.Label {
+                            text: "$ " + Panel.failureCommand
+                            color: Kirigami.Theme.linkColor
+                            wrapMode: Text.Wrap
+                            Layout.fillWidth: true
+                        }
+                        KeyButton { text: "copy"; onClicked: Panel.copyText(Panel.failureCommand); Layout.alignment: Qt.AlignTop }
                     }
                 }
             }
 
-            Hairline {}
-            LinkRow {
-                visible: Panel.configs.length > 0
-                title: Panel.configs.length === 1 ? "1 settings file changed" : Panel.configs.length + " settings files changed"
-                subtitle: "Optional. Compare yours with the new defaults"
-                key: "s"
-                onClicked: showConfigs()
-            }
-            LinkRow {
-                visible: Panel.processCount > 0
-                title: Panel.processCount === 1 ? "1 program uses replaced libraries" : Panel.processCount + " programs use replaced libraries"
-                subtitle: "They run the old versions until they restart"
-                key: "p"
-                onClicked: showProcesses()
-            }
-            LinkRow {
-                visible: Panel.changes.length > 0
-                title: "What changed"
-                subtitle: Panel.changes.length === 1 ? "1 package, with old and new version" : Panel.changes.length + " packages, with old and new versions"
-                key: "w"
-                onClicked: showChanges()
+            // The pages, by key.
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: Kirigami.Units.largeSpacing
+                spacing: 0
+                Repeater {
+                    model: [
+                        { key: "s", show: Panel.configs.length > 0, title: "settings files", detail: Panel.configs.length + " changed", page: "configs" },
+                        { key: "p", show: Panel.processCount > 0, title: "programs on old libraries", detail: String(Panel.processCount), page: "processes" },
+                        { key: "w", show: Panel.changes.length > 0, title: "what changed", detail: Panel.changes.length + (Panel.changes.length === 1 ? " package" : " packages"), page: "changes" },
+                    ]
+                    delegate: QQC2.AbstractButton {
+                        id: link
+                        required property var modelData
+                        visible: modelData.show
+                        Layout.fillWidth: true
+                        leftPadding: Kirigami.Units.gridUnit
+                        rightPadding: Kirigami.Units.gridUnit
+                        topPadding: Kirigami.Units.smallSpacing
+                        bottomPadding: Kirigami.Units.smallSpacing
+                        Accessible.name: modelData.title + ", " + modelData.detail
+                        onClicked: modelData.page === "configs" ? screen.showConfigs() : modelData.page === "processes" ? screen.showProcesses() : screen.showChanges()
+                        background: Rectangle {
+                            color: link.hovered || link.visualFocus ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : "transparent"
+                        }
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.largeSpacing * 1.5
+                            QQC2.Label { text: link.modelData.key; font.weight: Font.Bold; color: Kirigami.Theme.linkColor }
+                            QQC2.Label { text: link.modelData.title; elide: Text.ElideRight; Layout.fillWidth: true }
+                            QQC2.Label { text: link.modelData.detail; color: Style.muted(Kirigami.Theme.textColor) }
+                        }
+                    }
+                }
             }
         }
     }
-    Hairline {}
-    LogTail { lines: 4 }
-    Hairline {}
 
-    KeyHints {
-        Layout.margins: Kirigami.Units.gridUnit
-        Layout.topMargin: Kirigami.Units.largeSpacing
-        text: [Panel.configs.length > 0 ? "s settings files" : "",
-               Panel.processCount > 0 ? "p programs" : "",
-               Panel.changes.length > 0 ? "w what changed" : "",
-               "l output", "esc done"].filter(s => s.length > 0).join(" · ")
+    Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: 1
+        color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.2)
+    }
+    LogTail {
+        lines: 5
+        color: "transparent"
+    }
+
+    KeyBar {
+        KeyButton { key: "l"; text: "full output"; onClicked: screen.showOutput() }
+        KeyButton { key: "esc"; text: "done"; onClicked: Panel.done() }
     }
 }

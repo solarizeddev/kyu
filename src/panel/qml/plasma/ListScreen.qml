@@ -45,6 +45,7 @@ ColumnLayout {
         Notice {
             visible: Panel.canRemoveLock
             type: "warning"
+            collapsible: false
             title: "pacman's lock file was left behind"
             text: "/var/lib/pacman/db.lck exists, but no running program holds it: an earlier pacman run was stopped. No update can start until it is removed."
             QQC2.Button {
@@ -69,9 +70,9 @@ ColumnLayout {
         QQC2.ToolTip.text: Panel.newsHeadline
         background: Rectangle {
             radius: Kirigami.Units.smallSpacing
-            color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, news.hovered || news.visualFocus ? 0.25 : 0.15)
+            color: news.hovered || news.visualFocus ? Qt.darker(Kirigami.Theme.activeBackgroundColor, 1.05) : Kirigami.Theme.activeBackgroundColor
             border.width: 1
-            border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.5)
+            border.color: Qt.rgba(Kirigami.Theme.activeTextColor.r, Kirigami.Theme.activeTextColor.g, Kirigami.Theme.activeTextColor.b, 0.5)
         }
         contentItem: RowLayout {
             spacing: Kirigami.Units.largeSpacing
@@ -118,7 +119,11 @@ ColumnLayout {
         Layout.topMargin: Kirigami.Units.largeSpacing
     }
 
-    Kirigami.Separator { Layout.fillWidth: true; Layout.topMargin: Kirigami.Units.largeSpacing * 2 }
+    // Spacing under the notices and news, only when there are any.
+    Item {
+        visible: news.visible || Panel.newsError.length > 0 || Panel.message.length > 0 || Panel.checkProblems.length > 0 || Panel.interruptedText.length > 0 || Panel.canRemoveLock
+        Layout.preferredHeight: Kirigami.Units.largeSpacing * 2
+    }
     PackageList {
         visible: Panel.updates.count > 0
         Layout.fillWidth: true
@@ -155,7 +160,7 @@ ColumnLayout {
 
     // The exact commands, when asked (nothing hidden, but quiet).
     QQC2.Label {
-        visible: screen.showCommands && Panel.updates.count > 0
+        visible: screen.showCommands
         text: Panel.commandPreview
         font.family: Kirigami.Theme.fixedWidthFont.family
         font.pointSize: Kirigami.Theme.smallFont.pointSize
@@ -167,32 +172,28 @@ ColumnLayout {
     }
 
     RowLayout {
+        id: footer
         Layout.fillWidth: true
         Layout.margins: Kirigami.Units.largeSpacing * 2
         Layout.leftMargin: Kirigami.Units.gridUnit
         spacing: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            spacing: 0
+        QQC2.Label {
+            visible: Panel.updates.count > 0
+            text: Panel.updates.pacmanCount > 0 ? "pacman -Syu, then Flatpaks" : "Flatpaks only"
+            font: Kirigami.Theme.smallFont
+            color: Style.muted(Kirigami.Theme.textColor)
+            elide: Text.ElideRight
             Layout.fillWidth: true
-            QQC2.Label {
-                visible: Panel.updates.count > 0
-                text: Panel.updates.pacmanCount > 0 ? "Runs pacman -Syu, then updates Flatpaks" : "Updates the Flatpaks"
-                font: Kirigami.Theme.smallFont
-                color: Style.muted(Kirigami.Theme.textColor)
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-            Kirigami.LinkButton {
-                visible: Panel.updates.count > 0
-                text: screen.showCommands ? "Hide the commands" : "Show the commands"
-                font: Kirigami.Theme.smallFont
-                onClicked: screen.showCommands = !screen.showCommands
-            }
         }
+        Item { visible: Panel.updates.count === 0; Layout.fillWidth: true }
         PrimaryButton {
+            id: updateAll
+            visible: Panel.updates.count > 0
             text: Panel.starting ? "Waiting for authorization…" : "Update all"
             enabled: Panel.canUpdate
             onClicked: Panel.updateAll()
+            Layout.maximumWidth: footer.width * 0.6
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 4
             QQC2.ToolTip.visible: hovered && enabled
             QQC2.ToolTip.text: "Update all (Enter)"
         }
@@ -202,13 +203,20 @@ ColumnLayout {
             text: "More"
             display: QQC2.AbstractButton.IconOnly
             Layout.preferredWidth: height
+            Layout.preferredHeight: updateAll.visible ? updateAll.height : implicitHeight
             onClicked: menu.popup(more, 0, more.height)
             QQC2.ToolTip.visible: hovered
             QQC2.ToolTip.text: text
             QQC2.Menu {
                 id: menu
                 QQC2.MenuItem {
-                    text: "Copy as command (sudo pacman -Syu)"
+                    text: screen.showCommands ? "Hide the commands" : "Show the commands"
+                    icon.name: "utilities-terminal"
+                    enabled: Panel.updates.count > 0
+                    onTriggered: screen.showCommands = !screen.showCommands
+                }
+                QQC2.MenuItem {
+                    text: "Copy as command"
                     icon.name: "edit-copy"
                     onTriggered: Panel.copyCommand()
                 }

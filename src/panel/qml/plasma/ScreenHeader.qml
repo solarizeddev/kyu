@@ -55,7 +55,8 @@ Rectangle {
             }
             QQC2.Label {
                 visible: text.length > 0
-                text: header.subtitle
+                // Each " · " part stays on one line ("checked 10:30:00").
+                text: header.subtitle.split(" · ").map(part => part.replace(/ /g, "\u00a0")).join(" · ")
                 color: Style.muted(Kirigami.Theme.textColor)
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true

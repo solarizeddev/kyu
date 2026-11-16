@@ -41,7 +41,7 @@ ColumnLayout {
         Layout.margins: Kirigami.Units.largeSpacing * 2
         Layout.bottomMargin: 0
         spacing: Kirigami.Units.largeSpacing
-        Notice { text: Panel.transactionNote; type: "information" }
+        Notice { text: Panel.transactionNote; type: "information"; collapsible: false }
         Notice {
             type: "warning"
             text: Panel.question.length > 0
@@ -59,11 +59,17 @@ ColumnLayout {
     Kirigami.Separator { Layout.fillWidth: true }
 
     // The output, folded: its last line; click (or L) for all of it.
-    QQC2.ItemDelegate {
+    QQC2.AbstractButton {
+        id: outputRow
         Layout.fillWidth: true
         leftPadding: Kirigami.Units.gridUnit
         rightPadding: Kirigami.Units.gridUnit
+        topPadding: Kirigami.Units.largeSpacing * 1.5
+        bottomPadding: Kirigami.Units.largeSpacing * 1.5
         onClicked: screen.showOutput()
+        background: Rectangle {
+            color: outputRow.hovered || outputRow.visualFocus ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.07) : "transparent"
+        }
         Accessible.name: "Show the output"
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.text: "Show the output (L)"

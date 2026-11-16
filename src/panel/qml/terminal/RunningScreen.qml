@@ -1,85 +1,58 @@
-// A transaction is running: percentage, thin bar, the list ticking off, the
-// last lines of the output.
+// Terminal style, while updating: a block progress bar, the packages ticking
+// off, and the live output filling the rest.
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 import ".."
 import "../Style.js" as Style
 
-ColumnLayout {
+TermScreen {
+    id: screen
     signal showOutput()
-    spacing: 0
+
+    TermBar {
+        text: "updating · " + Panel.progressText
+    }
 
     ColumnLayout {
         Layout.fillWidth: true
         Layout.margins: Kirigami.Units.gridUnit
-        spacing: Kirigami.Units.smallSpacing
-        Kirigami.Heading {
-            level: 1
-            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.6
-            font.weight: Font.DemiBold
-            text: "Updating · " + Panel.percent + "%"
-            Layout.fillWidth: true
-        }
-        QQC2.Label {
-            text: Panel.progressText
-            font.family: Kirigami.Theme.fixedWidthFont.family
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Style.muted(Kirigami.Theme.textColor)
-            elide: Text.ElideRight
-            Layout.fillWidth: true
-        }
-        QQC2.Label {
-            text: Panel.transactionNote
-            visible: text.length > 0
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Kirigami.Theme.neutralTextColor
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
-        }
-        ThinBar {
-            value: Panel.percent / 100
-            Layout.topMargin: Kirigami.Units.smallSpacing
-        }
-    }
-
-    Notice {
-        text: Panel.question.length > 0
-              ? "pacman asked: “" + Panel.question + "”. Kyu does not recognise this question, so it stopped pacman before any package changed."
-              : ""
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
         Layout.bottomMargin: Kirigami.Units.largeSpacing
+        spacing: Kirigami.Units.largeSpacing
+        TextProgress {
+            percent: Panel.percent
+            Layout.fillWidth: true
+        }
+        Box { title: "transaction"; text: Panel.transactionNote; type: "information" }
+        Box {
+            title: "stopped"
+            type: "warning"
+            text: Panel.question.length > 0
+                  ? "pacman asked: “" + Panel.question + "”. Kyu does not recognise this question, so it stopped pacman before any package changed."
+                  : ""
+        }
     }
 
-    Hairline {}
     PackageList {
         tracking: true
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.preferredHeight: 2
     }
-    Hairline {}
-    LogTail { lines: 5 }
-    Hairline {}
-
-    ColumnLayout {
+    Rectangle {
         Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.gridUnit
-        Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
-        spacing: Kirigami.Units.largeSpacing
-        QQC2.Label {
-            text: "Closing this window does not stop the update."
-            wrapMode: Text.Wrap
-            color: Style.muted(Kirigami.Theme.textColor)
-            Layout.fillWidth: true
-        }
-        QQC2.Button {
-            text: "Full output"
-            icon.name: "utilities-terminal"
-            onClicked: showOutput()
-            Layout.fillWidth: true
-        }
-        KeyHints { text: "l output · esc close (the update keeps running)" }
+        implicitHeight: 1
+        color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.2)
+    }
+    LogTail {
+        lines: 8
+        color: "transparent"
+    }
+
+    KeyBar {
+        KeyButton { key: "l"; text: "full output"; onClicked: screen.showOutput() }
+        KeyButton { key: "esc"; text: "hide · keeps running"; onClicked: screen.Window.window.close() }
     }
 }

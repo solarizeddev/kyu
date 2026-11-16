@@ -1,60 +1,68 @@
-// Packages grouped by repo or remote; the only grouping Kyu uses. Dense,
-// flat rows; data in the fixed-width font.
+// Terminal style: the updates in aligned columns, grouped by repo or remote
+// ("core ┄┄┄ 2"). While updating (tracking), marks and words say where each
+// package stands, and the list follows the one pacman is working on.
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import ".."
 import "../Style.js" as Style
 
 ListView {
     id: list
-    property bool tracking: false // show per-package transaction status
-
+    property bool tracking: false
     clip: true
     model: Panel.updates
-    // Always room for a couple of rows, whatever else is on screen.
-    Layout.minimumHeight: Math.round(Kirigami.Units.gridUnit * 3.2)
     boundsBehavior: Flickable.StopAtBounds
-    QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
+    Layout.minimumHeight: Kirigami.Units.gridUnit * 3
+    readonly property real rowWidth: width - (bar.visible ? bar.width : 0)
+    QQC2.ScrollBar.vertical: QQC2.ScrollBar { id: bar }
     Accessible.name: tracking ? "Packages being updated" : "Pending updates"
+
+    // One width for the size column: the widest size in the list.
+    TextMetrics {
+        id: sizeMetrics
+        text: "999 MiB"
+        font.family: Kirigami.Theme.fixedWidthFont.family
+        font.pointSize: Kirigami.Theme.defaultFont.pointSize
+    }
 
     section.property: "group"
     section.delegate: Item {
         required property string section
-        width: ListView.view.width
-        implicitHeight: Math.round(Kirigami.Units.gridUnit * 1.4)
+        width: list.rowWidth
+        implicitHeight: sectionRow.implicitHeight + Kirigami.Units.largeSpacing
         RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: Kirigami.Units.gridUnit
-            anchors.rightMargin: Kirigami.Units.gridUnit
-            QQC2.Label {
-                text: section
-                font.family: Kirigami.Theme.fixedWidthFont.family
-                font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: Style.muted(Kirigami.Theme.textColor)
-                Layout.fillWidth: true
-            }
-            QQC2.Label {
-                text: Panel.updates.countInGroup(section)
-                font.family: Kirigami.Theme.fixedWidthFont.family
-                font.pointSize: Kirigami.Theme.smallFont.pointSize
-                color: Style.muted(Kirigami.Theme.textColor)
-            }
-        }
-        Kirigami.Separator {
+            id: sectionRow
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
+            anchors.leftMargin: Kirigami.Units.gridUnit
+            anchors.rightMargin: Kirigami.Units.gridUnit
+            spacing: Kirigami.Units.largeSpacing
+            QQC2.Label {
+                text: section
+                font.weight: Font.Bold
+                color: Style.muted(Kirigami.Theme.textColor)
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                implicitHeight: 1
+                color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.2)
+            }
+            QQC2.Label {
+                text: Panel.updates.countInGroup(section)
+                color: Style.muted(Kirigami.Theme.textColor)
+            }
         }
     }
 
     delegate: PackageRow {
-        width: ListView.view.width
+        width: list.rowWidth
         tracking: list.tracking
+        sizeWidth: Math.ceil(sizeMetrics.advanceWidth)
     }
 
-    // Keep the package pacman is working on in view.
     Connections {
         target: Panel.updates
         enabled: list.tracking

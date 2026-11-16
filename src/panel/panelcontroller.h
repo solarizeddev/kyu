@@ -206,7 +206,7 @@ public Q_SLOTS:
     QString style() const { return m_style; }
     // Saves the choice in kyurc (unless a --style override is active).
     void setStyle(const QString &style);
-    // --style: for this run only, not saved.
+    // --look: for this run only, not saved.
     void overrideStyle(const QString &style);
     static bool isStyle(const QString &style);
 

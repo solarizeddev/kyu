@@ -1,135 +1,90 @@
-// Pending updates: count, size, check time, news, the list, "Update all".
+// Terminal style, pending updates: a status line, the exact command, problems
+// and news as boxed lines, the list in columns, and a key line.
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 import ".."
 import "../Style.js" as Style
 
-ColumnLayout {
-    spacing: 0
+TermScreen {
+    id: screen
+
+    TermBar {
+        text: Panel.title + (Panel.details.length > 0 ? " · " + Panel.details : "")
+        rightText: Panel.checking ? "checking…" : ""
+    }
 
     ColumnLayout {
         Layout.fillWidth: true
         Layout.margins: Kirigami.Units.gridUnit
         Layout.bottomMargin: Kirigami.Units.largeSpacing
-        spacing: Kirigami.Units.smallSpacing
-        RowLayout {
-            Layout.fillWidth: true
-            Kirigami.Heading {
-                level: 1
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.6
-                font.weight: Font.DemiBold
-                text: Panel.title
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-            QQC2.BusyIndicator {
-                visible: Panel.checking
-                running: visible
-                Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
-                Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
-            }
-            QQC2.Button {
-                text: "Check again"
-                flat: true
-                enabled: !Panel.checking
-                onClicked: Panel.checkAgain()
-                QQC2.ToolTip.visible: hovered
-                QQC2.ToolTip.text: "Check for updates now (c)"
-            }
-        }
-        QQC2.Label {
-            text: Panel.details
-            visible: text.length > 0
-            font.family: Kirigami.Theme.fixedWidthFont.family
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Style.muted(Kirigami.Theme.textColor)
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-        }
-    }
+        spacing: Kirigami.Units.largeSpacing
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
-        Layout.bottomMargin: Kirigami.Units.largeSpacing
-        visible: Panel.message.length > 0 || Panel.checkProblems.length > 0 || Panel.interruptedText.length > 0 || Panel.canRemoveLock
-        spacing: Kirigami.Units.smallSpacing
+        // The exact commands "update all" runs.
+        QQC2.Label {
+            visible: Panel.updates.count > 0
+            text: Panel.commandPreview
+            color: Style.muted(Kirigami.Theme.textColor)
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+
         Repeater {
             model: Panel.checkProblems
-            Notice { required property string modelData; text: modelData }
+            Box { required property string modelData; title: "check failed"; text: modelData; type: "warning" }
         }
-        Notice { text: Panel.message; type: "error" }
-        Notice { text: Panel.interruptedText }
-        QQC2.Button {
+        Box { title: "error"; text: Panel.message; type: "error" }
+        Box { title: "interrupted"; text: Panel.interruptedText; type: "warning" }
+        Box {
             visible: Panel.canRemoveLock
-            text: "Remove the stale lock"
-            icon.name: "object-unlocked"
-            onClicked: Panel.removeStaleLock()
+            type: "warning"
+            title: "stale lock: /var/lib/pacman/db.lck"
+            text: "No running program holds it: an earlier pacman run was stopped. No update can start until it is removed."
+            KeyButton {
+                text: "remove the stale lock"
+                primary: true
+                onClicked: Panel.removeStaleLock()
+            }
         }
-    }
 
-    // One line, only when there is something: Arch news since the last full
-    // upgrade (count and newest title, which is often the warning itself),
-    // or Manjaro's update announcements. A failed fetch says so.
-    Hairline { visible: newsLine.visible }
-    QQC2.ItemDelegate {
-        id: newsLine
-        visible: Panel.newsText.length > 0
-        Layout.fillWidth: true
-        leftPadding: Kirigami.Units.gridUnit
-        rightPadding: Kirigami.Units.gridUnit
-        topPadding: Kirigami.Units.smallSpacing * 1.5
-        bottomPadding: Kirigami.Units.smallSpacing * 1.5
-        onClicked: Panel.openLink(Panel.newsUrl)
-        Accessible.name: Panel.newsText
-        QQC2.ToolTip.visible: hovered && headline.truncated
-        QQC2.ToolTip.text: Panel.newsHeadline
-        background: Rectangle {
-            color: newsLine.hovered || newsLine.visualFocus ? Kirigami.Theme.alternateBackgroundColor : "transparent"
-        }
-        contentItem: RowLayout {
-            spacing: Kirigami.Units.largeSpacing
-            ColumnLayout {
+        // News since the last full upgrade.
+        QQC2.AbstractButton {
+            id: news
+            visible: Panel.newsText.length > 0
+            Layout.fillWidth: true
+            onClicked: Panel.openLink(Panel.newsUrl)
+            Accessible.name: Panel.newsText
+            QQC2.ToolTip.visible: hovered && headline.truncated
+            QQC2.ToolTip.text: Panel.newsHeadline
+            contentItem: ColumnLayout {
                 spacing: 0
-                Layout.fillWidth: true
                 QQC2.Label {
-                    text: Panel.newsSource
-                    font: Kirigami.Theme.smallFont
-                    color: Style.muted(Kirigami.Theme.textColor)
+                    text: "! " + Panel.newsSource.toLowerCase()
+                    color: Kirigami.Theme.neutralTextColor
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
                 QQC2.Label {
                     id: headline
-                    text: Panel.newsHeadline
+                    text: "  " + Panel.newsHeadline + " ↗"
                     color: Kirigami.Theme.linkColor
+                    font.underline: news.hovered || news.visualFocus
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
             }
-            Kirigami.Icon {
-                source: "go-next"
-                Layout.preferredWidth: Kirigami.Units.iconSizes.small
-                Layout.preferredHeight: Kirigami.Units.iconSizes.small
-            }
+        }
+        QQC2.Label {
+            visible: text.length > 0
+            text: Panel.newsError
+            color: Style.muted(Kirigami.Theme.textColor)
+            elide: Text.ElideRight
+            Layout.fillWidth: true
         }
     }
-    QQC2.Label {
-        visible: text.length > 0
-        text: Panel.newsError
-        font: Kirigami.Theme.smallFont
-        color: Style.muted(Kirigami.Theme.textColor)
-        elide: Text.ElideRight
-        Layout.fillWidth: true
-        Layout.leftMargin: Kirigami.Units.gridUnit
-        Layout.rightMargin: Kirigami.Units.gridUnit
-        Layout.bottomMargin: Kirigami.Units.smallSpacing
-    }
 
-    Hairline {}
     PackageList {
         visible: Panel.updates.count > 0
         Layout.fillWidth: true
@@ -139,69 +94,54 @@ ColumnLayout {
         visible: Panel.updates.count === 0
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.margins: Kirigami.Units.gridUnit
         Item { Layout.fillHeight: true }
-        Kirigami.Icon {
-            source: "update-none"
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: Kirigami.Units.iconSizes.huge
-            Layout.preferredHeight: Kirigami.Units.iconSizes.huge
+        QQC2.Label {
+            text: Panel.checkProblems.length > 0 ? "✗ could not check for updates" : "✓ nothing to update"
+            color: Panel.checkProblems.length > 0 ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.positiveTextColor
+            font.weight: Font.Bold
+            horizontalAlignment: Text.AlignHCenter
+            Layout.fillWidth: true
         }
         Item { Layout.fillHeight: true }
     }
-    Hairline {}
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        Layout.margins: Kirigami.Units.gridUnit
-        Layout.topMargin: Kirigami.Units.largeSpacing * 1.5
-        spacing: Kirigami.Units.largeSpacing
-        QQC2.Label {
-            text: Panel.commandPreview
-            visible: text.length > 0
-            font.family: Kirigami.Theme.fixedWidthFont.family
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            color: Style.muted(Kirigami.Theme.textColor)
-            wrapMode: Text.Wrap
-            Layout.fillWidth: true
+    KeyBar {
+        KeyButton {
+            key: "⏎"
+            text: Panel.starting ? "waiting for authorization…" : "update all"
+            primary: true
+            enabled: Panel.canUpdate
+            onClicked: Panel.updateAll()
         }
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
-            QQC2.Button {
-                text: Panel.starting ? "Waiting for authorization" : "Update all"
-                highlighted: true
-                enabled: Panel.canUpdate
-                onClicked: Panel.updateAll()
-                Layout.fillWidth: true
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-                font.weight: Font.DemiBold
-            }
-            QQC2.Button {
-                id: more
-                icon.name: "arrow-down"
-                text: "More"
-                display: QQC2.AbstractButton.IconOnly
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 2.2
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.2
-                onClicked: menu.popup(more, 0, more.height)
-                QQC2.Menu {
-                    id: menu
-                    QQC2.MenuItem {
-                        text: "Copy as command (sudo pacman -Syu)"
-                        icon.name: "edit-copy"
-                        onTriggered: Panel.copyCommand()
-                    }
-                    QQC2.MenuItem {
-                        text: "Check again"
-                        icon.name: "view-refresh"
-                        enabled: !Panel.checking
-                        onTriggered: Panel.checkAgain()
-                    }
+        KeyButton {
+            key: "c"
+            text: "check"
+            enabled: !Panel.checking
+            onClicked: Panel.checkAgain()
+        }
+        KeyButton {
+            id: menuButton
+            text: "more ▾"
+            onClicked: menu.popup(menuButton, 0, -menu.implicitHeight)
+            QQC2.Menu {
+                id: menu
+                QQC2.MenuItem {
+                    text: "Copy as command (sudo pacman -Syu)"
+                    icon.name: "edit-copy"
+                    onTriggered: Panel.copyCommand()
+                }
+                QQC2.MenuItem {
+                    text: "Plasma look"
+                    icon.name: "preferences-desktop-theme"
+                    onTriggered: Panel.style = "plasma"
                 }
             }
         }
-        KeyHints {
-            text: (Panel.canUpdate ? "⏎ update all · " : "") + "c check · esc close"
+        KeyButton {
+            key: "esc"
+            text: "close"
+            onClicked: screen.Window.window.close()
         }
     }
 }

@@ -181,23 +181,15 @@ ColumnLayout {
             color: Style.muted(Kirigami.Theme.textColor)
             Layout.fillWidth: true
         }
-        RowLayout {
+        ButtonPair {
             Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
-            QQC2.Button {
-                text: "Cancel the update"
-                enabled: Panel.canAnswer && !Panel.replying
-                onClicked: Panel.cancelUpdate()
-                Layout.fillWidth: !screen.hasOptions
-            }
-            Item { Layout.fillWidth: true; visible: screen.hasOptions }
-            PrimaryButton {
-                visible: screen.hasOptions
-                text: Panel.replying ? "Sending answer…" : "Continue with " + screen.selectedLabel
-                enabled: Panel.canAnswer && !Panel.replying && screen.selected.length > 0
-                onClicked: screen.continueWithSelection()
-                Layout.maximumWidth: screen.width * 0.6
-            }
+            secondaryText: "Cancel the update"
+            secondaryEnabled: Panel.canAnswer && !Panel.replying
+            onSecondaryClicked: Panel.cancelUpdate()
+            primaryVisible: screen.hasOptions
+            primaryText: Panel.replying ? "Sending answer…" : "Continue with " + screen.selectedLabel
+            primaryEnabled: Panel.canAnswer && !Panel.replying && screen.selected.length > 0
+            onPrimaryClicked: screen.continueWithSelection()
         }
     }
 }
