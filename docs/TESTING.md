@@ -4,6 +4,25 @@ Kyu has so far been built and tested only in a container without KF6. This guide
 
 Parts 1 to 3 never touch your system: no root, no packages changed. Part 4 installs Kyu and runs real updates.
 
+## The quick way: one command, one zip
+
+After installing the dependencies and getting the branch (the first commands in part 1), run:
+
+```bash
+tools/kyu-test-all.sh
+```
+
+It takes about 10 minutes:
+
+1. It builds Kyu and runs the automated tests.
+2. It screenshots every screen of the panel through the simulated system of part 3, across colour schemes, window sizes, fonts and scale factors. Windows open and close by themselves meanwhile; leave the desktop alone.
+3. It notes the versions of the relevant packages.
+4. It writes everything to `~/kyu-test.zip`. Send that file back.
+
+Nothing on your system changes and no root is needed. In the logs your home directory, user name and the checkout's path are replaced with `~`, `<user>` and `<kyu>`. The zip holds no hostname and no copy of your settings, only the colour scheme, font and icon theme names.
+
+Parts 1 to 3 below are the same steps one at a time. Part 4, a real install and a real update, is by hand.
+
 ## 1. Build
 
 Install the build and runtime dependencies:
