@@ -100,7 +100,6 @@ private:
     QProgressBar *m_busy;
     QWidget *m_busyRow; // the bar, a little below its sentence
     Disclosure *m_details;
-    QWidget *m_detailsRow; // the disclosure, a line's spacing below the text
     QPushButton *m_measure; // never shown: how tall a button with icon and text is
     QPushButton *m_secondary;
     QPushButton *m_action;

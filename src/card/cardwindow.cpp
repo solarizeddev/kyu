@@ -270,26 +270,25 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_busy->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     busyRow->addWidget(m_busy);
     text->addWidget(m_busyRow);
-    // "▸ Details" under the text, as in KDE's message boxes: a disclosure,
-    // not a button beside the actions; what it shows opens above them.
-    m_detailsRow = new QWidget(m_textColumn);
-    auto *row = new QHBoxLayout(m_detailsRow);
-    row->setContentsMargins(0, down / 2, 0, 0); // with the column's spacing: a line's spacing
-    m_details = new Disclosure(QStringLiteral("Details"), m_detailsRow);
-    connect(m_details, &QAbstractButton::clicked, this, [this]() {
-        showDetails(!m_detailsShown);
-    });
-    row->addWidget(m_details);
-    row->addStretch(1);
-    text->addWidget(m_detailsRow);
     m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
     m_grid->addWidget(m_textColumn, 0, 1);
     m_grid->setColumnStretch(1, 1); // a wider window (Details open): the text gets the room
     layout->addLayout(m_grid);
-    // Details, opened under the text and above the buttons (as KDE's
-    // message box does: the buttons stay the card's last row): what the
-    // update changes, as pacman lists it, or the failure in the program's
-    // words. One read-only text box in the fixed-width
+
+    // Under the text, in its column (everything starts at the text's left
+    // edge, the icon alone in its own): one row with "▸ Details" on the left
+    // and the buttons on the right, then what Details opens, under its row.
+    auto *lower = new QVBoxLayout;
+    lower->setSpacing(0);
+    lower->setContentsMargins(0, 2 * down, 0, 0); // twice a line's spacing above the buttons
+    m_grid->addLayout(lower, 1, 1);
+    m_grid->setRowStretch(1, 1); // a taller window (Details open): the list gets the room
+    m_details = new Disclosure(QStringLiteral("Details"), this);
+    connect(m_details, &QAbstractButton::clicked, this, [this]() {
+        showDetails(!m_detailsShown);
+    });
+    // Details: what the update changes, as pacman lists it, or the failure
+    // in the program's words. One read-only text box in the fixed-width
     // font, on the palette's own colours (not a terminal's: nothing to type).
     m_detailsArea = new QWidget(this);
     auto *details = new QVBoxLayout(m_detailsArea);
@@ -303,9 +302,6 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_raw->document()->setDocumentMargin(down);
     details->addWidget(m_raw);
     m_detailsArea->hide();
-    layout->addWidget(m_detailsArea, 1);
-    layout->addSpacing(2 * down);
-
 
     // The buttons, on the right: what to do, the main one last.
     m_footer = new QHBoxLayout;
@@ -322,11 +318,16 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     connect(m_action, &QPushButton::clicked, this, [this]() {
         run(m_view.action);
     });
+    m_footer->addWidget(m_details);
+    m_footer->addSpacing(2 * across);
     m_footer->addStretch(1);
     m_footer->addWidget(m_footerHeight); // no width: keeps a button's height without buttons
     m_footer->addWidget(m_secondary);
     m_footer->addWidget(m_action);
-    layout->addLayout(m_footer);
+    lower->addLayout(m_footer);
+    lower->addWidget(m_detailsArea, 1);
+    setTabOrder(m_details, m_secondary);
+    setTabOrder(m_secondary, m_action);
 
 
     applyFonts();
@@ -411,7 +412,7 @@ void CardWindow::sizeDetails()
         m_raw->setMinimumWidth(0);
         // Lines as the box wraps them (at word boundaries, in the card's
         // width less the frame and margins).
-        const qreal wrapWidth = m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing() - frame;
+        const qreal wrapWidth = m_textColumn->width() - frame;
         QTextOption option;
         option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
         for (const QString &line : text) {
@@ -534,7 +535,7 @@ void CardWindow::present(const Kyu::CardView &view)
 
     // Details: the list of what changes, or the failure's own words.
     const bool hasDetails = !view.rows.isEmpty() || !view.raw.isEmpty();
-    m_detailsRow->setVisible(hasDetails);
+    m_details->setVisible(hasDetails);
     if (!hasDetails && m_detailsShown) {
         showDetails(false);
     }
