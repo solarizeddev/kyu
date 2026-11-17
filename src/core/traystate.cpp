@@ -396,6 +396,9 @@ CardView cardView(const TrayInput &in)
         } else if (const auto m = updatedPackage.match(reason); m.hasMatch()) {
             c.detail = QStringLiteral("An update of %1 is installed.\nThe old version runs until you restart.").arg(m.captured(1));
         } else {
+            if (reason.startsWith(QLatin1String("the "))) {
+                reason[0] = QLatin1Char('T');
+            }
             c.detail = reason + QStringLiteral(".\nThe old version runs until you restart.");
         }
         if (!in.configs.isEmpty()) {

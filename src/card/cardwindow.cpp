@@ -38,6 +38,7 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <memory>
 
 namespace
@@ -377,6 +378,10 @@ void CardWindow::present(const Kyu::CardView &view)
             item->setToolTip(1, QStringLiteral("Needs a restart afterwards"));
         }
     }
+    // The restart column only when a row needs a restart.
+    m_list->setColumnHidden(0, std::none_of(view.rows.cbegin(), view.rows.cend(), [](const Kyu::DetailRow &row) {
+        return row.restart;
+    }));
     m_raw->setPlainText(view.raw);
     m_detailsArea->setCurrentWidget(view.rows.isEmpty() ? static_cast<QWidget *>(m_raw) : m_list);
 
