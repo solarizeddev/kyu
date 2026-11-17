@@ -4,6 +4,8 @@ function(kyu_test name)
     add_executable(${name} ${name}.cpp)
     target_link_libraries(${name} PRIVATE kyucore Qt6::Test)
     add_test(NAME ${name} COMMAND ${name})
+    # Times in the tests are UTC; shown in the local time zone otherwise.
+    set_tests_properties(${name} PROPERTIES ENVIRONMENT "TZ=UTC")
 endfunction()
 
 kyu_test(test_pacmanparse)
