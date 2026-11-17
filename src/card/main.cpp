@@ -74,7 +74,8 @@ int main(int argc, char **argv)
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));
     QApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
     QApplication::setDesktopFileName(QStringLiteral(KYU_APP_ID));
-    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("update-low")));
+    // Kyu's icon, as in its menu entry and on Kyu's update window.
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("system-software-update")));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("What is going on with updates, and the one thing to do next."));

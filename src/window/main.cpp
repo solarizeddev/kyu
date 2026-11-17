@@ -31,6 +31,7 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QFontMetrics>
+#include <QIcon>
 #include <QLockFile>
 #include <QMessageBox>
 #include <QPointer>
@@ -177,6 +178,9 @@ int main(int argc, char **argv)
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));
     QApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
     QApplication::setDesktopFileName(QStringLiteral(KYU_APP_ID));
+    // Kyu's icon, as in its menu entry: without one (not installed, run from
+    // a build) Plasma shows its placeholder, the Wayland logo.
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("system-software-update")));
 
     const QString program = updateProgram();
     const QStringList args = QCoreApplication::arguments().mid(1);
