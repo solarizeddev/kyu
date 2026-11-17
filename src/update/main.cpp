@@ -86,9 +86,8 @@ public:
         print(text, Tone::Info, true);
     }
     // A heading for what follows ("Arch Linux news since your last update").
-    void heading(const QString &text, Tone tone)
+    void heading(const QString &text)
     {
-        Q_UNUSED(tone)
         print(text, Tone::Plain, true);
     }
     // "▸ Packages   sudo pacman -Syu": what runs next.
@@ -132,9 +131,8 @@ public:
     {
         print(QString(), Tone::Plain, false);
     }
-    void prompt(const QString &text, Tone tone)
+    void prompt(const QString &text)
     {
-        Q_UNUSED(tone)
         write(text, Tone::Plain, true);
         std::fflush(stdout);
     }
@@ -155,18 +153,17 @@ private:
     void marked(const QString &mark, const QString &text, Tone tone)
     {
         write(mark, tone, false);
-        print(QLatin1Char(' ') + text, Tone::Plain, true, int(mark.size()) + 1);
+        print(QLatin1Char(' ') + text, Tone::Plain, true, int(mark.size()) + 1, int(mark.size()));
     }
     QString sym(const char *utf8, const char *ascii) const
     {
         return QString::fromUtf8(m_utf8 ? utf8 : ascii);
     }
-    // indent: where wrapped lines start (under the text, after a mark),
-    // counted from the line's start; the text itself starts at column
-    // `indent` when it has a mark before it (marked()).
-    void print(const QString &text, Tone tone, bool bold, int indent = 0)
+    // indent: the column wrapped lines start at (under the text); used: the
+    // columns already written on this line before `text` (a mark).
+    void print(const QString &text, Tone tone, bool bold, int indent = 0, int used = 0)
     {
-        const QStringList lines = wrapped(text, indent);
+        const QStringList lines = wrapped(text, indent, used);
         for (qsizetype i = 0; i < lines.size(); ++i) {
             if (i > 0) {
                 put(QString(indent, QLatin1Char(' ')));
@@ -188,23 +185,22 @@ private:
         winsize size{};
         return ::isatty(STDOUT_FILENO) && ::ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0 ? size.ws_col : 0;
     }
-    // Words to lines that fit the terminal. The first line keeps its own
-    // leading spaces; after a mark it starts at column `indent`. The others
-    // start at column `indent`.
-    QStringList wrapped(const QString &text, int indent) const
+    // Words to lines that fit the terminal: the first after the `used`
+    // columns already on it, keeping its own leading spaces; the others
+    // from column `indent`.
+    QStringList wrapped(const QString &text, int indent, int used) const
     {
         const int width = m_capture ? 0 : columns();
+        if (width <= indent + 20 || used + text.size() <= width) {
+            return {text};
+        }
         qsizetype lead = 0;
         while (lead < text.size() && text.at(lead) == QLatin1Char(' ')) {
             ++lead;
         }
-        const int start = lead > 0 ? 0 : qMax(0, indent - 1); // after "▸ " the text is at `indent`
-        if (width <= indent + 20 || start + text.size() <= width) {
-            return {text};
-        }
         QStringList lines;
         QString line = text.left(lead);
-        int room = width - start;
+        int room = width - used;
         bool empty = true;
         for (const QString &word : text.mid(lead).split(QLatin1Char(' '), Qt::SkipEmptyParts)) {
             if (!empty && line.size() + 1 + word.size() > room) {
@@ -773,7 +769,7 @@ int main(int argc, char **argv)
             out.blank();
             // Keys pressed while flatpak or pacdiff ran are not answers to this.
             discardTypedAhead();
-            out.prompt(offer.join(QStringLiteral("   ")) + QLatin1Char(' '), Tone::Info);
+            out.prompt(offer.join(QStringLiteral("   ")) + QLatin1Char(' '));
             const QString answer = readAnswer();
             if (answer.isEmpty()) {
                 return 0;
@@ -787,7 +783,7 @@ int main(int argc, char **argv)
                     out.note(QStringLiteral("Plasma asks whether to restart now."), Tone::Dim);
                     continue;
                 }
-                out.prompt(QStringLiteral("Restart now? Unsaved work in open programs is lost. [y/N] "), Tone::Warn);
+                out.prompt(QStringLiteral("Restart now? Unsaved work in open programs is lost. [y/N] "));
                 if (readAnswer() != QLatin1String("y")) {
                     continue;
                 }
@@ -857,7 +853,7 @@ int main(int argc, char **argv)
             return 3;
         }
         out.blank();
-        out.prompt(QStringLiteral("[Enter] close "), Tone::Info);
+        out.prompt(QStringLiteral("[Enter] close "));
         readAnswer();
         return 0;
     }
@@ -947,7 +943,7 @@ int main(int argc, char **argv)
                      Tone::Dim);
         } else {
             const QList<Kyu::NewsItem> shown = fresh.mid(0, 5);
-            out.heading(QStringLiteral("%1 since your last update").arg(state->news.source), Tone::Warn);
+            out.heading(QStringLiteral("%1 since your last update").arg(state->news.source));
             for (const Kyu::NewsItem &item : shown) {
                 out.note(item.title);
                 out.note(item.link, Tone::Dim);
@@ -956,7 +952,7 @@ int main(int argc, char **argv)
                 out.note(QStringLiteral("… and %1 more: %2").arg(fresh.size() - shown.size()).arg(state->news.page), Tone::Dim);
             }
             // No by default: Enter alone must not skip news that may need action.
-            out.prompt(QStringLiteral("Continue? [y/N] "), Tone::Warn);
+            out.prompt(QStringLiteral("Continue? [y/N] "));
             const QString answer = readAnswer();
             if (!stdinIsTerminal()) {
                 out.blank(); // a typed answer ends the line itself
@@ -1623,7 +1619,7 @@ int main(int argc, char **argv)
         out.warn(QStringLiteral("Restart needed: ") + restartReason + (restartFromThisRun ? QString() : QStringLiteral(" (from an earlier update)")));
         if (unfinished) {
             // Half an update: the new kernel's boot files may not be there.
-            out.note(QStringLiteral("Do not restart until the update has finished."), Tone::Warn);
+            out.note(QStringLiteral("Do not restart until the update has finished."));
         } else {
             keys.restart = true;
         }

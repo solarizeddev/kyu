@@ -213,7 +213,8 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
 
     // When, and what can be done. The time lines up with the text above it.
     m_footer = new QHBoxLayout;
-    m_footerIndent = new QWidget(this);
+    m_footerIndent = new QSpacerItem(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    m_footerHeight = new QWidget(this);
     m_stamp = new QLabel(this);
     m_stamp->setForegroundRole(QPalette::PlaceholderText);
     m_refresh = new QToolButton(this);
@@ -241,7 +242,8 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     when->setSpacing(2);
     when->addWidget(m_stamp);
     when->addWidget(m_refresh);
-    m_footer->addWidget(m_footerIndent);
+    when->addWidget(m_footerHeight); // no width: here it moves nothing
+    m_footer->addSpacerItem(m_footerIndent);
     m_footer->addLayout(when);
     m_footer->addStretch(1);
     m_footer->addWidget(m_details);
@@ -305,16 +307,24 @@ void CardWindow::applyFonts()
     m_busy->ensurePolished(); // the style's height, not the default
     m_grid->setRowMinimumHeight(1, qMax(metrics.lineSpacing(), m_busy->sizeHint().height()));
     // The time starts where the text does.
-    m_footerIndent->setFixedSize(m_icon->sizeHint().width() + m_grid->horizontalSpacing(), 1);
+    m_footerIndent->changeSize(m_icon->sizeHint().width() + m_grid->horizontalSpacing(), 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     // The refresh button close to the time, its icon small.
     const int small = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
     m_refresh->setIconSize({small, small});
     const int side = qMax(small, metrics.height()) + 4;
     m_refresh->setFixedSize(side, side);
     // The button row as tall with or without a button.
-    m_footer->addStrut(m_action->sizeHint().height());
+    keepFooterHeight();
     sizeDetails();
     setNote(m_noteText);
+}
+
+void CardWindow::keepFooterHeight()
+{
+    // As tall as a button with its icon and text (the Details button always
+    // has both), whether any button shows or not.
+    m_details->ensurePolished();
+    m_footerHeight->setFixedSize(0, m_details->sizeHint().height());
 }
 
 void CardWindow::sizeDetails()
@@ -444,6 +454,7 @@ void CardWindow::present(const Kyu::CardView &view)
     m_list->setColumnHidden(0, std::none_of(view.rows.cbegin(), view.rows.cend(), [](const Kyu::DetailRow &row) {
         return row.restart;
     }));
+    keepFooterHeight();
     m_raw->setPlainText(view.raw);
     m_list->setVisible(!view.rows.isEmpty());
     m_raw->setVisible(view.rows.isEmpty());

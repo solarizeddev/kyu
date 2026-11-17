@@ -7,6 +7,7 @@
 
 class QLabel;
 class QProgressBar;
+class QSpacerItem;
 class QPlainTextEdit;
 class QPushButton;
 class QGridLayout;
@@ -67,6 +68,7 @@ private:
     void applyFonts();
     void setNote(const QString &text);
     void sizeDetails();
+    void keepFooterHeight();
 
     StateWatcher *m_watcher;
     CheckScheduler *m_scheduler;
@@ -88,7 +90,8 @@ private:
     QWidget *m_detailsArea;
     QGridLayout *m_grid;
     QHBoxLayout *m_footer;
-    QWidget *m_footerIndent;
+    QSpacerItem *m_footerIndent; // the time starts where the text does
+    QWidget *m_footerHeight; // the button row as tall without buttons (no width)
     QTreeWidget *m_list;
     QPlainTextEdit *m_raw;
     bool m_shown = false;
