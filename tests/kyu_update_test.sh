@@ -491,6 +491,16 @@ hasnt "$d/out" '1 AUR' auronlyfail-2
 [ ! -e "$d/aur-args" ] || fail "auronlyfail-2: paru ran again for the package that failed"
 grep -q '"name": "foo-bin"' "$d/state/kyu/last-run.json" || fail "auronlyfail-2: the held-back package was forgotten"
 
+echo "a held-back AUR package stays held back when another one builds"
+prepare aurheld; state "$work/aurheld/state.json" 0 0 0 "" "foo-bin bar-bin"
+mkdir -p "$work/aurheld/state/kyu"
+printf '{"v":1,"aurFailed":[{"name":"bar-bin","version":"2-1"}],"time":"2026-11-16T10:00:00Z"}' > "$work/aurheld/state/kyu/last-run.json"
+runtty aurheld 'y\n|\n' --aur-helper "$here/update/paru"
+d=$work/aurheld
+grep -q -- '--ignore bar-bin' "$d/aur-args" || fail "aurheld: the helper was not told to leave bar-bin alone ($(cat "$d/aur-args" 2>/dev/null))"
+grep -q '"name": "bar-bin"' "$d/state/kyu/last-run.json" || fail "aurheld: bar-bin forgotten after foo-bin built"
+has "$d/out" 'AUR, held back: bar-bin' aurheld
+
 echo "Flatpaks and AUR both failed: neither is called done"
 prepare bothfail; state "$work/bothfail/state.json" 2 1 0 "" foo-bin
 KYU_FAKE_AUR=fail KYU_FAKE_FLATPAK_EXIT=1 runtty bothfail 'y\n|y\n|\n' --aur-helper "$here/update/paru"

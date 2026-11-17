@@ -272,6 +272,14 @@ void onAnswerInterrupt(int)
     answerInterrupted = 1;
 }
 
+// The terminal closed (its window): Kyu stays to record what happened;
+// nothing more is run, shown or asked.
+volatile std::sig_atomic_t hungUp = 0;
+void onHangup(int)
+{
+    hungUp = 1;
+}
+
 // One line from stdin, byte by byte: a buffered reader would also take the
 // lines meant for pacman's own questions. Ctrl+C at Kyu's own question is
 // "no" (or "close"), not Kyu killed with its marks left behind.
@@ -283,24 +291,32 @@ QString readAnswer()
     ::sigaction(SIGINT, &stop, &old);
     QByteArray line;
     char c = 0;
-    while (::read(STDIN_FILENO, &c, 1) == 1 && c != '\n') {
-        line.append(c);
+    bool ended = false;
+    for (;;) {
+        const ssize_t n = ::read(STDIN_FILENO, &c, 1);
+        if (n == 1) {
+            if (c == '\n') {
+                ended = true;
+                break;
+            }
+            line.append(c);
+        } else if (n < 0 && errno == EINTR && !answerInterrupted && !hungUp) {
+            continue; // another signal: keep reading
+        } else {
+            break; // end of input, Ctrl+C, the window closed
+        }
     }
     ::sigaction(SIGINT, &old, nullptr);
     if (answerInterrupted) {
         std::fputs("\n", stdout);
         std::fflush(stdout);
+    }
+    // Only a whole line is an answer: "y" typed, then the window closed
+    // (or Ctrl+C), is no answer, not a yes to a restart.
+    if (!ended || answerInterrupted || hungUp) {
         return QString();
     }
     return QString::fromLocal8Bit(line).trimmed().toLower();
-}
-
-// The terminal closed (its window): Kyu stays to record what happened;
-// nothing more is run, shown or asked.
-volatile std::sig_atomic_t hungUp = 0;
-void onHangup(int)
-{
-    hungUp = 1;
 }
 
 // Run a command with the terminal: its output and questions are the user's.
@@ -740,11 +756,14 @@ bool runPacdiff(Out &out, const QString &elevate)
     if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()) {
         if (!QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
-        } else if (!QStandardPaths::findExecutable(QStringLiteral("kompare")).isEmpty()) {
+        } else if (!(env.value(QStringLiteral("WAYLAND_DISPLAY")).isEmpty() && env.value(QStringLiteral("DISPLAY")).isEmpty())
+                   && !QStandardPaths::findExecutable(QStringLiteral("kompare")).isEmpty()) {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("kompare"));
-        } else if (!QStandardPaths::findExecutable(QStringLiteral("meld")).isEmpty()) {
+        } else if (!(env.value(QStringLiteral("WAYLAND_DISPLAY")).isEmpty() && env.value(QStringLiteral("DISPLAY")).isEmpty())
+                   && !QStandardPaths::findExecutable(QStringLiteral("meld")).isEmpty()) {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("meld"));
-        } else if (!QStandardPaths::findExecutable(QStringLiteral("kdiff3")).isEmpty()) {
+        } else if (!(env.value(QStringLiteral("WAYLAND_DISPLAY")).isEmpty() && env.value(QStringLiteral("DISPLAY")).isEmpty())
+                   && !QStandardPaths::findExecutable(QStringLiteral("kdiff3")).isEmpty()) {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("kdiff3"));
         } else {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("diff -u --color=always"));
@@ -1201,7 +1220,7 @@ int main(int argc, char **argv)
         Lock result = Lock::TimedOut;
         const bool tty = ::isatty(STDOUT_FILENO);
         while (waited.elapsed() < lockLimit) {
-            if (interrupted) {
+            if (interrupted || hungUp) {
                 result = Lock::Stopped;
                 break;
             }
@@ -1359,6 +1378,10 @@ int main(int argc, char **argv)
     // its upgrade) before changing anything. A value: the update ends here.
     const auto runPacman = [&](const QList<PacmanStep> &steps) -> std::optional<int> {
         out.blank();
+        // The window closed meanwhile (the news, the lock): nothing is started.
+        if (hungUp) {
+            return finish(4);
+        }
         out.step(steps.first().title, steps.first().command.join(QLatin1Char(' ')));
         for (int attempt = 0; attempt < 2; ++attempt) {
             const qint64 logOffset = QFileInfo(logPath).size();
@@ -1512,11 +1535,28 @@ int main(int argc, char **argv)
         // "n" at flatpak's own question: a stop, not a failure. "Nothing to
         // update" though the check listed some: none were updated (a remote
         // gone or unreachable: flatpak only warns, and exits 0).
-        static const QRegularExpression answeredNo(QStringLiteral("\\[[YJ]/n\\]:?\\s*[nN]\\s*$"));
-        flatpakStopped = flatpakExit > 0 && std::any_of(shown.cend() - qMin<qsizetype>(shown.size(), 3), shown.cend(), [](const QString &l) {
-            return answeredNo.match(l).hasMatch();
-        });
-        flatpakNothing = flatpakExit == 0 && shown.contains(QStringLiteral("Nothing to update."));
+        // In any language: a choice ("[Y/n]", "[J/n]", "[O/n]") answered
+        // with the letter that is not the default (the capital one).
+        static const QRegularExpression choice(QStringLiteral("\\[(\\S{1,4})/(\\S{1,4})\\]:?\\s*(\\S*)\\s*$"));
+        const auto declinedAt = [](const QString &l) {
+            const auto m = choice.match(l);
+            if (!m.hasMatch() || m.captured(3).isEmpty()) {
+                return false;
+            }
+            const QString yes = m.captured(1), no = m.captured(2);
+            const QString fallback = yes.at(0).isUpper() ? yes : no; // Enter's answer
+            return m.captured(3).toLower() != fallback.toLower().left(m.captured(3).size());
+        };
+        flatpakStopped = flatpakExit > 0 && std::any_of(shown.cend() - qMin<qsizetype>(shown.size(), 3), shown.cend(), declinedAt);
+        // flatpak lists what it updates by ID (never translated): none of
+        // the listed ones named (its "F:" warnings aside), though the check
+        // listed some, means none were updated (a remote gone: it only warns).
+        flatpakNothing = flatpakExit == 0 && !shown.isEmpty() && state && !state->flatpaks.isEmpty()
+            && std::none_of(state->flatpaks.cbegin(), state->flatpaks.cend(), [&shown](const Kyu::FlatpakUpdate &f) {
+                   return std::any_of(shown.cbegin(), shown.cend(), [&f](const QString &l) {
+                       return !l.startsWith(QLatin1String("F:")) && l.contains(f.name);
+                   });
+               });
     }
 
     // What is left to do comes from this run and, in the same boot, from
@@ -1635,10 +1675,18 @@ int main(int argc, char **argv)
         const QStringList c = inhibited(command);
         aurExit = runWatched(c);
         aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
-        aurFailed = QJsonArray();
+        // The held-back ones stay held back, whatever the helper did with
+        // the rest (it was told to leave them alone).
+        QJsonArray stillHeld;
+        for (const QJsonValue &v : std::as_const(aurFailed)) {
+            if (aurHeldBack.contains(v[QStringLiteral("name")].toString())) {
+                stillHeld.append(v);
+            }
+        }
+        aurFailed = stillHeld;
         if (aurExit > 0 && state) {
             for (const Kyu::PackageUpdate &p : state->aurPackages) {
-                if (!aurRun.upgraded.contains(p.name)) {
+                if (!aurRun.upgraded.contains(p.name) && !aurHeldBack.contains(p.name)) {
                     aurFailed.append(QJsonObject{{QStringLiteral("name"), p.name}, {QStringLiteral("version"), p.newVersion}});
                 }
             }
@@ -1692,7 +1740,12 @@ int main(int argc, char **argv)
         // line is its "::" question), Ctrl+C before anything changed (pacman
         // exits 130), or sudo (doas) not given the password: its own line,
         // "sudo: …" in any language; pacman never ran then.
-        const bool refused = !last.isEmpty() && (last.last().startsWith(QLatin1String("sudo: ")) || last.last().startsWith(QLatin1String("doas: ")));
+        const bool pacmanSpoke = std::any_of(pacmanLines.cbegin(), pacmanLines.cend(), [](const QString &l) {
+            return l.trimmed().startsWith(QLatin1String("::")) || l.trimmed().startsWith(QLatin1String("error:"));
+        });
+        const bool refused = !pacmanSpoke && !last.isEmpty()
+            && (last.last().startsWith(QLatin1String("sudo: ")) || last.last().startsWith(QLatin1String("doas: ")))
+            && !last.last().contains(QLatin1String("command not found"));
         // A question answered: "… [Y/n] n" ("[J/n]" in German); a "::" line
         // without one (a dependency pacman cannot satisfy) is not a stop.
         static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));

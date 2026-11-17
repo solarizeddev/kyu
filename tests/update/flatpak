@@ -6,7 +6,7 @@
 touch "$KYU_FAKE_DIR/flatpak-ran"
 echo "Looking for updates…"
 if [ "${KYU_FAKE_FLATPAK:-}" = nothing ]; then
-    echo "F: Warning: Treating remote fetch error as non-fatal since app/org.mozilla.firefox/x86_64/stable is already installed"
+    echo "F: Warning: Treating remote fetch error as non-fatal since app/org.x.App0/x86_64/stable is already installed"
     echo "Nothing to update."
     exit 0
 fi
@@ -15,6 +15,6 @@ if [ "${KYU_FAKE_FLATPAK:-}" = ask ]; then
     read -r answer || exit 1
     case "$answer" in n|N) exit 1 ;; esac
 fi
-echo " 1. [✓] org.mozilla.firefox   stable  u  flathub  72.1 MB / 80.3 MB"
+echo " 1. [✓] org.x.App0   stable  u  flathub  72.1 MB / 80.3 MB"
 echo "Updates complete."
 exit "${KYU_FAKE_FLATPAK_EXIT:-0}"

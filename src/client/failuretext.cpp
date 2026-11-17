@@ -1,5 +1,7 @@
 #include "failuretext.h"
 
+#include <QRegularExpression>
+
 #include "keyrings.h"
 
 #include <QFile>
@@ -48,7 +50,9 @@ FailureText describeFailure(const QJsonObject &failure)
                                 "the mirror is gone. Mirrors are listed in /etc/pacman.d/mirrorlist.")
                      .arg(hosts.isEmpty() ? QStringLiteral("The mirror") : hosts.join(QStringLiteral(", ")));
         t.items = strings(failure.value(QStringLiteral("files")));
-        if (distroId() == QLatin1String("manjaro")) {
+        // Manjaro's own mirror list only for Manjaro's repositories (not a
+        // third-party one).
+        if (distroId() == QLatin1String("manjaro") && t.items.contains(QStringLiteral("core.db"))) {
             t.command = QStringLiteral("sudo pacman-mirrors --fasttrack && sudo pacman -Syyu");
             t.fix = QStringLiteral("sudo pacman-mirrors --fasttrack");
             t.text.replace(QStringLiteral(" Mirrors are listed in /etc/pacman.d/mirrorlist."), QStringLiteral(" A new mirror list fixes it."));
@@ -61,7 +65,9 @@ FailureText describeFailure(const QJsonObject &failure)
                      .arg(hosts.isEmpty() ? QStringLiteral("The mirror") : hosts.join(QStringLiteral(", ")),
                           files.size() == 1 ? QStringLiteral("the package file below") : QStringLiteral("%1 package files").arg(files.size()));
         t.items = files;
-        if (distroId() == QLatin1String("manjaro")) {
+        // Manjaro's own mirror list only for Manjaro's repositories (not a
+        // third-party one).
+        if (distroId() == QLatin1String("manjaro") && t.items.contains(QStringLiteral("core.db"))) {
             t.command = QStringLiteral("sudo pacman-mirrors --fasttrack && sudo pacman -Syyu");
             t.fix = QStringLiteral("sudo pacman-mirrors --fasttrack");
         } else {
@@ -94,8 +100,18 @@ FailureText describeFailure(const QJsonObject &failure)
                                 "from /var/cache/pacman/pkg first.")
                      .arg(packages.isEmpty() ? QStringLiteral("A package") : packages.join(QStringLiteral(", ")));
         t.items = files;
-        if (!files.isEmpty()) {
-            t.command = QStringLiteral("sudo rm -f %1").arg(files.join(QLatin1Char(' ')));
+        // The file names come from pacman's output (and from the mirror's
+        // package list): a fix runs as root only for plain cache paths,
+        // each quoted.
+        static const QRegularExpression cached(QStringLiteral("^/var/cache/pacman/pkg/[A-Za-z0-9@._+:-]+$"));
+        QStringList safe;
+        for (const QString &f : files) {
+            if (cached.match(f).hasMatch()) {
+                safe.append(QLatin1Char('\'') + f + QLatin1Char('\''));
+            }
+        }
+        if (!safe.isEmpty() && safe.size() == files.size()) {
+            t.command = QStringLiteral("sudo rm -f %1").arg(safe.join(QLatin1Char(' ')));
             t.fix = t.command;
         }
     } else if (kind == QLatin1String("files")) {
