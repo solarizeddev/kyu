@@ -3,6 +3,7 @@
 
 #include "checkscheduler.h"
 #include "statewatcher.h"
+#include "systemwatcher.h"
 #include "trayicon.h"
 
 #include <QApplication>
@@ -23,6 +24,17 @@ int main(int argc, char **argv)
     CheckScheduler scheduler;
     TrayIcon tray(&watcher);
     QObject::connect(&tray, &TrayIcon::checkRequested, &scheduler, &CheckScheduler::checkNow);
+    // Check again when packages changed outside Kyu (pamac, plain pacman),
+    // after sleep, and when the network is back after a failed check.
+    SystemWatcher system;
+    system.watchSystemBus();
+    QObject::connect(&system, &SystemWatcher::packagesChanged, &scheduler, &CheckScheduler::checkNow);
+    QObject::connect(&system, &SystemWatcher::resumed, &scheduler, &CheckScheduler::checkNow);
+    QObject::connect(&system, &SystemWatcher::networkUp, &scheduler, [&watcher, &scheduler]() {
+        if (!watcher.loadError().isEmpty() || (watcher.state() && watcher.state()->hasError())) {
+            scheduler.checkNow();
+        }
+    });
     QObject::connect(&tray, &TrayIcon::cardRequested, &tray, [](const QString &token) {
         // The card is its own process (so it can close or crash without
         // touching the tray) and is single-instance: a second start raises it.

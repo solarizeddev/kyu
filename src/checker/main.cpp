@@ -13,6 +13,8 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QLockFile>
+
+#include <unistd.h>
 #include <QTextStream>
 
 namespace
@@ -26,6 +28,9 @@ enum ExitCode {
 
 int main(int argc, char **argv)
 {
+    // A safety net: whatever hangs, the check ends (and its lock with it)
+    // after ten minutes, so it never blocks the checks after it.
+    ::alarm(600);
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-check"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));

@@ -25,3 +25,8 @@ kyu_test(test_kyucheck)
 target_compile_definitions(test_kyucheck PRIVATE KYU_CHECK_BIN="$<TARGET_FILE:kyu-check>")
 add_dependencies(test_kyucheck kyu-check)
 
+
+add_executable(test_systemwatcher test_systemwatcher.cpp ${CMAKE_SOURCE_DIR}/src/tray/systemwatcher.cpp)
+target_include_directories(test_systemwatcher PRIVATE ${CMAKE_SOURCE_DIR}/src/tray)
+target_link_libraries(test_systemwatcher PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
+add_test(NAME test_systemwatcher COMMAND test_systemwatcher)

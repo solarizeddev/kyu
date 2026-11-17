@@ -6,7 +6,10 @@ Documentation=https://github.com/solarizeddev/kyu
 # kyu-tray starts this timer at login. To check without the tray:
 #   systemctl --user enable --now kyu-check.timer
 OnActiveSec=2min
-OnUnitActiveSec=1h
+# On the clock, and Persistent: a check missed while the computer slept runs
+# when it wakes (a monotonic OnUnitActiveSec does not count sleep).
+OnCalendar=hourly
+Persistent=true
 RandomizedDelaySec=5min
 
 [Install]
