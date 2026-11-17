@@ -158,6 +158,12 @@ TrayView trayView(const TrayInput &in)
     const bool checkFailed = total == 0 && (!in.loadError.isEmpty() || (in.state && in.state->hasError()));
     const NewsItem *unread = unreadNews(in);
     const bool news = total > 0 && unread;
+    if (unread) {
+        v.newsTitle = unread->title;
+        v.newsLink = unread->link;
+        v.newsKey = newsKey(*unread);
+        v.newsSource = in.state->news.source;
+    }
     const QStringList status = statusLines(in.state, in.checking, in.loadError, in.now);
 
     if (in.updating) {

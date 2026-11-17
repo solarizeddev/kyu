@@ -1,0 +1,16 @@
+[Global]
+IconName=system-software-update
+Comment=Kyu
+DesktopEntry=@KYU_APP_ID@
+
+[Event/news]
+Name=News to read before updating
+Comment=A new announcement from your distribution, once; it stays until dismissed
+Action=Popup
+Urgency=Normal
+
+[Event/waitingForYou]
+Name=The update is waiting for you
+Comment=pacman, sudo or Kyu asks a question while the Kyu window is not in front
+Action=Popup
+Urgency=High

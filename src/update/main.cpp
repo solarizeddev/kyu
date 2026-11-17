@@ -17,6 +17,7 @@
 #include "aur.h"
 #include "keyrings.h"
 #include "translations.h"
+#include "waiting.h"
 #include "news.h"
 #include "paths.h"
 #include "updatestate.h"
@@ -282,7 +283,12 @@ QString readAnswer()
 // to report what happened.
 void noop(int) {}
 
-int runInTerminal(const QString &program, const QStringList &args, const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment())
+// watch: the file `script` records the command's output to. While the
+// output stands still on a question (pacman's "Proceed?", sudo's password),
+// the state directory says the update is waiting (waiting.h), for the Kyu
+// window to tell when it is not in front.
+int runInTerminal(const QString &program, const QStringList &args, const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment(),
+                  const QString &watch = QString())
 {
     struct sigaction quiet {};
     quiet.sa_handler = noop; // a handler, not SIG_IGN: exec resets it for the child
@@ -296,7 +302,33 @@ int runInTerminal(const QString &program, const QStringList &args, const QProces
     process.start(program, args);
     int code = 127;
     if (process.waitForStarted(-1)) {
-        process.waitForFinished(-1);
+        if (watch.isEmpty()) {
+            process.waitForFinished(-1);
+        } else {
+            qint64 size = -1;
+            QElapsedTimer still;
+            still.start();
+            QString shown;
+            while (!process.waitForFinished(500)) {
+                QFile recorded(watch);
+                const qint64 now = recorded.size();
+                if (now != size) {
+                    size = now;
+                    still.restart();
+                    if (!shown.isEmpty()) {
+                        shown.clear();
+                        Kyu::setWaiting(QString());
+                    }
+                } else if (shown.isEmpty() && still.elapsed() >= 1500 && recorded.open(QIODevice::ReadOnly)) {
+                    recorded.seek(qMax<qint64>(0, now - 4096));
+                    shown = Kyu::waitingPrompt(recorded.readAll());
+                    if (!shown.isEmpty()) {
+                        Kyu::setWaiting(shown);
+                    }
+                }
+            }
+            Kyu::setWaiting(QString());
+        }
         code = process.exitStatus() == QProcess::NormalExit ? process.exitCode() : 128 + 2;
     }
     ::sigaction(SIGINT, &oldInt, nullptr);
@@ -615,6 +647,23 @@ QStringList inhibited(const QStringList &command)
 }
 
 // A command line for `script -c` (run by /bin/sh).
+// A command that may ask questions (flatpak, the AUR helper), run inside
+// util-linux `script` so its output can be watched for them; without
+// `script`, as it is.
+int runWatched(const QStringList &command)
+{
+    const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
+    QTemporaryDir recording;
+    if (script.isEmpty() || !recording.isValid()) {
+        return runInTerminal(command.first(), command.mid(1));
+    }
+    const QString typescript = recording.filePath(QStringLiteral("typescript"));
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
+    return runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shellJoin(command), typescript}, env,
+                         typescript);
+}
+
 QString shellJoin(const QStringList &args)
 {
     static const QRegularExpression plain(QStringLiteral("^[A-Za-z0-9_./=:,+-]+$"));
@@ -749,6 +798,7 @@ int main(int argc, char **argv)
     const QString activityPath = Kyu::Paths::stateDir() + QStringLiteral("/activity");
     auto finish = [&](int code, const Keys &keys = {}) {
         QFile::remove(activityPath);
+        Kyu::setWaiting(QString());
         lock.unlock();
         if (parser.isSet(noWait) || !stdinIsTerminal()) {
             return code;
@@ -867,6 +917,8 @@ int main(int argc, char **argv)
             activity.commit();
         }
     }
+    // Nor is any question waiting yet (a file left by a killed run).
+    Kyu::setWaiting(QString());
 
     // --- Configuration files only (the card's Merge…) ----------------------------
     if (parser.isSet(mergeOnly)) {
@@ -953,7 +1005,9 @@ int main(int argc, char **argv)
             }
             // No by default: Enter alone must not skip news that may need action.
             out.prompt(QStringLiteral("Continue? [y/N] "));
+            Kyu::setWaiting(QStringLiteral("News to read first: continue? [y/N]"));
             const QString answer = readAnswer();
+            Kyu::setWaiting(QString());
             if (!stdinIsTerminal()) {
                 out.blank(); // a typed answer ends the line itself
             }
@@ -1206,7 +1260,8 @@ int main(int argc, char **argv)
             QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
             env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
             if (!script.isEmpty() && recording.isValid()) {
-                pacmanExit = runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shell, typescript}, env);
+                pacmanExit = runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shell, typescript}, env,
+                                           typescript);
                 QFile ts(typescript);
                 if (ts.open(QIODevice::ReadOnly)) {
                     pacmanLines = Kyu::terminalLines(ts.readAll());
@@ -1328,7 +1383,7 @@ int main(int argc, char **argv)
     if ((skipPacman || pacmanExit == 0) && flatpakWanted) {
         out.blank();
         out.step(QStringLiteral("Flatpaks"), QStringLiteral("flatpak update"));
-        flatpakExit = runInTerminal(flatpak, {QStringLiteral("update")});
+        flatpakExit = runWatched({flatpak, QStringLiteral("update")});
     }
 
     // What is left to do comes from this run and, in the same boot, from
@@ -1440,7 +1495,7 @@ int main(int argc, char **argv)
         out.note(QStringLiteral("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
         const qint64 logOffset = QFileInfo(logPath).size();
         const QStringList c = inhibited(aurHelper->command);
-        aurExit = runInTerminal(c.first(), c.mid(1));
+        aurExit = runWatched(c);
         aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
         aurFailed = QJsonArray();
         if (aurExit > 0 && state) {

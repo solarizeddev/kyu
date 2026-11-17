@@ -23,6 +23,7 @@ depends=(
     glibc
     kcoreaddons
     kiconthemes
+    knotifications
     konsole
     kparts
     kstatusnotifieritem

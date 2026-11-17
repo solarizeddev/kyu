@@ -3,6 +3,11 @@ configure_file(kyu-tray.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.tra
 configure_file(kyu.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.desktop @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${KYU_APP_ID}.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 
+# The notifications' kinds, for System Settings → Notifications (the
+# component is "kyu", as kyu-tray and kyu-window name it).
+configure_file(kyu.notifyrc ${CMAKE_CURRENT_BINARY_DIR}/kyu.notifyrc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kyu.notifyrc DESTINATION ${CMAKE_INSTALL_DATADIR}/knotifications6)
+
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/kyu-check.service
     kyu-check.timer

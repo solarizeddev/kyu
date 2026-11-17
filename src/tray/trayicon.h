@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointer>
 
+class KNotification;
 class QAction;
 class QMenu;
 class QTimer;
@@ -32,6 +33,7 @@ protected:
 private:
     void refresh();
     void spin();
+    void notifyNews(const QString &key, const QString &title, const QString &link, const QString &source);
 
     StateWatcher *m_watcher;
     QMenu *m_menu;
@@ -39,6 +41,10 @@ private:
     QTimer *m_poll = nullptr;
     QTimer *m_spin = nullptr;
     int m_frame = 0;
+    QString m_newsKey;
+#ifdef KYU_HAVE_KNOTIFICATIONS
+    QPointer<KNotification> m_news;
+#endif
 #ifdef KYU_HAVE_KSNI
     KStatusNotifierItem *m_item;
 #else

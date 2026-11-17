@@ -269,6 +269,22 @@ runtty() {
     echo $? >"$d/code"
 }
 
+echo "waiting: pacman's question is noted for the Kyu window, and cleared once answered"
+prepare waiting
+d=$work/waiting
+fake_system "$d"
+: >"$d/out"
+(
+    n=0
+    while [ ! -s "$d/state/kyu/waiting" ] && [ $n -lt 40 ]; do sleep 0.25; n=$((n + 1)); done
+    cp "$d/state/kyu/waiting" "$d/seen" 2>/dev/null
+    printf 'y\n'; idle "$d/out"; sleep 1
+) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+    timeout 30 script -q -e -c "$bin/kyu-update --no-wait $(fake_args "$d")" /dev/null >"$d/out" 2>&1
+[ "$(cat "$d/seen" 2>/dev/null)" = 'Proceed with installation? [Y/n]' ] || fail "waiting: noted '$(cat "$d/seen" 2>/dev/null)'"
+[ ! -e "$d/state/kyu/waiting" ] || fail "waiting: still noted after the update"
+has "$d/out" '✓ Done' waiting
+
 echo "keys: [f] removes a stale lock, then the update runs again"
 prepare lockfix; touch "$work/lockfix/db.lck"
 runtty lockfix 'f\n|y\n|\n'

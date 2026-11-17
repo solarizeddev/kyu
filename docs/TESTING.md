@@ -8,7 +8,7 @@ system changes), then a real update.
 ## 1. Get it and build it
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes konsole spectacle flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes knotifications konsole spectacle flatpak pacman-contrib
 ```
 
 ```bash
@@ -99,6 +99,26 @@ build/bin/kyu-tray &
   while `kyu-update` runs) on a light and a dark panel;
 - a click opens the card; its button does the right thing;
 - the tooltip says the same as the card.
+
+Notifications, from the build tree: Plasma shows Kyu's notifications only
+with their description installed, once:
+
+```bash
+install -Dm644 build/data/kyu.notifyrc ~/.local/share/knotifications6/kyu.notifyrc
+```
+
+- **The update is waiting for you:** start `build/bin/kyu-window`, and when
+  sudo asks for the password (or pacman asks "Proceed?") switch to another
+  window. Within about three seconds: a notification "The update is waiting
+  for you" ("Your password is needed." or pacman's question), and the Kyu
+  window's taskbar entry asks for attention. **Show** brings the window
+  forward and the notification goes; so does answering from the window.
+  It never shows while the Kyu window is in front.
+- **News:** with an announcement not read yet, start `build/bin/kyu-tray`: one
+  notification with its title, **Read** opens it (and counts as read). Quit
+  and start the tray again: no second one. To see it again, remove
+  `~/.local/state/kyu/news-notified.json`.
+- Both can be switched off in System Settings → Notifications → Kyu.
 
 ### Things that are safe to cause
 

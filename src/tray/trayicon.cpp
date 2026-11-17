@@ -2,17 +2,25 @@
 
 #include "aftercare.h"
 #include "badge.h"
+#include "news.h"
+#include "paths.h"
 #include "statewatcher.h"
 #include "statustext.h"
 #include "traystate.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 
+
+#ifdef KYU_HAVE_KNOTIFICATIONS
+#include <KNotification>
+#endif
 
 #ifdef KYU_HAVE_KSNI
 #include <KStatusNotifierItem>
@@ -108,6 +116,7 @@ void TrayIcon::refresh()
 
     const Kyu::TrayInput in = Kyu::currentTrayInput(state, checking, m_watcher->loadError());
     const Kyu::TrayView view = Kyu::trayView(in);
+    notifyNews(view.newsKey, view.newsTitle, view.newsLink, view.newsSource);
 
 #ifdef KYU_HAVE_KSNI
     // Icons by name, so Plasma colours them for the panel (which may be dark
@@ -157,4 +166,53 @@ void TrayIcon::spin()
     m_item->setIconByName(QStringLiteral("kyu-updating-%1").arg(m_frame));
 #endif
     m_frame = (m_frame + 1) % SpinFrames;
+}
+
+// "News": once per announcement, whether updates are pending or not; it
+// stays until dismissed (it may need action before the next update), and
+// goes when the announcement is read (in kyu-update, the card, or here).
+// Switchable in System Settings → Notifications (kyu.notifyrc, "news").
+void TrayIcon::notifyNews(const QString &key, const QString &title, const QString &link, const QString &source)
+{
+#ifdef KYU_HAVE_KNOTIFICATIONS
+    if (m_news && key != m_newsKey) {
+        m_news->close();
+    }
+#endif
+    if (key.isEmpty() || key == m_newsKey) {
+        if (key.isEmpty()) {
+            m_newsKey.clear();
+        }
+        return;
+    }
+    m_newsKey = key;
+    // Remembered apart from "read": a notification once, even across
+    // restarts of the tray, for an announcement still unread.
+    const QString notified = Kyu::Paths::stateDir() + QStringLiteral("/news-notified.json");
+    if (Kyu::seenNews(notified).contains(key)) {
+        return;
+    }
+    Kyu::markNewsSeen({key}, notified);
+#ifdef KYU_HAVE_KNOTIFICATIONS
+    auto *notification = new KNotification(QStringLiteral("news"), KNotification::Persistent);
+    notification->setComponentName(QStringLiteral("kyu"));
+    notification->setIconName(QStringLiteral("update-medium"));
+    notification->setTitle(source.isEmpty() ? QStringLiteral("News to read before updating") : source);
+    notification->setText(title.toHtmlEscaped());
+    if (!link.isEmpty()) {
+        connect(notification->addAction(QStringLiteral("Read")), &KNotificationAction::activated, this, [key, link]() {
+            Kyu::markNewsSeen({key});
+            QDesktopServices::openUrl(QUrl(link));
+        });
+    }
+    connect(notification->addDefaultAction(QStringLiteral("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
+        Q_EMIT cardRequested(notification->xdgActivationToken());
+    });
+    m_news = notification;
+    notification->sendEvent();
+#else
+    Q_UNUSED(title)
+    Q_UNUSED(link)
+    Q_UNUSED(source)
+#endif
 }

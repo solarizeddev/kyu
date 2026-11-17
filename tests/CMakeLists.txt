@@ -15,6 +15,7 @@ kyu_test(test_aftercare)
 kyu_test(test_traystate)
 kyu_test(test_aur)
 kyu_test(test_translations)
+kyu_test(test_waiting)
 target_compile_definitions(test_translations PRIVATE KYU_TEST_LOCALE="${CMAKE_CURRENT_SOURCE_DIR}/update/locale")
 
 # kyu-update end to end, with fake sudo/pacman/flatpak and util-linux script.

@@ -187,6 +187,11 @@ void TestTrayState::cards()
     QCOMPARE(c.linkText, QStringLiteral("Read first: Second"));
     QCOMPARE(c.linkKey, QStringLiteral("https://forum.manjaro.org/t/2"));
     QVERIFY(trayView(in).tooltip.startsWith(QStringLiteral("Read first: Second")));
+    // The tray's notification: the announcement to read, by its key.
+    QCOMPARE(trayView(in).newsTitle, QStringLiteral("Second"));
+    QCOMPARE(trayView(in).newsKey, QStringLiteral("https://forum.manjaro.org/t/2"));
+    in.newsSeen = {QStringLiteral("https://forum.manjaro.org/t/1"), QStringLiteral("https://forum.manjaro.org/t/2")};
+    QVERIFY(trayView(in).newsKey.isEmpty());
     in.newsSeen.clear();
 
     // Flatpaks only: no password.

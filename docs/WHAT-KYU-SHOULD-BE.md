@@ -67,7 +67,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 7 | One tray, not two: print how to turn pamac's tray off (never change it ourselves) | two trays and two notifications on Manjaro | missing | 2 |
 | 8 | A failed check is quiet (tooltip "could not check since …"); loud only after about a day | an offline laptop shouldn't show red | missing (today: red at once, like a failed update) | 2 |
 | 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
-| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | missing | 2 |
+| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part (untested on Plasma): "News" and "The update is waiting for you"; "Updates", "Done", "Failed" not yet | 2 |
 | 11 | Icons that don't depend on colour alone | Arch-Update colourblind request | part (tooltip) | 2 |
 | 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | verify | 2 |
 
@@ -160,8 +160,16 @@ a password prompt behind other windows stalls the update without a sign), and
 done/failed only fire when the window is not in front. Both: one kind per
 event, replaced, and switchable in System Settings.
 
-Status: missing. Priority: "Waiting for you" and "News" 1; "Updates", "Done",
-"Failed" 2; "Could not check" 3 (with item 8).
+Status: "News" and "Waiting for you" have it (untested on Plasma); "Updates",
+"Done", "Failed" 2 and "Could not check" 3 (with item 8) are missing.
+
+How "Waiting for you" knows: kyu-update runs pacman, flatpak and the AUR
+helper inside util-linux `script` and watches what they print. When the
+output stands still for 1.5 s on a question (a "[Y/n]" choice, or a line
+ending in "?" or ":"; a password prompt in any language through "[sudo]" or
+"password"), it writes the question to `~/.local/state/kyu/waiting`, and
+removes it once output moves on; its own "Continue?" too. The Kyu window
+looks at that file every second and notifies only when it is not in front.
 
 ## Compared with what exists
 

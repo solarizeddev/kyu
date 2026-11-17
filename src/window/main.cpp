@@ -19,6 +19,7 @@
 
 #include "activator.h"
 #include "paths.h"
+#include "waitingnotice.h"
 
 #include <KParts/ReadOnlyPart>
 #include <KPluginFactory>
@@ -235,7 +236,11 @@ int main(int argc, char **argv)
     window->resize(size);
     window->show();
     // The card's "Show window" finds it here (the first Kyu window only).
-    (new Activator(window))->publish();
+    auto *activator = new Activator(window);
+    activator->publish();
+    // A question behind other windows stalls the update without a sign: a
+    // notification says so.
+    new WaitingNotice(window, activator);
 
     // Test kit: answers typed into the terminal from a pipe.
     const QByteArray answers = qgetenv("KYU_WINDOW_ANSWERS");

@@ -31,6 +31,18 @@ else()
     message(WARNING "KF6StatusNotifierItem not found, falling back to QSystemTrayIcon")
 endif()
 
+# Notifications ("News", "The update is waiting for you"), each switchable
+# in System Settings → Notifications through kyu.notifyrc.
+find_package(KF6Notifications QUIET)
+option(KYU_REQUIRE_NOTIFICATIONS "Fail the build if KF6 Notifications is missing" OFF)
+if(KF6Notifications_FOUND)
+    message(STATUS "Notifications: KNotification")
+elseif(KYU_REQUIRE_NOTIFICATIONS)
+    message(FATAL_ERROR "KF6Notifications not found")
+else()
+    message(WARNING "KF6Notifications not found: no notifications (the tray and the taskbar still show the state)")
+endif()
+
 # kyu-window embeds Konsole's terminal part (KF6 Parts; Konsole at run time).
 find_package(KF6Parts QUIET)
 find_package(KF6CoreAddons QUIET)

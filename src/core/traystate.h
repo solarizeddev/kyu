@@ -44,6 +44,12 @@ struct TrayView {
     QString tooltip; // one or two lines
     bool passive = true; // nothing to do: the tray may hide it
     bool lastFailed = false; // Error because the last update failed (not the check)
+    // An announcement not read yet (with updates pending or not): the
+    // tray's "News" notification, once per announcement.
+    QString newsTitle;
+    QString newsLink;
+    QString newsKey;
+    QString newsSource; // "Manjaro announcements"
 };
 
 TrayView trayView(const TrayInput &in);
