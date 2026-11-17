@@ -25,8 +25,14 @@ struct TrayInput {
     bool updating = false; // a kyu-update holds its lock
     QString activity; // what that kyu-update does: "update" or "merge"
     QStringList newsSeen; // announcements already read (news.h)
+    QStringList aurFailed; // AUR packages whose listed version did not build (left out of state)
     QDateTime now;
 };
+
+// An AUR package whose listed version did not build (lastRun's "aurFailed")
+// is not offered again until the AUR has a newer one: taken out of state,
+// named in aurFailed.
+void leaveOutFailedAur(TrayInput &in);
 
 // Everything but the checker's state, read from the system now: kyu-update's
 // last-run.json, lock and activity, the boot, the running kernel.

@@ -179,6 +179,50 @@ private Q_SLOTS:
         QCOMPARE(state->news.items[0].title, QStringLiteral("New"));
     }
 
+    void aurAskedEverySixHours()
+    {
+        // A helper named paru, a pacman with one AUR package, an AUR reply.
+        const QString helper = writeScript(QStringLiteral("paru"), "exit 0\n");
+        const QString pacman = writeScript(QStringLiteral("aur-pacman"), "[ \"$1\" = -Qm ] && cat \"$(dirname \"$0\")/aur-local\"\n");
+        const auto write = [this](const QString &name, const QByteArray &content) {
+            QFile f(m_dir.filePath(name));
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(content);
+        };
+        write(QStringLiteral("aur-local"), "foo-bin 1.0-1\n");
+        write(QStringLiteral("aur.json"), R"({"type":"multiinfo","results":[{"Name":"foo-bin","Version":"1.1-1"}]})");
+        const QString state = m_dir.filePath(QStringLiteral("aur-state.json"));
+        const auto check = [&](const QStringList &extra) {
+            QProcess p;
+            p.start(QStringLiteral(KYU_CHECK_BIN),
+                    QStringList{QStringLiteral("--no-pacman"), QStringLiteral("--no-flatpak"), QStringLiteral("--no-news"), QStringLiteral("--state-file"), state,
+                                QStringLiteral("--pacman"), pacman, QStringLiteral("--pacman-conf"), m_dir.filePath(QStringLiteral("none")),
+                                QStringLiteral("--aur-helper"), helper, QStringLiteral("--aur-rpc"),
+                                QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("aur.json"))).toString()}
+                        + extra);
+            QVERIFY(p.waitForFinished(30000));
+        };
+        check({});
+        QCOMPARE(UpdateState::load(state)->aurPackages.size(), 1);
+        // Within six hours the AUR is not asked again (its reply now differs).
+        write(QStringLiteral("aur.json"), R"({"type":"multiinfo","results":[]})");
+        check({});
+        QCOMPARE(UpdateState::load(state)->aurPackages.size(), 1);
+        // ...but what was updated meanwhile drops out.
+        write(QStringLiteral("aur-local"), "foo-bin 1.1-1\n");
+        check({});
+        QVERIFY(UpdateState::load(state)->aurPackages.isEmpty());
+        // Asked now: the AUR's answer.
+        write(QStringLiteral("aur-local"), "foo-bin 1.0-1\n");
+        write(QStringLiteral("aur.json"), R"({"type":"multiinfo","results":[{"Name":"foo-bin","Version":"1.2-1"}]})");
+        check({QStringLiteral("--aur-now")});
+        QCOMPARE(UpdateState::load(state)->aurPackages.value(0).newVersion, QStringLiteral("1.2-1"));
+        // No helper: the AUR is left alone.
+        check({QStringLiteral("--aur-helper"), QStringLiteral("none")});
+        QVERIFY(UpdateState::load(state)->aurPackages.isEmpty());
+        QVERIFY(!UpdateState::load(state)->aur.checked);
+    }
+
     void runningCheckIsNotDuplicated()
     {
         QLockFile lock(m_dir.filePath(QStringLiteral("state/check.lock")));

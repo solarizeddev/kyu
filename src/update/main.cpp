@@ -1,5 +1,7 @@
 // kyu-update: the update, in your terminal. Runs the real `sudo pacman -Syu`
-// and then `flatpak update`, with their own output and their own questions
+// (a new keyring first), then `flatpak update`, then the AUR helper's own
+// update (paru -Sua, yay -Sua, pamac update --aur), with their own output
+// and their own questions
 // ("Proceed?" included), and ends with one verdict: done, or why it failed,
 // and what is left to do, each with one key: [r] restart, [m] merge the
 // settings files (pacdiff), [f] fix and update again.
@@ -971,11 +973,13 @@ int main(int argc, char **argv)
     const QString aurHelperName = parser.value(aurHelperOption);
     const std::optional<Kyu::AurHelper> aurHelper = parser.isSet(aurHelperOption)
         ? (aurHelperName == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(aurHelperName))
-        : Kyu::findAurHelper();
+        : Kyu::configuredAurHelper(Kyu::Paths::configFile());
     const bool aurWanted = aurHelper && (!state || !state->aur.checked || !state->aur.ok || !state->aurPackages.isEmpty());
     // Only Flatpaks or AUR packages pending (by the last check): no pacman.
+    // Not with pamac: its AUR update upgrades the repo packages too, which
+    // pacman does here first (news, keyrings, explained failures).
     const bool skipPacman = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty()
-        && (!state->flatpaks.isEmpty() || !state->aurPackages.isEmpty());
+        && (!state->flatpaks.isEmpty() || !state->aurPackages.isEmpty()) && !(aurWanted && aurHelper->name == QLatin1String("pamac"));
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
 
@@ -1320,19 +1324,95 @@ int main(int argc, char **argv)
         flatpakExit = runInTerminal(flatpak, {QStringLiteral("update")});
     }
 
+    // What is left to do comes from this run and, in the same boot, from
+    // earlier ones: the kernel is checked every time.
+    const QJsonObject previous = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
+    const QString boot = bootId();
+    const bool sameBoot = !boot.isEmpty() && previous.value(QStringLiteral("bootId")).toString() == boot;
+    struct After {
+        QString restartReason;
+        bool restartFromThisRun = false;
+        QStringList configs; // this run's, and earlier ones still waiting
+    };
+    const auto after = [&]() {
+        After a;
+        const Kyu::KernelState kernel = Kyu::kernelState(parser.value(procDir), parser.value(modulesDir));
+        if (kernel.replaced) {
+            a.restartReason = kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was removed").arg(kernel.running)
+                                                         : QStringLiteral("new kernel %1").arg(kernel.installed);
+            static const QRegularExpression kernelPackage(QStringLiteral("^linux([0-9]+|-lts|-zen|-hardened|-rt.*|-cachyos.*)?$"));
+            for (const QString &name : std::as_const(run.updated)) {
+                a.restartFromThisRun = a.restartFromThisRun || kernelPackage.match(name).hasMatch();
+            }
+        } else if (const QString pkg = Kyu::restartPackage(run); !pkg.isEmpty()) {
+            a.restartReason = QStringLiteral("%1 was updated").arg(pkg);
+            a.restartFromThisRun = true;
+        } else if (sameBoot && previous.value(QStringLiteral("restartRequired")).toBool()) {
+            a.restartReason = previous.value(QStringLiteral("restartReason")).toString();
+            if (a.restartReason.endsWith(QLatin1Char('.'))) {
+                a.restartReason.chop(1); // written by an earlier version
+            }
+        }
+        a.configs = run.configs;
+        for (const QString &path : strings(previous.value(QStringLiteral("configs")))) {
+            if (!a.configs.contains(path) && QFileInfo::exists(path)) {
+                a.configs.append(path);
+            }
+        }
+        return a;
+    };
+    // For the tray's card: what is left to do (last-run.json).
+    const auto recordOf = [&](const After &a, const QStringList &programs, int aurExit, const QJsonArray &aurFailed) {
+        return QJsonObject{
+            {QStringLiteral("v"), 1},
+            {QStringLiteral("time"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+            {QStringLiteral("bootId"), boot},
+            {QStringLiteral("pacmanExit"), pacmanExit < 0 ? QJsonValue() : QJsonValue(pacmanExit)},
+            {QStringLiteral("flatpakExit"), flatpakExit < 0 ? QJsonValue() : QJsonValue(flatpakExit)},
+            {QStringLiteral("aurExit"), aurExit < 0 ? QJsonValue() : QJsonValue(aurExit)},
+            {QStringLiteral("aurFailed"), aurFailed},
+            {QStringLiteral("changed"), int(run.changed.size())},
+            {QStringLiteral("transactionStarted"), pacmanExit > 0 ? lastStarted : run.transactionStarted},
+            {QStringLiteral("restartRequired"), !a.restartReason.isEmpty()},
+            {QStringLiteral("restartReason"), a.restartReason},
+            {QStringLiteral("configs"), QJsonArray::fromStringList(a.configs)},
+            {QStringLiteral("programs"), QJsonArray::fromStringList(programs)},
+            {QStringLiteral("failure"), failure.value(QStringLiteral("kind"))},
+        };
+    };
+    const auto writeRecord = [](const QJsonObject &record) {
+        QSaveFile last(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
+        if (last.open(QIODevice::WriteOnly)) {
+            last.write(QJsonDocument(record).toJson());
+            last.commit();
+        }
+    };
+
     // --- AUR -----------------------------------------------------------------
     // Last, so a long build or a failed one holds nothing else up. What it
     // installed is in pacman's log too: a restart (an NVIDIA driver from the
     // AUR) and settings files count.
     int aurExit = -1;
     Kyu::PacmanRun aurRun;
+    QJsonArray aurFailed; // {name, version}: not built, not offered again until a newer version
     if ((skipPacman || pacmanExit == 0) && aurWanted) {
+        // The system's part is done: saved now, whatever happens while the
+        // helper waits at its questions (or the window is closed).
+        writeRecord(recordOf(after(), {}, -1, {}));
         out.blank();
         out.step(QStringLiteral("AUR"), aurHelper->command.join(QLatin1Char(' ')));
+        out.note(QStringLiteral("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
         const qint64 logOffset = QFileInfo(logPath).size();
         const QStringList c = inhibited(aurHelper->command);
         aurExit = runInTerminal(c.first(), c.mid(1));
         aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
+        if (aurExit > 0 && state) {
+            for (const Kyu::PackageUpdate &p : state->aurPackages) {
+                if (!aurRun.upgraded.contains(p.name)) {
+                    aurFailed.append(QJsonObject{{QStringLiteral("name"), p.name}, {QStringLiteral("version"), p.newVersion}});
+                }
+            }
+        }
         run.updated += aurRun.updated;
         for (const QString &file : std::as_const(aurRun.configs)) {
             if (!run.configs.contains(file)) {
@@ -1342,38 +1422,10 @@ int main(int argc, char **argv)
     }
 
     // --- The verdict ---------------------------------------------------------
-    // What is left to do comes from this run and, in the same boot, from
-    // earlier ones: the kernel is checked every time.
-    const QJsonObject previous = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
-    const QString boot = bootId();
-    const bool sameBoot = !boot.isEmpty() && previous.value(QStringLiteral("bootId")).toString() == boot;
-    QString restartReason;
-    bool restartFromThisRun = false;
-    const Kyu::KernelState kernel = Kyu::kernelState(parser.value(procDir), parser.value(modulesDir));
-    if (kernel.replaced) {
-        restartReason = kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was removed").arg(kernel.running)
-                                                   : QStringLiteral("new kernel %1").arg(kernel.installed);
-        static const QRegularExpression kernelPackage(QStringLiteral("^linux([0-9]+|-lts|-zen|-hardened|-rt.*|-cachyos.*)?$"));
-        for (const QString &name : std::as_const(run.updated)) {
-            restartFromThisRun = restartFromThisRun || kernelPackage.match(name).hasMatch();
-        }
-    } else if (const QString pkg = Kyu::restartPackage(run); !pkg.isEmpty()) {
-        restartReason = QStringLiteral("%1 was updated").arg(pkg);
-        restartFromThisRun = true;
-    } else if (sameBoot && previous.value(QStringLiteral("restartRequired")).toBool()) {
-        restartReason = previous.value(QStringLiteral("restartReason")).toString();
-        if (restartReason.endsWith(QLatin1Char('.'))) {
-            restartReason.chop(1); // written by an earlier version
-        }
-    }
-
-    // Settings files: this run's, and earlier ones still waiting.
-    QStringList configs = run.configs;
-    for (const QString &path : strings(previous.value(QStringLiteral("configs")))) {
-        if (!configs.contains(path) && QFileInfo::exists(path)) {
-            configs.append(path);
-        }
-    }
+    const After now = after();
+    const QString &restartReason = now.restartReason;
+    const bool restartFromThisRun = now.restartFromThisRun;
+    const QStringList &configs = now.configs;
 
     // Your own programs on replaced libraries (other users' are not readable
     // without root). Not needed when a restart is anyway.
@@ -1483,29 +1535,46 @@ int main(int argc, char **argv)
                 out.note(l, Tone::Dim);
             }
         }
-    } else if (flatpakExit > 0) {
-        if (!run.changed.isEmpty()) {
-            out.good(QStringLiteral("Packages done: %1").arg(packages));
-        }
-        out.bad(QStringLiteral("Flatpaks failed (status %1), see above.").arg(flatpakExit));
     } else {
+        // AUR packages updated: those the check listed (not split, debug or
+        // dependency packages, nor pamac's repo upgrades), when it listed them.
+        qsizetype aurDone = aurRun.upgraded.size();
+        if (state && state->aur.checked && state->aur.ok) {
+            aurDone = std::count_if(state->aurPackages.cbegin(), state->aurPackages.cend(), [&aurRun](const Kyu::PackageUpdate &p) {
+                return aurRun.upgraded.contains(p.name);
+            });
+        }
         QStringList parts;
         if (!run.changed.isEmpty()) {
             parts.append(packages);
         }
-        if (aurExit == 0 && !aurRun.upgraded.isEmpty()) {
-            parts.append(QStringLiteral("%1 AUR").arg(aurRun.upgraded.size()));
+        if (aurDone > 0) {
+            parts.append(QStringLiteral("%1 AUR").arg(aurDone));
         }
         if (flatpakExit == 0 && state && !state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
-        out.good(parts.isEmpty() ? QStringLiteral("Already up to date.")
-                                 : QStringLiteral("Done in %1 · %2").arg(duration(clock.elapsed()), parts.join(QStringLiteral(" · "))));
+        const QString done = QStringLiteral("Done in %1 · %2").arg(duration(clock.elapsed()), parts.join(QStringLiteral(" · ")));
+        if (flatpakExit > 0 || aurExit > 0) {
+            // What went through, then what did not.
+            if (!parts.isEmpty()) {
+                out.good(done);
+            } else if (pacmanExit == 0) {
+                out.good(QStringLiteral("The system is up to date."));
+            }
+            if (flatpakExit > 0) {
+                out.bad(QStringLiteral("Flatpaks failed (status %1), see above.").arg(flatpakExit));
+            }
+        } else {
+            out.good(parts.isEmpty() ? QStringLiteral("Already up to date.") : done);
+        }
     }
 
-    // The AUR on its own line: the system update is done either way.
+    // The AUR on its own line: never the system update's failure.
     if (aurExit > 0) {
-        out.warn(QStringLiteral("AUR packages not updated: %1 stopped (status %2), see above. The rest is done.").arg(aurHelper->name).arg(aurExit));
+        const bool restDone = flatpakExit <= 0 && (pacmanExit == 0 || flatpakExit == 0);
+        out.warn(QStringLiteral("AUR packages not updated: %1 stopped (status %2), see above.").arg(aurHelper->name).arg(aurExit)
+                 + (restDone ? QStringLiteral(" The rest is done.") : QString()));
     }
 
     if (!restartReason.isEmpty()) {
@@ -1537,28 +1606,9 @@ int main(int argc, char **argv)
         out.note(QStringLiteral("Nothing else to do."));
     }
 
-    // For the tray's card: what is left to do.
-    QJsonObject record{
-        {QStringLiteral("v"), 1},
-        {QStringLiteral("time"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
-        {QStringLiteral("bootId"), boot},
-        {QStringLiteral("pacmanExit"), pacmanExit < 0 ? QJsonValue() : QJsonValue(pacmanExit)},
-        {QStringLiteral("flatpakExit"), flatpakExit < 0 ? QJsonValue() : QJsonValue(flatpakExit)},
-        {QStringLiteral("aurExit"), aurExit < 0 ? QJsonValue() : QJsonValue(aurExit)},
-        {QStringLiteral("changed"), int(run.changed.size())},
-        {QStringLiteral("transactionStarted"), pacmanExit > 0 ? lastStarted : run.transactionStarted},
-        {QStringLiteral("restartRequired"), !restartReason.isEmpty()},
-        {QStringLiteral("restartReason"), restartReason},
-        {QStringLiteral("configs"), QJsonArray::fromStringList(configs)},
-        {QStringLiteral("programs"), QJsonArray::fromStringList(programs)},
-        {QStringLiteral("failure"), failure.value(QStringLiteral("kind"))},
-    };
-    auto save = [&record]() {
-        QSaveFile last(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
-        if (last.open(QIODevice::WriteOnly)) {
-            last.write(QJsonDocument(record).toJson());
-            last.commit();
-        }
+    QJsonObject record = recordOf(now, programs, aurExit, aurFailed);
+    auto save = [&record, writeRecord]() {
+        writeRecord(record);
     };
     save();
     // After [m], the card lists only the files still waiting.

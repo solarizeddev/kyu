@@ -57,6 +57,7 @@ struct PacmanResult {
 // AUR helper is installed (Kyu leaves the AUR alone then).
 struct AurResult {
     bool available = true;
+    bool cached = false; // the last answer reused (asked again only every few hours)
     bool ok = false;
     QString error;
     QList<PackageUpdate> packages; // repo "aur"

@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QSet>
 #include <QJsonDocument>
 #include <QLocale>
 #include <QLockFile>
@@ -59,6 +60,11 @@ QString restartReason(const TrayInput &in)
     return in.kernelInstalled.isEmpty() ? QStringLiteral("the running kernel was replaced") : QStringLiteral("new kernel ") + in.kernelInstalled;
 }
 
+QString aurFailedLine(const QStringList &names)
+{
+    return QStringLiteral("AUR: %1 did not build; offered again with a newer version").arg(names.join(QStringLiteral(", ")));
+}
+
 QString settingsLine(const QStringList &configs)
 {
     return configs.size() == 1 ? QStringLiteral("1 settings file changed: ") + configTarget(configs.constFirst())
@@ -72,6 +78,25 @@ QString configTarget(const QString &path)
     return QString(path).remove(suffix);
 }
 
+void leaveOutFailedAur(TrayInput &in)
+{
+    if (in.state) {
+        QSet<QString> failed;
+        for (const QJsonValue &v : in.lastRun.value(QStringLiteral("aurFailed")).toArray()) {
+            failed.insert(v[QStringLiteral("name")].toString() + QLatin1Char(' ') + v[QStringLiteral("version")].toString());
+        }
+        QList<PackageUpdate> &aur = in.state->aurPackages;
+        for (auto it = aur.begin(); it != aur.end();) {
+            if (failed.contains(it->name + QLatin1Char(' ') + it->newVersion)) {
+                in.aurFailed.append(it->name);
+                it = aur.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
 TrayInput currentTrayInput(const std::optional<UpdateState> &state, bool checking, const QString &loadError)
 {
     TrayInput in;
@@ -79,6 +104,7 @@ TrayInput currentTrayInput(const std::optional<UpdateState> &state, bool checkin
     in.checking = checking;
     in.loadError = loadError;
     in.lastRun = readJson(Paths::stateDir() + QStringLiteral("/last-run.json"));
+    leaveOutFailedAur(in);
     for (const QJsonValue &v : in.lastRun.value(QStringLiteral("configs")).toArray()) {
         if (QFileInfo::exists(v.toString())) {
             in.configs.append(v.toString());
@@ -161,10 +187,16 @@ TrayView trayView(const TrayInput &in)
         v.mark = TrayMark::Updates;
         v.iconName = QStringLiteral("update-low");
         v.tooltip = status.join(QLatin1Char('\n'));
+        if (!in.aurFailed.isEmpty()) {
+            v.tooltip += QLatin1Char('\n') + aurFailedLine(in.aurFailed);
+        }
     } else {
         v.mark = TrayMark::UpToDate;
         v.iconName = QStringLiteral("update-none");
         v.tooltip = status.join(QLatin1Char('\n'));
+        if (!in.aurFailed.isEmpty()) {
+            v.tooltip += QLatin1Char('\n') + aurFailedLine(in.aurFailed);
+        }
         // A settings file left to merge keeps the icon in view.
         if (!in.configs.isEmpty()) {
             v.tooltip += QLatin1Char('\n') + settingsLine(in.configs);
@@ -262,6 +294,9 @@ CardView cardView(const TrayInput &in)
         if (s.restartNeeded()) {
             parts.append(QStringLiteral("restart after"));
         }
+        if (!in.aurFailed.isEmpty()) {
+            parts.append(QStringLiteral("%1 AUR did not build").arg(in.aurFailed.size()));
+        }
         if (s.hasError() || !in.loadError.isEmpty()) {
             parts.append(QStringLiteral("a check failed"));
         }
@@ -309,7 +344,7 @@ CardView cardView(const TrayInput &in)
     }
     c.kind = CardView::Kind::UpToDate;
     c.heading = QStringLiteral("Up to date");
-    c.detail = in.checking ? QStringLiteral("Checking…") : QString();
+    c.detail = in.checking ? QStringLiteral("Checking…") : in.aurFailed.isEmpty() ? QString() : aurFailedLine(in.aurFailed);
     check();
     return c;
 }

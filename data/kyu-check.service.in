@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for pacman and Flatpak updates (Kyu)
+Description=Check for pacman, AUR and Flatpak updates (Kyu)
 Documentation=https://github.com/solarizeddev/kyu
 
 [Service]

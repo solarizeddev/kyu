@@ -75,6 +75,25 @@ build/bin/kyu-window
 [`docs/TESTING.md`](docs/TESTING.md): one command builds, tests and
 screenshots everything into a zip, without changing your system.
 
+## The AUR
+
+With paru, yay, or pamac (with "EnableAUR" and "CheckAURUpdates" on in
+`/etc/pamac.conf`) installed, Kyu counts AUR updates and runs the helper's
+AUR update last. To check, Kyu sends the names of your packages from outside
+the repos (`pacman -Qm`) to aur.archlinux.org, at most every 6 hours, as the
+helpers do when they check. Packages pacman holds back (`IgnorePkg`,
+`IgnoreGroup`) are left out; development packages (`-git`) are not checked
+for new commits. A package whose build failed is not offered again until the
+AUR has a newer version.
+
+To leave the AUR alone, or to pick the helper, in `~/.config/kyu/kyu.conf`:
+
+```ini
+[AUR]
+check=false
+helper=yay
+```
+
 ## Install
 
 `packaging/arch/PKGBUILD` builds a package from this checkout:

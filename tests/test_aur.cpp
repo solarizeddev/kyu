@@ -1,6 +1,8 @@
 // The AUR check: pacman's version order, the check against a fake pacman and
 // a local file standing in for the AUR's web API, and the state.
 #include "aur.h"
+#include "statustext.h"
+#include "traystate.h"
 #include "updatestate.h"
 
 #include <QFile>
@@ -10,6 +12,18 @@
 #include <QUrl>
 
 using namespace Kyu;
+
+namespace
+{
+void script(const QString &path, const QByteArray &body)
+{
+    QFile f(path);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("#!/bin/sh\n" + body);
+    f.close();
+    f.setPermissions(f.permissions() | QFileDevice::ExeUser);
+}
+}
 
 class TestAur : public QObject
 {
@@ -77,6 +91,7 @@ private Q_SLOTS:
         r.close();
         AurCheckOptions options;
         options.pacman = pacman;
+        options.pacmanConf = dir.filePath(QStringLiteral("none"));
         options.rpc = QUrl::fromLocalFile(reply).toString();
         const AurResult result = checkAur(options);
         QVERIFY2(result.ok, qPrintable(result.error));
@@ -84,6 +99,16 @@ private Q_SLOTS:
         QCOMPARE(result.packages.first().name, QStringLiteral("foo-bin"));
         QCOMPARE(result.packages.first().oldVersion, QStringLiteral("1.0-1"));
         QCOMPARE(result.packages.first().newVersion, QStringLiteral("1.1-1"));
+
+        // Held back by pacman (IgnorePkg glob, or an IgnoreGroup member): left out.
+        script(dir.filePath(QStringLiteral("pacman-conf")), "case \"$1\" in IgnorePkg) echo 'foo-*';; IgnoreGroup) echo held;; esac\n");
+        options.pacmanConf = dir.filePath(QStringLiteral("pacman-conf"));
+        QVERIFY(checkAur(options).packages.isEmpty());
+        script(dir.filePath(QStringLiteral("pacman-conf")), "case \"$1\" in IgnoreGroup) echo held;; esac\n");
+        script(pacman, "case \"$1\" in -Qm) printf 'foo-bin 1.0-1\\nbar-git r10.abc-1\\n';; -Qgq) [ \"$2\" = held ] && echo foo-bin;; *) exit 2;; esac\n");
+        QVERIFY(checkAur(options).packages.isEmpty());
+        options.pacmanConf = dir.filePath(QStringLiteral("none"));
+        QCOMPARE(checkAur(options).packages.size(), 1);
 
         // An error reply from the AUR.
         QVERIFY(r.open(QIODevice::WriteOnly | QIODevice::Truncate));
@@ -101,6 +126,90 @@ private Q_SLOTS:
         const AurResult none = checkAur(options);
         QVERIFY(none.ok);
         QVERIFY(none.packages.isEmpty());
+    }
+
+    void helperFound()
+    {
+        // Only Kyu's directory on PATH: no real helper is found.
+        QTemporaryDir bin;
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", bin.path().toUtf8());
+        const QString conf = bin.filePath(QStringLiteral("pamac.conf"));
+        QFile c(conf);
+        QVERIFY(c.open(QIODevice::WriteOnly));
+        c.write("#EnableAUR\nCheckAURUpdates\n");
+        c.close();
+        script(bin.filePath(QStringLiteral("pamac")), "exit 0\n");
+        QVERIFY(!findAurHelper(conf)); // the AUR not on in pamac
+        QVERIFY(c.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        c.write("EnableAUR\n#CheckAURUpdates\n");
+        c.close();
+        QVERIFY(!findAurHelper(conf)); // pamac does not check it: neither does Kyu
+        QVERIFY(c.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        c.write("EnableAUR\nCheckAURUpdates\n");
+        c.close();
+        QCOMPARE(findAurHelper(conf)->name, QStringLiteral("pamac"));
+        script(bin.filePath(QStringLiteral("yay")), "exit 0\n");
+        QCOMPARE(findAurHelper(conf)->name, QStringLiteral("yay"));
+        script(bin.filePath(QStringLiteral("paru")), "exit 0\n");
+        QCOMPARE(findAurHelper(conf)->name, QStringLiteral("paru"));
+
+        // Kyu's settings: off, or a chosen helper.
+        const QString kyuConf = bin.filePath(QStringLiteral("kyu.conf"));
+        QCOMPARE(configuredAurHelper(kyuConf, conf)->name, QStringLiteral("paru"));
+        QFile k(kyuConf);
+        QVERIFY(k.open(QIODevice::WriteOnly));
+        k.write("[AUR]\nhelper=yay\n");
+        k.close();
+        QCOMPARE(configuredAurHelper(kyuConf, conf)->name, QStringLiteral("yay"));
+        QVERIFY(k.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        k.write("[AUR]\ncheck=false\n");
+        k.close();
+        QVERIFY(!configuredAurHelper(kyuConf, conf));
+        qputenv("PATH", path);
+    }
+
+    void failedBuild()
+    {
+        // The listed version did not build: out of the count until a newer one.
+        TrayInput in;
+        UpdateState s;
+        s.pacman.checked = s.pacman.ok = true;
+        s.aurPackages = {{QStringLiteral("foo-bin"), QStringLiteral("aur"), QStringLiteral("1-1"), QStringLiteral("2-1"), -1, false},
+                         {QStringLiteral("bar"), QStringLiteral("aur"), QStringLiteral("1"), QStringLiteral("2"), -1, false}};
+        in.state = s;
+        in.now = QDateTime::currentDateTime();
+        in.lastRun = QJsonDocument::fromJson(R"({"pacmanExit":0,"aurExit":1,"aurFailed":[{"name":"foo-bin","version":"2-1"}]})").object();
+        leaveOutFailedAur(in);
+        QCOMPARE(in.state->aurPackages.size(), 1);
+        QCOMPARE(in.aurFailed, QStringList{QStringLiteral("foo-bin")});
+        QVERIFY(trayView(in).tooltip.contains(QStringLiteral("AUR: foo-bin did not build")));
+        QVERIFY(cardView(in).detail.contains(QStringLiteral("1 AUR did not build")));
+        QCOMPARE(trayView(in).mark, TrayMark::Updates);
+        // Only that one: up to date, with the line on the card.
+        in.state->aurPackages.removeLast();
+        QCOMPARE(trayView(in).mark, TrayMark::UpToDate);
+        QVERIFY(cardView(in).detail.startsWith(QStringLiteral("AUR: foo-bin did not build")));
+        // A newer version: offered again.
+        in.state = s;
+        in.state->aurPackages.first().newVersion = QStringLiteral("2-2");
+        in.aurFailed.clear();
+        leaveOutFailedAur(in);
+        QCOMPARE(in.state->aurPackages.size(), 2);
+    }
+
+    void outage()
+    {
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        UpdateState s;
+        s.checkedAt = now;
+        s.aur.checked = true;
+        s.aur.ok = false;
+        s.aur.error = QStringLiteral("timeout");
+        s.aur.lastSuccessAt = now.addSecs(-3600);
+        QVERIFY(!statusLines(s, false, {}, now).join(QLatin1Char('\n')).contains(QStringLiteral("AUR"))); // an hour: not said
+        s.aur.lastSuccessAt = now.addDays(-2);
+        QVERIFY(statusLines(s, false, {}, now).join(QLatin1Char('\n')).contains(QStringLiteral("AUR not checked since")));
     }
 
     void state()

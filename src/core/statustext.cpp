@@ -64,6 +64,12 @@ QStringList statusLines(const std::optional<UpdateState> &state,
     }
     addFailure(lines, QStringLiteral("pacman"), state->pacman, now);
     addFailure(lines, QStringLiteral("Flatpak"), state->flatpak, now);
+    // The AUR's site is down now and then: said only after a day without it.
+    const SourceStatus &aur = state->aur;
+    if (aur.checked && !aur.ok && (!aur.lastSuccessAt.isValid() || aur.lastSuccessAt.secsTo(now) > 24 * 3600)) {
+        lines.append(aur.lastSuccessAt.isValid() ? QStringLiteral("AUR not checked since %1: %2").arg(when(aur.lastSuccessAt, now), aur.error.section(QLatin1Char('\n'), 0, 0))
+                                                 : QStringLiteral("AUR check failed: %1").arg(aur.error.section(QLatin1Char('\n'), 0, 0)));
+    }
     return lines;
 }
 }

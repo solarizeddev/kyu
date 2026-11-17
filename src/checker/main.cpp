@@ -55,6 +55,9 @@ int main(int argc, char **argv)
     QCommandLineOption noAur(QStringLiteral("no-aur"), QStringLiteral("Do not check AUR packages."));
     QCommandLineOption aurHelper(QStringLiteral("aur-helper"), QStringLiteral("AUR helper (paru, yay, pamac), or none."), QStringLiteral("program"));
     QCommandLineOption aurRpc(QStringLiteral("aur-rpc"), QStringLiteral("AUR info URL."), QStringLiteral("url"));
+    QCommandLineOption aurNow(QStringLiteral("aur-now"), QStringLiteral("Ask the AUR now, even if it was asked in the last hours."));
+    QCommandLineOption pacmanConf(QStringLiteral("pacman-conf"), QStringLiteral("pacman-conf binary."), QStringLiteral("path"),
+                                  QStringLiteral("pacman-conf"));
     QCommandLineOption noNews(QStringLiteral("no-news"), QStringLiteral("Do not fetch the distro's news."));
     QCommandLineOption newsFeed(QStringLiteral("news-feed"), QStringLiteral("News feed URL."), QStringLiteral("url"));
     QCommandLineOption osRelease(QStringLiteral("os-release"), QStringLiteral("os-release file."), QStringLiteral("path"),
@@ -64,7 +67,7 @@ int main(int argc, char **argv)
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("Kernel modules directory."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption kernelRelease(QStringLiteral("kernel-release"), QStringLiteral("Running kernel release."), QStringLiteral("release"));
-    for (auto *o : {&newsFeed, &osRelease, &pacmanLog, &modulesDir, &kernelRelease, &aurHelper, &aurRpc}) {
+    for (auto *o : {&newsFeed, &osRelease, &pacmanLog, &modulesDir, &kernelRelease, &aurHelper, &aurRpc, &pacmanConf}) {
         o->setFlags(QCommandLineOption::HiddenFromHelp);
     }
     QCommandLineOption dbPath(QStringLiteral("db-path"),
@@ -72,7 +75,7 @@ int main(int argc, char **argv)
                               QStringLiteral("path"));
     checkupdates.setFlags(QCommandLineOption::HiddenFromHelp);
     pacman.setFlags(QCommandLineOption::HiddenFromHelp);
-    parser.addOptions({noPacman, noFlatpak, noAur, aurHelper, aurRpc, json, stateFile, checkupdates, pacman, dbPath, noNews, newsFeed, osRelease, pacmanLog,
+    parser.addOptions({noPacman, noFlatpak, noAur, aurNow, aurHelper, aurRpc, pacmanConf, json, stateFile, checkupdates, pacman, dbPath, noNews, newsFeed, osRelease, pacmanLog,
                        modulesDir, kernelRelease});
     parser.process(app);
 
@@ -128,26 +131,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // AUR packages, only with an AUR helper to update them.
-    std::optional<Kyu::AurResult> aurResult;
-    if (!parser.isSet(noAur)) {
-        const QString helper = parser.value(aurHelper);
-        const auto found = parser.isSet(aurHelper) ? (helper == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(helper)) : Kyu::findAurHelper();
-        if (!found) {
-            aurResult = Kyu::AurResult{false, false, {}, {}};
-        } else {
-            Kyu::AurCheckOptions options;
-            options.pacman = parser.value(pacman);
-            if (parser.isSet(aurRpc)) {
-                options.rpc = parser.value(aurRpc);
-            }
-            aurResult = Kyu::checkAur(options);
-            if (!aurResult->ok) {
-                err << "kyu-check: AUR: " << aurResult->error << Qt::endl;
-            }
-        }
-    }
-
     std::optional<Kyu::NewsResult> newsResult;
     if (!parser.isSet(noNews)) {
         Kyu::NewsSource source = Kyu::newsSourceFor(parser.value(osRelease));
@@ -166,12 +149,60 @@ int main(int argc, char **argv)
         }
     }
 
-    const auto state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult, aurResult);
-
+    Kyu::UpdateState state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult);
     QString saveError;
     if (!state.save(statePath, &saveError)) {
         err << "kyu-check: cannot write " << statePath << ": " << saveError << Qt::endl;
         return StateNotSaved;
+    }
+
+    // AUR packages, only with an AUR helper to update them, and after the
+    // rest is saved (the AUR's site can be slow). The AUR gets the names of
+    // the packages from outside the repos; it is asked every few hours, and
+    // in between its last answer is used, without what was updated since.
+    if (!parser.isSet(noAur)) {
+        const QString helper = parser.value(aurHelper);
+        const auto found = parser.isSet(aurHelper) ? (helper == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(helper))
+                                                   : Kyu::configuredAurHelper(Kyu::Paths::configFile());
+        Kyu::AurResult aurResult;
+        if (!found) {
+            aurResult.available = false;
+        } else {
+            QString error;
+            const auto installed = Kyu::foreignPackages(parser.value(pacman), &error);
+            // The last list, without what is no longer at the listed version.
+            QList<Kyu::PackageUpdate> still;
+            for (const Kyu::PackageUpdate &p : std::as_const(state.aurPackages)) {
+                if (installed && installed->value(p.name) == p.oldVersion) {
+                    still.append(p);
+                }
+            }
+            state.aurPackages = still;
+            const QDateTime now = QDateTime::currentDateTimeUtc();
+            const bool recent = state.aur.ok && state.aur.lastSuccessAt.isValid() && state.aur.lastSuccessAt.secsTo(now) < 6 * 3600
+                && state.aur.lastSuccessAt <= now;
+            if (recent && installed && !parser.isSet(aurNow)) {
+                aurResult.ok = true;
+                aurResult.cached = true;
+                aurResult.packages = still;
+            } else {
+                Kyu::AurCheckOptions options;
+                options.pacman = parser.value(pacman);
+                options.pacmanConf = parser.value(pacmanConf);
+                if (parser.isSet(aurRpc)) {
+                    options.rpc = parser.value(aurRpc);
+                }
+                aurResult = Kyu::checkAur(options);
+                if (!aurResult.ok) {
+                    err << "kyu-check: AUR: " << aurResult.error << Qt::endl;
+                }
+            }
+        }
+        state = Kyu::UpdateState::merge(state, std::nullopt, std::nullopt, state.checkedAt, std::nullopt, aurResult);
+        if (!state.save(statePath, &saveError)) {
+            err << "kyu-check: cannot write " << statePath << ": " << saveError << Qt::endl;
+            return StateNotSaved;
+        }
     }
 
     if (parser.isSet(json)) {

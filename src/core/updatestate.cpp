@@ -326,7 +326,9 @@ UpdateState UpdateState::merge(const UpdateState &previous,
             state.aur.checkedAt = now;
             if (aur->ok) {
                 state.aur.error.clear();
-                state.aur.lastSuccessAt = now;
+                if (!aur->cached) {
+                    state.aur.lastSuccessAt = now;
+                }
                 state.aurPackages = aur->packages;
             } else {
                 state.aur.error = aur->error;

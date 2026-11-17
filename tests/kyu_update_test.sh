@@ -204,7 +204,7 @@ KYU_FAKE_FLATPAK_EXIT=1 run fpfail 'y\n'
 d=$work/fpfail
 [ "$(cat "$d/code")" = 5 ] || fail "fpfail: exit $(cat "$d/code")"
 has "$d/out" 'Flatpaks failed (status 1)' fpfail
-has "$d/out" 'Packages done: 2 packages' fpfail
+has "$d/out" ' · 2 packages' fpfail
 
 echo "pacman fails mid-transaction: what changed is said"
 KYU_FAKE_MODE=midfail run midfail 'y\n'
@@ -406,6 +406,41 @@ has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above. The 
 hasnt "$d/out" 'Nothing else to do' aurfail
 grep -q '"aurExit": 1' "$d/state/kyu/last-run.json" || fail "aurfail: last-run.json without the AUR's status"
 grep -q '"pacmanExit": 0' "$d/state/kyu/last-run.json" || fail "aurfail: the system update counted as failed"
+
+grep -q '"name": "foo-bin"' "$d/state/kyu/last-run.json" || fail "aurfail: the failed AUR package is not remembered"
+grep -q '"restartRequired": true' "$d/last-run-before-aur.json" 2>/dev/null || fail "aurfail: nothing saved before the AUR step"
+has "$d/out" 'paru asks its own questions, and may ask for the password again.' aurfail
+
+echo "only AUR pending, and it fails: no \"up to date\", no \"the rest is done\""
+prepare auronlyfail; state "$work/auronlyfail/state.json" 0 0 0 "" foo-bin
+KYU_FAKE_AUR=fail runtty auronlyfail 'y\n|\n' --aur-helper "$here/update/paru"
+d=$work/auronlyfail
+has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above.' auronlyfail
+hasnt "$d/out" 'up to date' auronlyfail
+hasnt "$d/out" 'The rest is done' auronlyfail
+
+echo "Flatpaks and AUR both failed: neither is called done"
+prepare bothfail; state "$work/bothfail/state.json" 2 1 0 "" foo-bin
+KYU_FAKE_AUR=fail KYU_FAKE_FLATPAK_EXIT=1 runtty bothfail 'y\n|y\n|\n' --aur-helper "$here/update/paru"
+d=$work/bothfail
+has "$d/out" ' · 2 packages' bothfail
+has "$d/out" 'Flatpaks failed (status 1), see above.' bothfail
+has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above.' bothfail
+hasnt "$d/out" 'The rest is done' bothfail
+
+echo "Flatpaks failed, AUR done: both said"
+prepare fpaur; state "$work/fpaur/state.json" 2 1 0 "" foo-bin
+KYU_FAKE_FLATPAK_EXIT=1 runtty fpaur 'y\n|y\n|\n' --aur-helper "$here/update/paru"
+d=$work/fpaur
+has "$d/out" ' · 2 packages · 1 AUR' fpaur
+has "$d/out" 'Flatpaks failed (status 1), see above.' fpaur
+
+echo "pamac: pacman first even with only AUR pending (pamac would do the repos too)"
+prepare pamac; state "$work/pamac/state.json" 0 0 0 "" foo-bin
+runtty pamac 'y\n|\n' --aur-helper "$here/update/pamac"
+d=$work/pamac
+[ -e "$d/pacman-ran" ] || fail "pamac: pacman was skipped"
+[ "$(cat "$d/aur-args" 2>/dev/null)" = "update --aur" ] || fail "pamac: ran with $(cat "$d/aur-args" 2>/dev/null)"
 
 echo "AUR skipped when pacman failed"
 prepare aurskip; state "$work/aurskip/state.json" 2 1 0 "" foo-bin

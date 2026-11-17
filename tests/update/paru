@@ -3,6 +3,8 @@
 # AUR package after a "Proceed?", and logs it as pacman would.
 # KYU_FAKE_AUR=fail: the build fails.
 echo "$*" >"$KYU_FAKE_DIR/aur-args"
+# What Kyu saved before the AUR step.
+cp "$XDG_STATE_HOME/kyu/last-run.json" "$KYU_FAKE_DIR/last-run-before-aur.json" 2>/dev/null
 log=$KYU_FAKE_DIR/pacman.log
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
 echo ":: Looking for AUR upgrades..."

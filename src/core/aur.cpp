@@ -9,6 +9,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QProcess>
+#include <QRegularExpression>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -198,44 +200,100 @@ std::optional<AurHelper> findAurHelper(const QString &pamacConf)
     if (pamac.isEmpty() || !conf.open(QIODevice::ReadOnly)) {
         return std::nullopt;
     }
+    bool enabled = false, checks = false;
     while (!conf.atEnd()) {
-        if (QString::fromUtf8(conf.readLine()).trimmed() == QLatin1String("EnableAUR")) {
-            return aurHelperFor(pamac);
+        const QString line = QString::fromUtf8(conf.readLine()).trimmed();
+        enabled = enabled || line == QLatin1String("EnableAUR");
+        checks = checks || line == QLatin1String("CheckAURUpdates");
+    }
+    return enabled && checks ? aurHelperFor(pamac) : std::nullopt;
+}
+
+std::optional<AurHelper> configuredAurHelper(const QString &configFile, const QString &pamacConf)
+{
+    QSettings settings(configFile, QSettings::IniFormat);
+    if (!settings.value(QStringLiteral("AUR/check"), true).toBool()) {
+        return std::nullopt;
+    }
+    const QString helper = settings.value(QStringLiteral("AUR/helper")).toString();
+    if (!helper.isEmpty()) {
+        const QString program = QStandardPaths::findExecutable(helper);
+        return program.isEmpty() ? std::nullopt : aurHelperFor(program);
+    }
+    return findAurHelper(pamacConf);
+}
+
+std::optional<QHash<QString, QString>> foreignPackages(const QString &pacmanProgram, QString *error)
+{
+    QProcess pacman;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
+    pacman.setProcessEnvironment(env);
+    pacman.start(pacmanProgram, {QStringLiteral("-Qm")});
+    if (!pacman.waitForFinished(30000)) {
+        pacman.kill();
+        pacman.waitForFinished();
+        *error = QStringLiteral("pacman -Qm did not finish");
+        return std::nullopt;
+    }
+    QHash<QString, QString> installed;
+    for (const QString &line : QString::fromUtf8(pacman.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        const QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (parts.size() == 2) {
+            installed.insert(parts.at(0), parts.at(1));
         }
     }
-    return std::nullopt;
+    // pacman -Qm exits 1 when there are none.
+    if (installed.isEmpty() && (pacman.exitStatus() != QProcess::NormalExit || (pacman.exitCode() != 0 && pacman.exitCode() != 1))) {
+        *error = QStringLiteral("pacman -Qm failed: ") + QString::fromUtf8(pacman.readAllStandardError()).trimmed();
+        return std::nullopt;
+    }
+    return installed;
+}
+
+QStringList heldBack(const QString &pacmanConf, const QString &pacman)
+{
+    const auto lines = [](const QString &program, const QStringList &args) {
+        QProcess p;
+        p.start(program, args);
+        if (!p.waitForFinished(10000) || p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
+            p.kill();
+            p.waitForFinished();
+            return QStringList();
+        }
+        return QString::fromUtf8(p.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    };
+    QStringList held = lines(pacmanConf, {QStringLiteral("IgnorePkg")});
+
+    const QStringList groups = lines(pacmanConf, {QStringLiteral("IgnoreGroup")});
+    if (!groups.isEmpty()) {
+        held += lines(pacman, QStringList{QStringLiteral("-Qgq")} + groups);
+    }
+    return held;
 }
 
 AurResult checkAur(const AurCheckOptions &options)
 {
     AurResult result;
-    // pacman -Qm: "name version", one per line.
-    QProcess pacman;
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
-    pacman.setProcessEnvironment(env);
-    pacman.start(options.pacman, {QStringLiteral("-Qm")});
-    if (!pacman.waitForFinished(30000)) {
-        pacman.kill();
-        pacman.waitForFinished();
-        result.error = QStringLiteral("pacman -Qm did not finish");
+    const auto installed = foreignPackages(options.pacman, &result.error);
+    if (!installed) {
         return result;
     }
-    // pacman -Qm exits 1 when there are none.
-    QHash<QString, QString> installed;
+    // Held back (IgnorePkg, IgnoreGroup): the helpers skip them too.
+    QList<QRegularExpression> held;
+    for (const QString &pattern : heldBack(options.pacmanConf, options.pacman)) {
+        held.append(QRegularExpression(QRegularExpression::wildcardToRegularExpression(pattern)));
+    }
     QStringList names;
-    for (const QString &line : QString::fromUtf8(pacman.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
-        const QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-        if (parts.size() == 2) {
-            installed.insert(parts.at(0), parts.at(1));
-            names.append(parts.at(0));
+    for (auto it = installed->cbegin(); it != installed->cend(); ++it) {
+        if (std::none_of(held.cbegin(), held.cend(), [&it](const QRegularExpression &re) {
+                return re.match(it.key()).hasMatch();
+            })) {
+            names.append(it.key());
         }
     }
+    names.sort();
     if (names.isEmpty()) {
-        if (pacman.exitStatus() != QProcess::NormalExit || (pacman.exitCode() != 0 && pacman.exitCode() != 1)) {
-            result.error = QStringLiteral("pacman -Qm failed: ") + QString::fromUtf8(pacman.readAllStandardError()).trimmed();
-            return result;
-        }
         result.ok = true;
         return result;
     }
@@ -263,7 +321,8 @@ AurResult checkAur(const AurCheckOptions &options)
             const QJsonObject p = v.toObject();
             const QString name = p.value(QStringLiteral("Name")).toString();
             const QString version = p.value(QStringLiteral("Version")).toString();
-            const QString local = installed.value(name);
+            // Only what was asked about (not a held-back one).
+            const QString local = names.contains(name) ? installed->value(name) : QString();
             if (!local.isEmpty() && !version.isEmpty() && vercmp(version, local) > 0) {
                 result.packages.append({name, QStringLiteral("aur"), local, version, -1, false});
             }

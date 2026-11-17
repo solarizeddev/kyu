@@ -33,6 +33,11 @@ QString lockFile()
     return stateDir() + QStringLiteral("/check.lock");
 }
 
+QString configFile()
+{
+    return xdgDir("XDG_CONFIG_HOME", QStringLiteral("/.config")) + QStringLiteral("/kyu/kyu.conf");
+}
+
 QString checkupDbDir()
 {
     return xdgDir("XDG_CACHE_HOME", QStringLiteral("/.cache")) + QStringLiteral("/kyu/checkup-db");
