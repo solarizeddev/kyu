@@ -6,7 +6,7 @@ state=$HOME/.local/state/kyu
 kyu_check() {
     local name=$1 i
     for i in $(seq 1 120); do
-        kyu-check --json > /out/$name.json 2>/out/$name.err && break
+        kyu-check --json > /out/$name.json 2>/out/$name.err
         grep -q "already running" /out/$name.err || break
         sleep 5
     done

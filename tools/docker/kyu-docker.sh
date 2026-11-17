@@ -130,6 +130,8 @@ scenario)
         $trust
         echo 'tester ALL=(ALL) NOPASSWD: /usr/bin/pkill' > /etc/sudoers.d/tester-kill
         printf 'Server = $now\n' > /etc/pacman.d/mirrorlist
+        # Nothing downloaded already: every case downloads what it needs.
+        rm -f /var/cache/pacman/pkg/*.pkg.tar.zst*
         source /scenario.sh
         setup > /out/setup.log 2>&1 || echo setup failed: \$? >> /out/setup.log
         su tester -c 'export HOME=/home/tester USER=tester LOGNAME=tester; cd; source /lib.sh; source /scenario.sh; drive' > /out/drive.log 2>&1

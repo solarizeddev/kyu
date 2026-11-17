@@ -1,7 +1,6 @@
-# doas instead of sudo.
+# doas instead of sudo (keepenv: the proxy, as sudo's env_keep).
 setup() {
-    pacman -S --noconfirm opendoas
-    echo 'permit persist tester' > /etc/doas.conf
+    pacman -Sy --noconfirm opendoas
+    echo 'permit persist keepenv tester' > /etc/doas.conf
     pacman -Rdd --noconfirm sudo
 }
-export DRIVE_PASSWORD=kyu

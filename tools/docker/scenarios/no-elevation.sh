@@ -1,2 +1,2 @@
 # Neither sudo, doas nor pkexec.
-setup() { pacman -Rdd --noconfirm sudo; }
+setup() { pacman -Rdd --noconfirm sudo polkit; }
