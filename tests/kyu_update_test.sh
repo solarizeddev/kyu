@@ -142,13 +142,31 @@ run idle '' --lock-wait 20 --idle-after 1
 has "$work/idle/out" "pacman's lock looks left over: pamac-daemon is running but idle." idle
 [ ! -e "$work/idle/pacman-ran" ] || fail "idle: pacman ran"
 
-echo "a package manager started after the lock was taken cannot hold it"
-prepare young; touch "$work/young/db.lck"; mkdir -p "$work/young/proc/4246"; echo pacman >"$work/young/proc/4246/comm"
+echo "managers that all look younger than the lock (a clock step?): waited for, then only 'idle'"
+prepare young; touch "$work/young/db.lck"; mkdir -p "$work/young/proc/4246"; echo pamac-daemon >"$work/young/proc/4246/comm"
 echo "btime $(( $(date +%s) + 3600 ))" >"$work/young/proc/stat"
-echo "4246 (pacman) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 0" >"$work/young/proc/4246/stat"
-run young '' --lock-wait 20
-has "$work/young/out" "pacman's lock is left over from a stopped run; nothing is using it." young
-hasnt "$work/young/out" 'Waiting for' young
+echo "4246 (pamac-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 0" >"$work/young/proc/4246/stat"
+run young '' --lock-wait 20 --idle-after 1
+has "$work/young/out" "pacman's lock looks left over: pamac-daemon is running but idle." young
+
+echo "pacman itself is never called idle (it may sit at its own question)"
+prepare pacmanq; touch "$work/pacmanq/db.lck"; mkdir -p "$work/pacmanq/proc/4247"; echo pacman >"$work/pacmanq/proc/4247/comm"
+run pacmanq '' --lock-wait 3 --idle-after 1
+has "$work/pacmanq/out" 'Still busy after 3 s.' pacmanq
+hasnt "$work/pacmanq/out" 'looks left over' pacmanq
+
+echo "a holder with a child (a long hook) is never called idle"
+prepare hook; touch "$work/hook/db.lck"; mkdir -p "$work/hook/proc/4248" "$work/hook/proc/4249"
+echo pamac-daemon >"$work/hook/proc/4248/comm"; echo dkms >"$work/hook/proc/4249/comm"
+echo "4249 (dkms) S 4248 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 0" >"$work/hook/proc/4249/stat"
+run hook '' --lock-wait 3 --idle-after 1
+has "$work/hook/out" 'Still busy after 3 s.' hook
+
+echo "no package manager at all: left over at once"
+prepare orphanlock; touch "$work/orphanlock/db.lck"
+run orphanlock '' --lock-wait 20
+has "$work/orphanlock/out" "pacman's lock is left over from a stopped run; nothing is using it." orphanlock
+hasnt "$work/orphanlock/out" 'Waiting for' orphanlock
 
 echo "Flatpaks only: pacman's lock does not matter"
 prepare fplock; state "$work/fplock/state.json" 0 2 0; touch "$work/fplock/db.lck"

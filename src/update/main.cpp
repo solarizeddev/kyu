@@ -23,6 +23,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -36,6 +37,7 @@
 #include <QTemporaryDir>
 #include <QThread>
 
+#include <algorithm>
 #include <cerrno>
 #include <clocale>
 #include <csignal>
@@ -359,6 +361,70 @@ QList<Manager> lockHolders(const QString &procDir, const QString &lockPath)
         }
     }
     return holders;
+}
+
+// Every process's parent, from /proc/<pid>/stat.
+QHash<int, int> parentMap(const QString &procDir)
+{
+    QHash<int, int> parents;
+    for (const QString &entry : QDir(procDir).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        bool isPid = false;
+        const int pid = entry.toInt(&isPid);
+        if (isPid) {
+            if (const QStringList f = statFields(procDir, pid); f.size() > 1) {
+                parents.insert(pid, f.at(1).toInt());
+            }
+        }
+    }
+    return parents;
+}
+
+// A process's descendants (hooks, dkms, mkinitcpio run as children).
+QList<int> descendants(const QHash<int, int> &parents, int pid)
+{
+    QList<int> found;
+    for (auto it = parents.cbegin(); it != parents.cend(); ++it) {
+        for (int p = it.value(), hops = 0; p > 1 && hops < 64; p = parents.value(p, 0), ++hops) {
+            if (p == pid) {
+                found.append(it.key());
+                break;
+            }
+        }
+    }
+    return found;
+}
+
+// Whether a package manager may be called idle when nothing changes: never
+// pacman itself (it may sit at its own question; it exits when done), never
+// one with children (a long hook), never pamac's daemon while pamac's window
+// is open (a confirmation or password dialog).
+bool canBeIdle(const Manager &m, const QList<Manager> &all, const QHash<int, int> &parents)
+{
+    if (m.name == QLatin1String("pacman") || !descendants(parents, m.pid).isEmpty()) {
+        return false;
+    }
+    if (m.name == QLatin1String("pamac-daemon")) {
+        for (const Manager &other : all) {
+            if (other.name == QLatin1String("pamac-manager") || other.name == QLatin1String("pamac-installer")) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// What changes while package managers work: their CPU time and their
+// children's (several numbers; compared as a whole).
+QStringList cpuMarks(const QString &procDir, const QList<Manager> &managers, const QHash<int, int> &parents)
+{
+    QStringList marks;
+    for (const Manager &m : managers) {
+        marks.append(QString::number(cpuTicks(procDir, m.pid)));
+        for (int child : descendants(parents, m.pid)) {
+            marks.append(QString::number(cpuTicks(procDir, child)));
+        }
+    }
+    return marks;
 }
 
 // Set by Ctrl+C while waiting for the lock.
@@ -861,18 +927,22 @@ int main(int argc, char **argv)
         if (!QFileInfo::exists(lockPath)) {
             return Lock::Free;
         }
-        QList<Manager> holders = lockHolders(procPath, lockPath);
-        if (holders.isEmpty()) {
+        // Nobody that could hold it: left over. Managers that all look younger
+        // than the lock may be a clock step (NTP, a dual-boot clock): those
+        // are waited for like holders, and only ever called idle.
+        if (packageManagers(procPath).isEmpty()) {
             return Lock::Stale;
         }
-        out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(describe(holders.constFirst())));
-        // What changes while a package manager works: its CPU time, pacman's
-        // log, the lock itself.
+        auto candidates = [&]() {
+            const QList<Manager> holders = lockHolders(procPath, lockPath);
+            return holders.isEmpty() ? packageManagers(procPath) : holders;
+        };
+        out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(describe(candidates().constFirst())));
+        // What changes while a package manager works: its and its children's
+        // CPU time, pacman's log, the lock itself.
         auto activity = [&]() {
-            QStringList marks;
-            for (const Manager &m : packageManagers(procPath)) {
-                marks.append(QString::number(cpuTicks(procPath, m.pid)));
-            }
+            const QHash<int, int> parents = parentMap(procPath);
+            QStringList marks = cpuMarks(procPath, packageManagers(procPath), parents);
             marks.append(QString::number(QFileInfo(parser.value(pacmanLog)).size()));
             marks.append(QString::number(QFileInfo(lockPath).lastModified().toMSecsSinceEpoch()));
             return marks;
@@ -902,12 +972,17 @@ int main(int argc, char **argv)
                 }
             } else {
                 freeFor = 0;
-                holders = lockHolders(procPath, lockPath);
-                if (holders.isEmpty()) {
+                const QList<Manager> all = packageManagers(procPath);
+                if (all.isEmpty()) {
                     result = Lock::Stale;
                     break;
                 }
-                if (const QStringList now = activity(); now != last) {
+                const QList<Manager> holders = candidates();
+                const QHash<int, int> parents = parentMap(procPath);
+                const bool mayBeIdle = std::all_of(holders.cbegin(), holders.cend(), [&](const Manager &m) {
+                    return canBeIdle(m, all, parents);
+                });
+                if (const QStringList now = activity(); now != last || !mayBeIdle) {
                     last = now;
                     quiet.restart();
                 } else if (quiet.elapsed() >= idleLimit) {
@@ -945,17 +1020,25 @@ int main(int argc, char **argv)
             out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
             // Minutes may pass before [f]: a package manager may have started working.
             keys.fixAllowed = [&out, lockPath, procPath]() {
-                const QList<Manager> holders = lockHolders(procPath, lockPath);
-                QList<qint64> before;
-                for (const Manager &m : holders) {
-                    before.append(cpuTicks(procPath, m.pid));
+                if (!QFileInfo::exists(lockPath)) {
+                    return true;
                 }
-                QThread::msleep(1000);
-                for (qsizetype i = 0; i < holders.size(); ++i) {
-                    if (QFileInfo::exists(lockPath) && cpuTicks(procPath, holders.at(i).pid) != before.at(i)) {
-                        out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(holders.at(i))));
+                // Any package manager now (a clock step can hide a holder's
+                // age): one that cannot be idle, or that works, refuses.
+                const QList<Manager> all = packageManagers(procPath);
+                QHash<int, int> parents = parentMap(procPath);
+                for (const Manager &m : all) {
+                    if (!canBeIdle(m, all, parents)) {
+                        out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(m)));
                         return false;
                     }
+                }
+                const QStringList before = cpuMarks(procPath, all, parents);
+                QThread::msleep(1000);
+                parents = parentMap(procPath);
+                if (cpuMarks(procPath, all, parents) != before) {
+                    out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(all.constFirst())));
+                    return false;
                 }
                 return true;
             };
@@ -1041,8 +1124,15 @@ int main(int argc, char **argv)
             }
             out.blank();
             const Lock lock = waitForLock();
+            if (lock == Lock::Stopped) {
+                out.warn(QStringLiteral("Stopped. Nothing was installed."));
+                return finish(4);
+            }
+            if (lock == Lock::Stale || lock == Lock::Idle) {
+                return staleLock(lock);
+            }
             if (lock != Lock::Free) {
-                break; // the verdict says why pacman stopped
+                break; // timed out: the verdict says why pacman stopped
             }
             out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')) + QStringLiteral(" (again)"));
         }
