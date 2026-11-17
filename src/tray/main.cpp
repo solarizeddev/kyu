@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));
     QApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
     QApplication::setDesktopFileName(QStringLiteral(KYU_APP_ID ".tray"));
-    // The tray has no windows; closing a future panel must not quit it.
+    // The tray has no windows; closing the card must not quit it.
     QApplication::setQuitOnLastWindowClosed(false);
 
     StateWatcher watcher;
@@ -28,14 +28,14 @@ int main(int argc, char **argv)
     HelperWatcher helper;
     QObject::connect(&helper, &HelperWatcher::transactionFinished, &scheduler, &CheckScheduler::checkNow);
     QObject::connect(&tray, &TrayIcon::panelRequested, &tray, [](const QString &token) {
-        // The panel is its own process (so it can close or crash without
+        // The card is its own process (so it can close or crash without
         // touching the tray) and is single-instance: a second start raises it.
         QString panel = QApplication::applicationDirPath() + QStringLiteral("/kyu");
         if (!QFileInfo(panel).isExecutable()) {
             panel = QFileInfo(QStringLiteral(KYU_PANEL_BINARY)).isExecutable() ? QStringLiteral(KYU_PANEL_BINARY) : QStringLiteral("kyu");
         }
-        // The click's activation token lets the panel take focus on Wayland
-        // (a new panel reads it from the environment; a running one gets it
+        // The click's activation token lets the card take focus on Wayland
+        // (a new card reads it from the environment; a running one gets it
         // through its Activate call).
         QProcess process;
         process.setProgram(panel);

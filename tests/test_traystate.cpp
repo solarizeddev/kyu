@@ -11,6 +11,7 @@ class TestTrayState : public QObject
     Q_OBJECT
 private Q_SLOTS:
     void states();
+    void cards();
 };
 
 static UpdateState withUpdates(int n, bool news)
@@ -88,6 +89,68 @@ void TestTrayState::states()
     v = trayView(in);
     QCOMPARE(v.mark, TrayMark::Updating);
     QVERIFY(v.iconName.isEmpty());
+}
+
+void TestTrayState::cards()
+{
+    TrayInput in;
+    in.now = QDateTime::fromString(QStringLiteral("2026-11-16T15:00:00Z"), Qt::ISODate);
+
+    UpdateState s = withUpdates(6, true);
+    FlatpakUpdate f;
+    f.name = QStringLiteral("org.x.App");
+    s.flatpaks = {f, f};
+    in.state = s;
+    CardView c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("8 updates"));
+    QVERIFY(c.detail.startsWith(QStringLiteral("6 packages · 2 Flatpaks")));
+    QCOMPARE(c.linkText, QStringLiteral("Read first: Manual intervention for foo"));
+    QCOMPARE(c.action, CardView::Action::Update);
+    QVERIFY(c.primary);
+
+    // Flatpaks only: no password.
+    UpdateState fp = withUpdates(0, false);
+    fp.flatpaks = {f, f};
+    in.state = fp;
+    QCOMPARE(cardView(in).detail, QStringLiteral("2 Flatpaks · no password needed"));
+
+    // Up to date: a quiet button, not a primary one.
+    in.state = withUpdates(0, false);
+    c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("Up to date"));
+    QCOMPARE(c.action, CardView::Action::Check);
+    QVERIFY(!c.primary);
+
+    // Restart: the reason, capitalised.
+    in.sameBoot = true;
+    in.lastRun = QJsonObject{{QStringLiteral("restartRequired"), true}, {QStringLiteral("restartReason"), QStringLiteral("new kernel 6.18.22-1-MANJARO")},
+                             {QStringLiteral("time"), QStringLiteral("2026-11-16T14:12:00Z")}};
+    c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("Restart to finish"));
+    QCOMPARE(c.detail, QStringLiteral("New kernel 6.18.22-1-MANJARO"));
+    QCOMPARE(c.action, CardView::Action::Restart);
+
+    // Updating: no button at all.
+    in.updating = true;
+    c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("Updating…"));
+    QCOMPARE(c.action, CardView::Action::None);
+
+    // A failed update: update again, with the kind for the sentence.
+    in.updating = false;
+    in.sameBoot = false;
+    in.state = withUpdates(2, false);
+    in.lastRun = QJsonObject{{QStringLiteral("pacmanExit"), 1}, {QStringLiteral("failure"), QStringLiteral("keyring")}, {QStringLiteral("time"), QStringLiteral("2026-11-16T14:30:00Z")}};
+    c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("The update did not finish"));
+    QCOMPARE(c.failureKind, QStringLiteral("keyring"));
+    QCOMPARE(c.actionText, QStringLiteral("Update again"));
+
+    // Never checked: the check button.
+    in = TrayInput{};
+    c = cardView(in);
+    QCOMPARE(c.heading, QStringLiteral("Not checked yet"));
+    QCOMPARE(c.action, CardView::Action::Check);
 }
 
 QTEST_GUILESS_MAIN(TestTrayState)

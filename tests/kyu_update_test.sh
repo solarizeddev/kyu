@@ -222,6 +222,16 @@ prepare earlier; state "$work/earlier/state.json" 0 0 0
 KYU_FAKE_MODE=nothing run earlier ''
 has "$work/earlier/out" 'Restart needed: new kernel 6.18.22-1-MANJARO (from an earlier update)' earlier
 
+echo "--merge: pacdiff only, then the record keeps what is left"
+run mergeonly 'y\n'
+d=$work/mergeonly
+: >"$d/pacdiff-ran.before"
+rm -f "$d/pacdiff-ran"
+run mergeonly '' --merge
+has "$d/out" 'Kyu · settings files' mergeonly
+[ -e "$d/pacdiff-ran" ] || fail "mergeonly: pacdiff did not run"
+grep -q 'sddm.conf.pacnew' "$d/state/kyu/last-run.json" && fail "mergeonly: a merged file is still listed" || true
+
 echo "one update at a time"
 KYU_FAKE_MODE=slow run first 'y\n' &
 first=$!

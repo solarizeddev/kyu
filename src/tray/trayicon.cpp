@@ -2,22 +2,17 @@
 
 #include "aftercare.h"
 #include "badge.h"
-#include "paths.h"
 #include "statewatcher.h"
 #include "statustext.h"
 #include "traystate.h"
 
 #include <QAction>
 #include <QApplication>
-#include <QFile>
-#include <QJsonDocument>
-#include <QLockFile>
 #include <QMenu>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 
-#include <csignal>
 
 #ifdef KYU_HAVE_KSNI
 #include <KStatusNotifierItem>
@@ -31,28 +26,6 @@ namespace
 // kyu-updating-0 … kyu-updating-23 (1.5 s per turn).
 constexpr int SpinFrames = 24;
 constexpr int SpinInterval = 62; // ms
-
-QJsonObject readJson(const QString &path)
-{
-    QFile file(path);
-    return file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()).object() : QJsonObject();
-}
-
-QString bootId()
-{
-    QFile file(QStringLiteral("/proc/sys/kernel/random/boot_id"));
-    return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
-}
-
-// A kyu-update holds its lock (read only: taking it would make a starting
-// kyu-update think another one runs).
-bool updateRunning()
-{
-    QLockFile lock(Kyu::Paths::stateDir() + QStringLiteral("/update.lock"));
-    qint64 pid = 0;
-    QString host, app;
-    return lock.getLockInfo(&pid, &host, &app) && pid > 0 && ::kill(pid_t(pid), 0) == 0;
-}
 
 // Plasma's "Animation speed: instant" (and reduced motion) is a factor of 0.
 bool animationsEnabled()
@@ -133,16 +106,7 @@ void TrayIcon::refresh()
     const bool checking = m_watcher->checking();
     m_checkAction->setEnabled(!checking);
 
-    Kyu::TrayInput in;
-    in.state = state;
-    in.checking = checking;
-    in.loadError = m_watcher->loadError();
-    in.lastRun = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
-    const QString boot = bootId();
-    in.sameBoot = !boot.isEmpty() && in.lastRun.value(QStringLiteral("bootId")).toString() == boot;
-    in.kernelReplaced = Kyu::kernelState().replaced;
-    in.updating = updateRunning();
-    in.now = QDateTime::currentDateTime();
+    const Kyu::TrayInput in = Kyu::currentTrayInput(state, checking, m_watcher->loadError());
     const Kyu::TrayView view = Kyu::trayView(in);
 
 #ifdef KYU_HAVE_KSNI

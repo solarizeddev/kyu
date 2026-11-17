@@ -435,6 +435,34 @@ QString shellJoin(const QStringList &args)
     return quoted.join(QLatin1Char(' '));
 }
 
+// pacdiff, as you with sudo for the files (your DIFFPROG stays); with doas
+// or pkexec all of it as root. False when it could not start at all.
+bool runPacdiff(Out &out, const QString &elevate)
+{
+    if (QStandardPaths::findExecutable(QStringLiteral("pacdiff")).isEmpty()) {
+        out.warn(QStringLiteral("pacdiff is in pacman-contrib: sudo pacman -S pacman-contrib"));
+        return false;
+    }
+    if (elevate.isEmpty()) {
+        out.warn(QStringLiteral("pacdiff needs sudo, doas or pkexec to change files in /etc."));
+        return false;
+    }
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()
+        && !QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
+        env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
+    }
+    out.note(QStringLiteral("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
+                            "o use the new version, s skip."),
+             Tone::Dim);
+    const int rc = elevate == QLatin1String("sudo") ? runInTerminal(QStringLiteral("pacdiff"), {QStringLiteral("--sudo")}, env)
+                                                    : runInTerminal(elevate, {QStringLiteral("pacdiff")}, env);
+    if (rc != 0) {
+        out.bad(QStringLiteral("pacdiff stopped (status %1).").arg(rc));
+    }
+    return true;
+}
+
 QString checkBinary()
 {
     const QString override = qEnvironmentVariable("KYU_CHECK");
@@ -472,12 +500,13 @@ int main(int argc, char **argv)
     QCommandLineOption procDir(QStringLiteral("proc-dir"), QStringLiteral("/proc (testing)."), QStringLiteral("path"), QStringLiteral("/proc"));
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
+    QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the settings files the last update left (pacdiff)."));
     QCommandLineOption newsRead(QStringLiteral("news-read"), QStringLiteral("Do not show the news (they were read in this window)."));
     newsRead.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption synced(QStringLiteral("synced"), QStringLiteral("The package lists were just synced by a fix."));
     synced.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -560,28 +589,8 @@ int main(int argc, char **argv)
                 }
                 out.bad(QStringLiteral("systemctl reboot failed (status %1).").arg(rc));
             } else if (answer == QLatin1String("m") && !k.configs.isEmpty()) {
-                if (QStandardPaths::findExecutable(QStringLiteral("pacdiff")).isEmpty()) {
-                    out.warn(QStringLiteral("pacdiff is in pacman-contrib: sudo pacman -S pacman-contrib"));
+                if (!runPacdiff(out, elevate)) {
                     continue;
-                }
-                if (elevate.isEmpty()) {
-                    out.warn(QStringLiteral("pacdiff needs sudo, doas or pkexec to change files in /etc."));
-                    continue;
-                }
-                QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-                if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()
-                    && !QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
-                    env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
-                }
-                out.note(QStringLiteral("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
-                                        "o use the new version, s skip."),
-                         Tone::Dim);
-                // With sudo, pacdiff runs as you (your DIFFPROG) and uses sudo
-                // for the files; doas and pkexec run all of it as root.
-                const int rc = elevate == QLatin1String("sudo") ? runInTerminal(QStringLiteral("pacdiff"), {QStringLiteral("--sudo")}, env)
-                                                                : runInTerminal(elevate, {QStringLiteral("pacdiff")}, env);
-                if (rc != 0) {
-                    out.bad(QStringLiteral("pacdiff stopped (status %1).").arg(rc));
                 }
                 QStringList left;
                 for (const QString &path : std::as_const(k.configs)) {
@@ -643,6 +652,36 @@ int main(int argc, char **argv)
         out.prompt(QStringLiteral("[Enter] close "), Tone::Info);
         readAnswer();
         return 0;
+    }
+
+    // --- Settings files only (the card's Merge…) ----------------------------
+    if (parser.isSet(mergeOnly)) {
+        out.header(QStringLiteral("Kyu · settings files"));
+        out.blank();
+        QJsonObject record = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
+        if (runPacdiff(out, elevate)) {
+            QStringList left;
+            for (const QString &path : strings(record.value(QStringLiteral("configs")))) {
+                if (QFileInfo::exists(path)) {
+                    left.append(path);
+                }
+            }
+            if (!record.isEmpty()) {
+                record.insert(QStringLiteral("configs"), QJsonArray::fromStringList(left));
+                QSaveFile last(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
+                if (last.open(QIODevice::WriteOnly)) {
+                    last.write(QJsonDocument(record).toJson());
+                    last.commit();
+                }
+            }
+            out.blank();
+            if (left.isEmpty()) {
+                out.good(QStringLiteral("Settings files merged."));
+            } else {
+                out.warn(QStringLiteral("%1 still to merge.").arg(plural(left.size(), QStringLiteral("settings file"), QStringLiteral("settings files"))));
+            }
+        }
+        return finish(0);
     }
 
     // --- Before pacman ----------------------------------------------------

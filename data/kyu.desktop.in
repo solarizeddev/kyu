@@ -2,9 +2,9 @@
 Type=Application
 Name=Kyu
 GenericName=System Update
-Comment=Lists pending pacman and Flatpak updates and applies them
+Comment=Shows pending updates and what to do next; updates in a terminal
 Exec=@CMAKE_INSTALL_FULL_BINDIR@/kyu
-Icon=system-software-update
+Icon=update-low
 Categories=System;PackageManager;
 Keywords=update;upgrade;pacman;flatpak;
 StartupNotify=true
