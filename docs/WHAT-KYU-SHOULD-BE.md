@@ -63,8 +63,8 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | # | What | Why (who gets it wrong) | Status | Pri |
 |---|---|---|---|---|
 | 1 | Check without touching pacman's real databases (no `-Sy`), parsed with `LC_ALL=C` | Octopi ran `-Sy`; Apdatifier broke with pacman 7.1; Arch-Update locale bugs | have | 1 |
-| 2 | Honour IgnorePkg/IgnoreGroup; honour Flatpak masks | Apdatifier, Octopi | have (pacman); verify (Flatpak: mask a ref, run `kyu-check --json`) | 1 |
-| 3 | "Could not check" is its own state, never "up to date" or a stale count | Arch-Update "Cannot fetch Update" on Manjaro | have | 1 |
+| 2 | Honour IgnorePkg/IgnoreGroup; honour Flatpak masks | Apdatifier, Octopi | have; proven in containers (real pacman) for IgnorePkg; verify (Flatpak: mask a ref, run `kyu-check --json`) | 1 |
+| 3 | "Could not check" is its own state, never "up to date" or a stale count | Arch-Update "Cannot fetch Update" on Manjaro | have; proven in containers (real pacman): no network gives "Could not check", exit 2, the old list kept | 1 |
 | 4 | Every check has a timeout and can't block later checks; retry when the network is back after boot or resume | Apdatifier hangs; Arch-Update errors on wake | have: the Flatpak check gives up after 2 min, kyu-check ends after 10 min whatever happens, the timer catches up after sleep, the tray checks after resume and when the network is back after a failed check | 1 |
 | 5 | Check again whenever packages change, not only after Kyu's own update (pamac, plain pacman) | Apdatifier keeps the old list | have: the tray watches pacman's package database and Flatpak's change marker and checks once things are quiet | 1 |
 | 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | have: the card replaces the old panel; the card's states checked in screenshots on Plasma 6.7 (Breeze); the tray icon itself (hidden when up to date, left and right click) not yet confirmed on Plasma | 1 |
@@ -73,26 +73,26 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
 | 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part: "Read before updating" (news) and "The update is waiting for you" (seen working on the owner's Plasma); "Updates", "Done", "Failed" not yet | 2 |
 | 11 | Icons that don't depend on colour alone | Arch-Update colourblind request | part (tooltip) | 2 |
-| 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | verify | 2 |
+| 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | have; proven in containers (real pacman): a failing feed is stated (kyu-check's error, the card) and the earlier news is kept | 2 |
 
 ### Before pacman
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
 | 13 | Manjaro's announcement for your branch; Arch news on Arch | Arch-Update/informant: wrong feed on Manjaro | have | 1 |
-| 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | have: asked once per announcement; opening it from the card counts as read; read ones get one quiet line. On Manjaro each stable update brings a new announcement, so it is still asked once per update; the saving is on repeated runs and when read from the card first | 1 |
-| 15 | Wait for pamac or another package manager to finish, then go on | pamac's own background refresh takes the lock routinely | have: waits (up to 10 minutes, Ctrl+C stops), then goes on; a Flatpak-only update ignores pacman's lock | 1 |
+| 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | have: asked once per announcement; opening it from the card counts as read; read ones get one quiet line. On Manjaro each stable update brings a new announcement, so it is still asked once per update; the saving is on repeated runs and when read from the card first; proven in containers (asked, then one quiet line; Ctrl+C at it is a stop) | 1 |
+| 15 | Wait for pamac or another package manager to finish, then go on | pamac's own background refresh takes the lock routinely | have: waits (up to 10 minutes, Ctrl+C stops), then goes on; a Flatpak-only update ignores pacman's lock; proven in containers with a real pacman holding the lock, a stale and an idle holder (not pamac itself) | 1 |
 | 16 | Keyrings first when they are among the updates: `pacman -Sy --needed archlinux-keyring manjaro-keyring` then `pacman -Su` at once, in the same run | Manjaro advice; the top real failure after long gaps | have: when the last check lists a keyring package (one with files in `/usr/share/pacman/keyrings/`), all installed keyrings go first in their own `pacman -Sy --needed`, then `pacman -Su`, in one shell (sudo asks once); if the new keyring itself is not trusted, or signatures still fail, Kyu says to check the clock and refresh the keys instead of offering the keyring fix again; seen working in a real Manjaro update (container) | 1 |
 | 17 | Long gap warning: last full upgrade more than a few weeks ago → "read the announcements in between; keyrings first" | — | missing | 2 |
-| 18 | Flatpak-only update without a password | — | have | 2 |
+| 18 | Flatpak-only update without a password | — | have; proven in containers (real pacman) (a real flatpak with a local repository) | 2 |
 
 ### The update
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
 | 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have: run on the owner's Manjaro and in Arch and Manjaro containers | 1 |
-| 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | have: paru, yay, or pamac with `EnableAUR` and `CheckAURUpdates`; checked against the AUR's web API at most every 6 hours (foreign package names, pacman's version order, held-back ones left out), counted apart; `paru -Sua` / `yay -Sua` / `pamac update --aur` last, after Flatpaks (pamac never without pacman first: it would do the repos too); the system's result is saved before it; its failure is its own line, and a package that failed to build is not offered again until a newer version. `kyu.conf` turns it off or picks the helper. Runs before a restart, not after (Manjaro's "reboot, then AUR" is not followed) | 1 |
-| 21 | Then `flatpak update` | — | have | 1 |
+| 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | have: paru, yay, or pamac with `EnableAUR` and `CheckAURUpdates`; checked against the AUR's web API at most every 6 hours (foreign package names, pacman's version order, held-back ones left out), counted apart; `paru -Sua` / `yay -Sua` / `pamac update --aur` last, after Flatpaks (pamac never without pacman first: it would do the repos too); the system's result is saved before it; its failure is its own line, and a package that failed to build is not offered again until a newer version. `kyu.conf` turns it off or picks the helper. Runs before a restart, not after (Manjaro's "reboot, then AUR" is not followed); proven in containers with yay: a failing build on its own line, then held back (--ignore) until a newer version; a successful AUR build and pamac not yet | 1 |
+| 21 | Then `flatpak update` | — | have; proven in containers (real pacman): a real `flatpak update`, declined (a stop), and with its remote gone ("not updated", not "done") | 1 |
 | 22 | The terminal you use: Konsole by default, one setting for another | terminal detection is Arch-Update's and Apdatifier's longest bug thread | part (Konsole / xdg-terminal-exec, no setting) | 2 |
 | 23 | Closing the window mid-update asks first | pamac's update keeps running hidden | part (the Kyu window asks; plain Konsole asks only Konsole's own question) | 2 |
 | 24 | Kept awake while pacman runs | Apdatifier, Omarchy | have | 2 |
@@ -101,12 +101,12 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 25 | One verdict line; then only what applies, one key each | Arch-Update asks several questions in turn | have | 1 |
-| 26 | Restart needed: kernel (running vs installed), systemd, glibc, NVIDIA; remembered until you restart | Arch-Update false positives (EndeavourOS, kernel-modules-hook) | have (needs real-machine proof) | 1 |
-| 27 | Settings files (.pacnew): list them, merge with pacdiff | pamac only lists them in its log | have | 1 |
-| 28 | Failures: why, in one sentence; the fix printed, run only on an explicit key | others show raw errors | have | 1 |
-| 29 | Failure explanations in any language, or say plainly "English only" | the owner's machine may not be English, which silently turns off 28 | have: pacman stays in your language; its failures are recognised by turning its lines back into English with pacman's own translations (pacman.mo, libalpm.mo). Kyu's own sentences are English, and the README says so. Without a catalog for your language: pacman's last lines, as before | 1 |
-| 30 | Mirror failures name Manjaro's own fix (`pacman-mirrors --fasttrack`) | stale mirrors: quiet "up to date" or 404s | have (for the mirror failure); verify (the quiet case) | 2 |
+| 25 | One verdict line; then only what applies, one key each | Arch-Update asks several questions in turn | have; proven in containers (real pacman) | 1 |
+| 26 | Restart needed: kernel (running vs installed), systemd, glibc, NVIDIA; remembered until you restart | Arch-Update false positives (EndeavourOS, kernel-modules-hook) | have; systemd and "remembered" proven in containers; the kernel and NVIDIA reasons need the real machine | 1 |
+| 27 | Settings files (.pacnew): list them, merge with pacdiff | pamac only lists them in its log | have; proven in containers (real pacman): a .pacnew and [m] with pacdiff (Kyu picks a viewer when vim is missing) | 1 |
+| 28 | Failures: why, in one sentence; the fix printed, run only on an explicit key | others show raw errors | have; proven in containers (real pacman) for: no connection, missing package lists, a mirror behind, a damaged download, untrusted keys, files conflict, full disk, dependencies, a lock taken late, a stale or idle lock, pacman killed midway | 1 |
+| 29 | Failure explanations in any language, or say plainly "English only" | the owner's machine may not be English, which silently turns off 28 | have: pacman stays in your language; its failures are recognised by turning its lines back into English with pacman's own translations (pacman.mo, libalpm.mo). Kyu's own sentences are English, and the README says so. Without a catalog for your language: pacman's last lines, as before; proven in containers in German for decline, files conflict and no connection | 1 |
+| 30 | Mirror failures name Manjaro's own fix (`pacman-mirrors --fasttrack`) | stale mirrors: quiet "up to date" or 404s | have (for the mirror failures; proven in containers on Arch); verify (the quiet case, and the fix line on Manjaro) | 2 |
 | 31 | Housekeeping as printed lines, never automatic: orphans, package cache, unused Flatpak runtimes | Arch-Update does these with prompts | missing | 3 |
 | 32 | A short log of each run | Omarchy keeps one | part (last-run.json) | 3 |
 
@@ -182,7 +182,7 @@ looks at that file every second and notifies only when it is not in front.
 
 Kyu's column is what it does today, tested only against a fake pacman.
 
-| | Kyu now (untested) | Arch-Update | pamac (GTK4) | Apdatifier | matray |
+| | Kyu now (tested in containers) | Arch-Update | pamac (GTK4) | Apdatifier | matray |
 |---|---|---|---|---|---|
 | Checks without `-Sy` | yes | yes | yes (own database copy) | yes | — |
 | Right news on Manjaro | yes | no (Arch feed) | no | if you add the feed | yes (only this) |
