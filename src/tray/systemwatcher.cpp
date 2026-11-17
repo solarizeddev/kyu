@@ -39,6 +39,12 @@ void SystemWatcher::rewatch()
         wanted.append(m_paths.pacmanLocal);
     }
     for (const QString &file : std::as_const(m_paths.flatpakChanged)) {
+        // The installation's directory too: a ".changed" that appears later
+        // (the first Flatpak installed) or is renamed into place shows there.
+        const QString dir = QFileInfo(file).absolutePath();
+        if (QFileInfo(dir).isDir()) {
+            wanted.append(dir);
+        }
         if (QFileInfo::exists(file)) {
             wanted.append(file);
         }
@@ -62,11 +68,18 @@ void SystemWatcher::changed()
 
 void SystemWatcher::settle()
 {
-    // Still running (pacman holds its lock): look again later.
+    // Still running (pacman holds its lock): look again later, but not
+    // forever (a lock left over from a crash would hold it).
     if (QFileInfo::exists(m_paths.pacmanLock)) {
-        m_quiet.start();
-        return;
+        if (!m_waitingForLock.isValid()) {
+            m_waitingForLock.start();
+        }
+        if (m_waitingForLock.elapsed() < 30 * 60 * 1000) {
+            m_quiet.start();
+            return;
+        }
     }
+    m_waitingForLock.invalidate();
     Q_EMIT packagesChanged();
 }
 
@@ -92,7 +105,9 @@ void SystemWatcher::prepareForSleep(bool sleeping)
 
 void SystemWatcher::networkStateChanged(uint state)
 {
-    const bool up = state == ConnectedGlobal && m_networkState != ConnectedGlobal && m_networkState != 0;
+    // NetworkManager only reports changes, so a first "connected" is one too
+    // (logged in without a network).
+    const bool up = state == ConnectedGlobal && m_networkState != ConnectedGlobal;
     m_networkState = state;
     if (up) {
         Q_EMIT networkUp();

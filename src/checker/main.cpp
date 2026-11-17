@@ -29,8 +29,9 @@ enum ExitCode {
 int main(int argc, char **argv)
 {
     // A safety net: whatever hangs, the check ends (and its lock with it)
-    // after ten minutes, so it never blocks the checks after it.
-    ::alarm(600);
+    // after 15 minutes, so it never blocks the checks after it. (Each part has
+    // its own, shorter limit; together they stay under this.)
+    ::alarm(900);
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-check"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));

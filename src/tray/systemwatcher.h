@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QElapsedTimer>
 #include <QTimer>
 
 class QFileSystemWatcher;
@@ -18,7 +19,7 @@ public:
     struct Paths {
         QString pacmanLocal = QStringLiteral("/var/lib/pacman/local"); // a directory per installed package
         QString pacmanLock = QStringLiteral("/var/lib/pacman/db.lck");
-        QStringList flatpakChanged; // each installation's ".changed" file
+        QStringList flatpakChanged; // each installation's ".changed" file (its directory is watched too)
     };
     static Paths defaultPaths();
 
@@ -44,5 +45,6 @@ private:
     Paths m_paths;
     QFileSystemWatcher *m_watcher;
     QTimer m_quiet;
+    QElapsedTimer m_waitingForLock; // pacman's lock held since
     uint m_networkState = 0;
 };

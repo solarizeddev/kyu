@@ -129,6 +129,10 @@ FlatpakResult checkFlatpak(int timeoutSeconds)
         g_object_unref(installation);
     }
 
+    // Out of time: whatever was not checked is not "no updates".
+    if (deadline.expired() && errors.isEmpty()) {
+        errors.append(QStringLiteral("no answer within %1 s").arg(timeoutSeconds));
+    }
     // A remote that could not be read is not "no updates".
     errors.append(warnings.fetchErrors());
     result.ok = errors.isEmpty();

@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QFileInfo>
 #include <QProcess>
+#include <QTimer>
 
 int main(int argc, char **argv)
 {
@@ -29,10 +30,24 @@ int main(int argc, char **argv)
     SystemWatcher system;
     system.watchSystemBus();
     QObject::connect(&system, &SystemWatcher::packagesChanged, &scheduler, &CheckScheduler::checkNow);
-    QObject::connect(&system, &SystemWatcher::resumed, &scheduler, &CheckScheduler::checkNow);
-    QObject::connect(&system, &SystemWatcher::networkUp, &scheduler, [&watcher, &scheduler]() {
-        if (!watcher.loadError().isEmpty() || (watcher.state() && watcher.state()->hasError())) {
-            scheduler.checkNow();
+    // After waking (or the network coming back), the first check may have
+    // run before the network was up, or still be running: check, and once
+    // more two minutes later if the result is still a failure.
+    auto failed = [&watcher]() {
+        return !watcher.loadError().isEmpty() || (watcher.state() && watcher.state()->hasError());
+    };
+    auto checkUntilFine = [&scheduler, failed]() {
+        scheduler.checkNow();
+        QTimer::singleShot(120000, &scheduler, [&scheduler, failed]() {
+            if (failed()) {
+                scheduler.checkNow();
+            }
+        });
+    };
+    QObject::connect(&system, &SystemWatcher::resumed, &scheduler, checkUntilFine);
+    QObject::connect(&system, &SystemWatcher::networkUp, &scheduler, [failed, checkUntilFine]() {
+        if (failed()) {
+            checkUntilFine();
         }
     });
     QObject::connect(&tray, &TrayIcon::cardRequested, &tray, [](const QString &token) {

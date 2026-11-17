@@ -54,8 +54,13 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
         return result;
     }
     if (!check.waitForFinished(options.timeoutMs)) {
-        check.kill();
-        check.waitForFinished();
+        // Politely first: checkupdates cleans up its private database lock
+        // on SIGTERM, not on SIGKILL.
+        check.terminate();
+        if (!check.waitForFinished(5000)) {
+            check.kill();
+            check.waitForFinished();
+        }
         result.error = QStringLiteral("%1 did not finish within %2 s")
                            .arg(options.checkupdates)
                            .arg(options.timeoutMs / 1000);
