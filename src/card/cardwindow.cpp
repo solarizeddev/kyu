@@ -422,6 +422,9 @@ void CardWindow::sizeDetails()
         }
         layout.endLayout();
     }
+    // A scroll bar only when there is more than fits (it would narrow the
+    // box and change the wrapping just measured).
+    m_raw->setVerticalScrollBarPolicy(lines > 12 ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     m_raw->setFixedHeight(qBound(3, lines, 12) * mono.lineSpacing() + 2 * m_raw->frameWidth() + 2 * margin + mono.descent());
 }
 
@@ -478,6 +481,17 @@ void CardWindow::present(const Kyu::CardView &view)
             muted = muted.isEmpty() ? detail : detail + QLatin1Char('\n') + muted;
             detail = title + QLatin1Char('.');
         }
+    }
+    // A path is not wrapped (it would break at a "/"): one line, shortened
+    // in the middle when it is too long, the whole of it in the tooltip.
+    m_detail->setWordWrap(!view.detailPath);
+    m_detail->setToolTip(QString());
+    if (view.detailPath) {
+        const QString shown = m_detail->fontMetrics().elidedText(detail, Qt::ElideMiddle, m_textColumn->maximumWidth());
+        if (shown != detail) {
+            m_detail->setToolTip(detail);
+        }
+        detail = shown;
     }
     m_detail->setText(detail);
     m_detail->setVisible(!detail.isEmpty());

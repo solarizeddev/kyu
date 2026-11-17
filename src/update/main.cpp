@@ -120,9 +120,9 @@ public:
     }
     // "  Fix: sudo pacman -Sy …": the command bold in the text colour, the
     // one line to read (or copy) whole: never wrapped.
-    void fix(const QString &command)
+    void fix(const QString &command, const QString &label = QStringLiteral("Fix"))
     {
-        write(QStringLiteral("  Fix: "), Tone::Plain, false);
+        write(QStringLiteral("  ") + label + QStringLiteral(": "), Tone::Plain, false);
         write(command, Tone::Plain, true);
         put(QStringLiteral("\n"));
         flush();
@@ -757,7 +757,7 @@ int main(int argc, char **argv)
         for (;;) {
             QStringList offer;
             if (!k.fix.isEmpty()) {
-                offer.append(QStringLiteral("[f] fix, update again"));
+                offer.append(QStringLiteral("[f] fix and try again"));
             }
             if (k.restart) {
                 offer.append(QStringLiteral("[r] restart"));
@@ -959,7 +959,7 @@ int main(int argc, char **argv)
             }
             if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
                 out.blank();
-                out.warn(QStringLiteral("Stopped. Nothing was installed."));
+                out.warn(QStringLiteral("Stopped. No packages were upgraded."));
                 return finish(4);
             }
             // Read once the person said y, before pacman runs: they saw them,
@@ -1010,7 +1010,7 @@ int main(int argc, char **argv)
             const QList<Manager> holders = lockHolders(procPath, lockPath);
             return holders.isEmpty() ? packageManagers(procPath) : holders;
         };
-        out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(describe(candidates().constFirst())));
+        out.warn(QStringLiteral("Waiting for %1 to finish. Press Ctrl+C to cancel.").arg(describe(candidates().constFirst())));
         // What changes while a package manager works: its and its children's
         // CPU time, pacman's log, the lock itself.
         auto activity = [&]() {
@@ -1092,8 +1092,8 @@ int main(int argc, char **argv)
         Keys keys;
         if (!elevate.isEmpty()) {
             keys.fix = unlockCommand(elevate, lockPath);
-            keys.fixShown = QStringLiteral("%1 rm %2, if no program has it open").arg(elevate, lockPath);
-            out.fix(keys.fixShown);
+            keys.fixShown = QStringLiteral("%1 rm %2").arg(elevate, lockPath);
+            out.fix(keys.fixShown, QStringLiteral("Fix (if no pacman is running)"));
             // Minutes may pass before [f]: a package manager may have started working.
             keys.fixAllowed = [&out, lockPath, procPath]() {
                 if (!QFileInfo::exists(lockPath)) {
@@ -1128,7 +1128,7 @@ int main(int argc, char **argv)
         case Lock::Free:
             break;
         case Lock::Stopped:
-            out.warn(QStringLiteral("Stopped. Nothing was installed."));
+            out.warn(QStringLiteral("Stopped. No packages were upgraded."));
             return finish(4);
         case Lock::TimedOut:
             out.warn(QStringLiteral("Still busy after %1. Update when it is done.").arg(duration(lockLimit)));
@@ -1271,7 +1271,7 @@ int main(int argc, char **argv)
             const Lock lock = waitForLock();
             if (lock == Lock::Stopped) {
                 out.warn(QStringLiteral("Stopped. ")
-                         + (run.changed.isEmpty() ? QStringLiteral("Nothing was installed.") : QStringLiteral("Only %1 updated.").arg(run.changed.join(QStringLiteral(", ")))));
+                         + (run.changed.isEmpty() ? QStringLiteral("No packages were upgraded.") : QStringLiteral("Only %1 upgraded.").arg(run.changed.join(QStringLiteral(", ")))));
                 return finish(4);
             }
             if (lock == Lock::Stale || lock == Lock::Idle || lock == Lock::Unseen) {
@@ -1496,8 +1496,8 @@ int main(int argc, char **argv)
         const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
         // What an earlier run of this update (the keyrings) installed.
         const QString only = run.changed.isEmpty()
-            ? QStringLiteral("Nothing was installed.")
-            : QStringLiteral("Only %1 %2 updated.").arg(run.changed.join(QStringLiteral(", ")), run.changed.size() == 1 ? QStringLiteral("was") : QStringLiteral("were"));
+            ? QStringLiteral("No packages were upgraded.")
+            : QStringLiteral("Only %1 %2 upgraded.").arg(run.changed.join(QStringLiteral(", ")), run.changed.size() == 1 ? QStringLiteral("was") : QStringLiteral("were"));
         if (lastStarted) {
             out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
         } else if (declined) {
@@ -1514,9 +1514,7 @@ int main(int argc, char **argv)
         static const QStringList afterSync{QStringLiteral("keyring"), QStringLiteral("mirror"), QStringLiteral("files"), QStringLiteral("disk"),
                                            QStringLiteral("dependencies")};
         const bool listsChanged = listsMark() != listsBefore;
-        if ((parser.isSet(synced) || listsChanged || keyringsDone || declined || afterSync.contains(kind)) && !lastStarted) {
-            out.warn(QStringLiteral("The package lists are newer than the system: update before installing anything."));
-        }
+        const bool partial = (parser.isSet(synced) || listsChanged || keyringsDone || declined || afterSync.contains(kind)) && !lastStarted;
         if (!failure.isEmpty()) {
             if (kind == QLatin1String("keyring")) {
                 failure.insert(QStringLiteral("keyrings"), QJsonArray::fromStringList(Kyu::installedKeyrings(localDb)));
@@ -1572,6 +1570,10 @@ int main(int argc, char **argv)
                 out.note(l, Tone::Dim);
             }
         }
+        // After what went wrong and its fix: what not to do meanwhile.
+        if (partial) {
+            out.warn(QStringLiteral("The package lists are newer than the system: update before installing anything."));
+        }
     } else {
         // AUR packages updated: those the check listed (not split, debug or
         // dependency packages, nor pamac's repo upgrades), when it listed them.
@@ -1591,7 +1593,9 @@ int main(int argc, char **argv)
         if (flatpakExit == 0 && state && !state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
-        const QString done = QStringLiteral("Done in %1 · %2").arg(duration(clock.elapsed()), parts.join(QStringLiteral(" · ")));
+        // How long it took, when that is worth saying.
+        const QString done = (clock.elapsed() < 2000 ? QStringLiteral("Done") : QStringLiteral("Done in ") + duration(clock.elapsed()))
+            + QStringLiteral(" · ") + parts.join(QStringLiteral(" · "));
         if (flatpakExit > 0 || aurExit > 0) {
             // What went through, then what did not.
             if (!parts.isEmpty()) {
@@ -1615,12 +1619,11 @@ int main(int argc, char **argv)
     }
 
     if (!restartReason.isEmpty()) {
-        const bool unfinished = pacmanExit > 0 && lastStarted;
-        out.warn(QStringLiteral("Restart needed: ") + restartReason + (restartFromThisRun ? QString() : QStringLiteral(" (from an earlier update)")));
-        if (unfinished) {
+        if (pacmanExit > 0 && lastStarted) {
             // Half an update: the new kernel's boot files may not be there.
-            out.note(QStringLiteral("Do not restart until the update has finished."));
+            out.warn(QStringLiteral("Do not restart: the update is incomplete. Run it again first."));
         } else {
+            out.warn(QStringLiteral("Restart required: ") + restartReason + (restartFromThisRun ? QString() : QStringLiteral(" (from an earlier update)")));
             keys.restart = true;
         }
     }
@@ -1636,11 +1639,10 @@ int main(int argc, char **argv)
         keys.configs = configs;
     }
     if (!programs.isEmpty()) {
-        out.warn(QStringLiteral("Still on old libraries: %1. Restart them.")
-                     .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())));
-    }
-    if (pacmanExit <= 0 && flatpakExit <= 0 && aurExit <= 0 && restartReason.isEmpty() && configs.isEmpty() && programs.isEmpty()) {
-        out.note(QStringLiteral("Nothing else to do."));
+        out.warn(QStringLiteral("%1 still %2 old libraries: restart %3.")
+                     .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString()),
+                          programs.size() == 1 ? QStringLiteral("uses") : QStringLiteral("use"),
+                          programs.size() == 1 ? QStringLiteral("it") : QStringLiteral("them")));
     }
 
     QJsonObject record = recordOf(now, programs, aurExit, aurFailed);

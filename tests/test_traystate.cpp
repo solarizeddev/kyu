@@ -215,7 +215,8 @@ void TestTrayState::cards()
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Settings);
     QCOMPARE(c.heading, QStringLiteral("1 configuration file to merge"));
-    QCOMPARE(c.detail, QStringLiteral("The new version was installed as /etc/sddm.conf.pacnew."));
+    QCOMPARE(c.detail, QStringLiteral("New version: /etc/sddm.conf.pacnew"));
+    QVERIFY(c.detailPath);
     QCOMPARE(c.muted, QStringLiteral("Your file stays in use until you merge."));
     QCOMPARE(c.icon, QStringLiteral("merge"));
     QCOMPARE(c.action, CardView::Action::Merge);

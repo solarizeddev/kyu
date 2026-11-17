@@ -47,8 +47,8 @@ has "$d/out" 'Packages   sudo pacman -Syu' ok
 has "$d/out" ':: Proceed with installation? [Y/n]' ok
 has "$d/out" 'Flatpaks   flatpak update' ok
 has "$d/out" ' · 2 packages · 1 Flatpak' ok
-has "$d/out" 'Done in ' ok
-has "$d/out" 'Restart needed: new kernel 6.18.22-1-MANJARO' ok
+has "$d/out" '✓ Done' ok
+has "$d/out" 'Restart required: new kernel 6.18.22-1-MANJARO' ok
 has "$d/out" '1 configuration file to merge: /etc/sddm.conf' ok
 hasnt "$d/out" 'Nothing else to do' ok
 has "$d/out" 'Keep this window open until Kyu says it is done.' ok
@@ -66,7 +66,7 @@ d=$work/news-no
 [ "$(cat "$d/code")" = 4 ] || fail "news-no: exit $(cat "$d/code")"
 has "$d/out" 'Manual intervention for foo' news-no
 has "$d/out" 'Continue? [y/N]' news-no
-has "$d/out" 'Stopped. Nothing was installed.' news-no
+has "$d/out" 'Stopped. No packages were upgraded.' news-no
 [ ! -e "$d/pacman-ran" ] || fail "news-no: pacman ran"
 [ ! -e "$d/state/kyu/news-seen.json" ] || fail "news-no: marked as read without a y"
 
@@ -75,7 +75,7 @@ prepare news-yes; state "$work/news-yes/state.json" 2 1 1
 run news-yes 'y\ny\n'
 [ -e "$work/news-yes/pacman-ran" ] || fail "news-yes: pacman did not run"
 # The second "y" reached pacman's own question (the fake stops without one).
-has "$work/news-yes/out" 'Done in ' news-yes
+has "$work/news-yes/out" '✓ Done' news-yes
 
 echo "news: asked about once; afterwards only listed"
 prepare newsonce; state "$work/newsonce/state.json" 2 1 1
@@ -85,7 +85,7 @@ grep -q 'archlinux.org/news/foo' "$work/newsonce/state/kyu/news-seen.json" || fa
 run newsonce 'y\n'
 has "$work/newsonce/out" 'News (read): Manual intervention for foo · https://archlinux.org/news/foo/' newsonce-2
 hasnt "$work/newsonce/out" 'Continue? [y/N]' newsonce-2
-has "$work/newsonce/out" 'Done in ' newsonce-2
+has "$work/newsonce/out" '✓ Done' newsonce-2
 
 echo "news: one read, one new: only the new one is asked about"
 prepare newsmixed; state "$work/newsmixed/state.json" 2 1 1
@@ -101,15 +101,19 @@ echo "failure: keyring, explained, Flatpaks skipped"
 KYU_FAKE_MODE=keyring run keyring 'y\n'
 d=$work/keyring
 [ "$(cat "$d/code")" = 1 ] || fail "keyring: exit $(cat "$d/code")"
-has "$d/out" 'Nothing was installed. Flatpaks were skipped.' keyring
+has "$d/out" 'No packages were upgraded. Flatpaks were skipped.' keyring
 has "$d/out" '  Package signatures could not be checked.' keyring
+# The cause right under the verdict; the partial-upgrade warning after it.
+sed -n '/No packages were upgraded/{n;p;q}' "$d/out" | grep -qF 'Package signatures could not be checked.' || fail "keyring: the cause is not under the verdict"
+[ "$(grep -nF 'Package signatures' "$d/out" | cut -d: -f1 | head -1)" -lt "$(grep -nF 'newer than the system' "$d/out" | cut -d: -f1 | head -1)" ] \
+    || fail "keyring: the partial-upgrade warning comes before the cause"
 [ ! -e "$d/flatpak-ran" ] || fail "keyring: flatpak ran after pacman failed"
 grep -q '"failure": "keyring"' "$d/state/kyu/last-run.json" || fail "keyring: last-run.json without the failure"
 
 echo "pacman's own Proceed answered n: nothing changed, no explanation invented"
 run decline 'n\n'
 d=$work/decline
-has "$d/out" 'Stopped. Nothing was installed.' decline
+has "$d/out" 'Stopped. No packages were upgraded.' decline
 has "$d/out" 'The package lists are newer than the system: update before installing anything.' decline
 
 echo "Ctrl+C at Proceed: the lists changed, so the warning"
@@ -129,7 +133,7 @@ echo "lock held by a running pacman: waited for, then given up"
 prepare busy; touch "$work/busy/db.lck"; mkdir -p "$work/busy/proc/4242"; echo pacman >"$work/busy/proc/4242/comm"
 run busy '' --lock-wait 2
 [ "$(cat "$work/busy/code")" = 1 ] || fail "busy: exit $(cat "$work/busy/code")"
-has "$work/busy/out" 'Waiting for pacman (pid 4242) to finish. Ctrl+C stops.' busy
+has "$work/busy/out" 'Waiting for pacman (pid 4242) to finish. Press Ctrl+C to cancel.' busy
 has "$work/busy/out" 'Still busy after 2 s. Update when it is done.' busy
 [ ! -e "$work/busy/pacman-ran" ] || fail "busy: pacman ran"
 
@@ -140,7 +144,7 @@ prepare busywait; touch "$work/busywait/db.lck"; mkdir -p "$work/busywait/proc/4
 run busywait 'y\n' --lock-wait 20
 wait
 has "$work/busywait/out" 'Waiting for pamac-daemon (pid 4243) to finish.' busywait
-has "$work/busywait/out" 'Done in ' busywait
+has "$work/busywait/out" '✓ Done' busywait
 [ -e "$work/busywait/pacman-ran" ] || fail "busywait: pacman did not run"
 
 echo "a holder that does nothing for a while: the lock looks left over"
@@ -212,7 +216,7 @@ has "$work/midfail/out" 'pacman failed after changing 1 package. Flatpaks were s
 
 echo "another language: no invented explanation"
 KYU_FAKE_MODE=german run german ''
-has "$work/german/out" 'Nothing was installed. Flatpaks were skipped.' german
+has "$work/german/out" 'No packages were upgraded. Flatpaks were skipped.' german
 has "$work/german/out" "pacman's last lines (status 1):" german
 has "$work/german/out" 'Fehler: Konnte nicht alle Datenbanken aktualisieren' german
 hasnt "$work/decline/out" "pacman's last lines" decline
@@ -231,20 +235,20 @@ hasnt "$work/germannone/out" 'Package signatures' germannone
 
 echo "a restart from systemd is not forgotten by a later run (same boot)"
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=systemd run carry 'y\n'
-has "$work/carry/out" 'Restart needed: systemd was updated' carry
+has "$work/carry/out" 'Restart required: systemd was updated' carry
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=nothing run carry ''
 has "$work/carry/out" ' · 1 Flatpak' carry-2
 hasnt "$work/carry/out" '· 1 package' carry-2
 if [ -r /proc/sys/kernel/random/boot_id ]; then
-    has "$work/carry/out" 'Restart needed: systemd was updated' carry-2
+    has "$work/carry/out" 'Restart required: systemd was updated' carry-2
 fi
 
 echo "up to date: nothing else to do"
 prepare clean; state "$work/clean/state.json" 0 0 0
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=nothing run clean ''
 has "$work/clean/out" 'Already up to date.' clean
-has "$work/clean/out" 'Nothing else to do.' clean
-hasnt "$work/clean/out" 'Restart needed' clean
+hasnt "$work/clean/out" 'Nothing else to do' clean
+hasnt "$work/clean/out" 'Restart required' clean
 
 echo "a snapshot hook is named before pacman"
 prepare snap; mkdir -p "$work/snap/hooks"; touch "$work/snap/hooks/05-snap-pac-pre.hook"
@@ -269,11 +273,11 @@ echo "keys: [f] removes a stale lock, then the update runs again"
 prepare lockfix; touch "$work/lockfix/db.lck"
 runtty lockfix 'f\n|y\n|\n'
 d=$work/lockfix
-has "$d/out" "Fix: sudo rm $d/db.lck, if no program has it open" lockfix
-has "$d/out" '[f] fix, update again   [Enter] close' lockfix
+has "$d/out" "Fix (if no pacman is running): sudo rm $d/db.lck" lockfix
+has "$d/out" '[f] fix and try again   [Enter] close' lockfix
 [ ! -e "$d/db.lck" ] || fail "lockfix: the lock is still there"
 [ -e "$d/pacman-ran" ] || fail "lockfix: the update did not run again"
-has "$d/out" 'Done in ' lockfix
+has "$d/out" '✓ Done' lockfix
 [ "$(cat "$d/code")" = 0 ] || fail "lockfix: exit $(cat "$d/code")"
 
 echo "keys: a keyring failure offers its fix; [m] runs pacdiff; Enter closes"
@@ -298,7 +302,7 @@ run refresh 'y\n' --refresh
 echo "pacman found the lock taken again: waited, then once more"
 KYU_FAKE_MODE=lockedonce runtty relocked 'y\n|\n'
 has "$work/relocked/out" 'Packages   sudo pacman -Syu (again)' relocked
-has "$work/relocked/out" 'Done in ' relocked
+has "$work/relocked/out" '✓ Done' relocked
 
 echo "[f] removes the lock only if no program has it open (root checks)"
 prepare lockinuse; touch "$work/lockinuse/db.lck"
@@ -315,7 +319,7 @@ has "$work/reboot/out" 'Restart now? Unsaved work in open programs is lost. [y/N
 
 echo "keys: no [r] after half an update"
 KYU_FAKE_MODE=midfail runtty halfway 'y\n|\n'
-has "$work/halfway/out" 'Do not restart until the update has finished.' halfway
+has "$work/halfway/out" 'Do not restart: the update is incomplete. Run it again first.' halfway
 hasnt "$work/halfway/out" '[r] restart' halfway
 
 echo "keys: [f] for the keyring, then the whole update again without the news"
@@ -335,14 +339,14 @@ has "$d/out" 'Packages   sudo pacman -Su' keyfirst
 [ "$(cat "$d/keyring-args" 2>/dev/null)" = "-Sy --needed archlinux-keyring manjaro-keyring" ] || fail "keyfirst: keyrings with $(cat "$d/keyring-args" 2>/dev/null)"
 [ "$(cat "$d/pacman-args" 2>/dev/null)" = -Su ] || fail "keyfirst: then pacman $(cat "$d/pacman-args" 2>/dev/null)"
 has "$d/out" ' · 4 packages' keyfirst
-has "$d/out" 'Done in ' keyfirst
+has "$d/out" '✓ Done' keyfirst
 hasnt "$d/out" 'newer than the system' keyfirst
 
 echo "keyrings first, refused: nothing else runs; the lists are synced"
 prepare keyno; state "$work/keyno/state.json" 1 0 0 manjaro-keyring
 KYU_FAKE_KEYRING=new runtty keyno 'n\n|\n'
 d=$work/keyno
-has "$d/out" 'Stopped. Nothing was installed.' keyno
+has "$d/out" 'Stopped. No packages were upgraded.' keyno
 has "$d/out" 'The package lists are newer than the system: update before installing anything.' keyno
 [ ! -e "$d/pacman-args" ] || fail "keyno: pacman $(cat "$d/pacman-args") ran after the keyrings were refused"
 
@@ -350,7 +354,7 @@ echo "keyrings first, then the rest refused: says what went in, and warns"
 prepare keyrest; state "$work/keyrest/state.json" 1 0 0 manjaro-keyring
 KYU_FAKE_KEYRING=new runtty keyrest 'y\n|n\n|\n'
 d=$work/keyrest
-has "$d/out" 'Stopped. Only archlinux-keyring, manjaro-keyring were updated.' keyrest
+has "$d/out" 'Stopped. Only archlinux-keyring, manjaro-keyring were upgraded.' keyrest
 has "$d/out" 'The package lists are newer than the system: update before installing anything.' keyrest
 grep -q '"transactionStarted": false' "$d/state/kyu/last-run.json" || fail "keyrest: last-run.json says a transaction was cut short"
 grep -q '"changed": 2' "$d/state/kyu/last-run.json" || fail "keyrest: last-run.json without the keyrings"
@@ -359,7 +363,7 @@ echo "keyrings first, signatures still fail: no keyring fix offered again"
 prepare keystill; state "$work/keystill/state.json" 1 0 0 archlinux-keyring
 KYU_FAKE_KEYRING=new KYU_FAKE_MODE=keyring runtty keystill 'y\n|y\n|\n'
 d=$work/keystill
-has "$d/out" 'pacman failed. Only archlinux-keyring, manjaro-keyring were updated.' keystill
+has "$d/out" 'pacman failed. Only archlinux-keyring, manjaro-keyring were upgraded.' keystill
 has "$d/out" 'Package signatures could not be checked.' keystill
 has "$d/out" 'The keyrings are already current' keystill
 has "$d/out" 'pacman-key --refresh-keys' keystill
@@ -370,7 +374,7 @@ echo "the new keyring itself is not trusted (a long gap): no fix that cannot wor
 prepare keyold; state "$work/keyold/state.json" 1 0 0 archlinux-keyring
 KYU_FAKE_KEYRING=untrusted runtty keyold '\n'
 d=$work/keyold
-has "$d/out" 'Nothing was installed.' keyold
+has "$d/out" 'No packages were upgraded.' keyold
 has "$d/out" 'The new keyring itself could not be checked' keyold
 has "$d/out" 'The package lists are newer than the system' keyold
 hasnt "$d/out" 'Fix: ' keyold
@@ -389,7 +393,7 @@ KYU_FAKE_KEYRING=new KYU_FAKE_MODE=lockedonce runtty keylock 'y\n|y\n|\n'
 d=$work/keylock
 has "$d/out" 'Keyrings   sudo pacman -Sy --needed archlinux-keyring manjaro-keyring (again)' keylock
 has "$d/out" ' · 4 packages' keylock
-has "$d/out" 'Done in ' keylock
+has "$d/out" '✓ Done' keylock
 
 echo "after the keyring fix (--synced): no keyrings first"
 prepare keysynced; state "$work/keysynced/state.json" 1 0 0 archlinux-keyring
@@ -413,7 +417,7 @@ echo "AUR failed: said on its own line; the system update is done"
 prepare aurfail; state "$work/aurfail/state.json" 2 0 0 "" foo-bin
 KYU_FAKE_AUR=fail runtty aurfail 'y\n|y\n|\n' --aur-helper "$here/update/paru"
 d=$work/aurfail
-has "$d/out" 'Done in ' aurfail
+has "$d/out" '✓ Done' aurfail
 has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above. The rest is done.' aurfail
 hasnt "$d/out" 'Nothing else to do' aurfail
 grep -q '"aurExit": 1' "$d/state/kyu/last-run.json" || fail "aurfail: last-run.json without the AUR's status"
@@ -475,7 +479,7 @@ has "$d/out" ' · 1 AUR' auronly
 echo "a restart from before this run says so"
 prepare earlier; state "$work/earlier/state.json" 0 0 0
 KYU_FAKE_MODE=nothing run earlier ''
-has "$work/earlier/out" 'Restart needed: new kernel 6.18.22-1-MANJARO (from an earlier update)' earlier
+has "$work/earlier/out" 'Restart required: new kernel 6.18.22-1-MANJARO (from an earlier update)' earlier
 
 echo "--merge: pacdiff only, then the record keeps what is left"
 run mergeonly 'y\n'

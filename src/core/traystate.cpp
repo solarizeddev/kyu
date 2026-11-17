@@ -448,12 +448,15 @@ CardView cardView(const TrayInput &in)
         const QString &file = in.configs.constFirst();
         if (in.configs.size() > 1) {
             c.detail = QStringLiteral("%1 and %2 more").arg(file).arg(in.configs.size() - 1);
+            c.detailPath = true;
             c.muted = QStringLiteral("Your files stay in use until you merge.");
         } else if (file.endsWith(QLatin1String(".pacsave"))) {
-            c.detail = QStringLiteral("%1 was saved as %2.").arg(configTarget(file), file);
+            c.detail = QStringLiteral("Your old file: %1").arg(file);
+            c.detailPath = true;
             c.muted = QStringLiteral("The package's version is in use now.");
         } else {
-            c.detail = QStringLiteral("The new version was installed as %1.").arg(file);
+            c.detail = QStringLiteral("New version: %1").arg(file);
+            c.detailPath = true;
             c.muted = QStringLiteral("Your file stays in use until you merge.");
         }
         c.action = CardView::Action::Merge;

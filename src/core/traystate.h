@@ -69,6 +69,7 @@ struct CardView {
     bool busy = false; // something runs: a progress bar
     QString heading;
     QString detail; // the body: one sentence or fact line
+    bool detailPath = false; // the body ends in a path: one line, shortened in the middle, never wrapped
     QString linkText; // "Read first: …"
     QString linkUrl;
     QString linkKey; // the announcement's key (news.h), marked read when opened

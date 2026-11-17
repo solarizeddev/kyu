@@ -103,7 +103,7 @@ build/bin/kyu-tray &
 ### Things that are safe to cause
 
 - **Wrong password three times**, or **`n` at pacman's "Proceed?"**: "Stopped.
-  Nothing was installed.", no fix offered.
+  No packages were upgraded.", no fix offered.
 - **Ctrl+C** at the password prompt or at "Proceed?": Kyu still prints its
   verdict; `/var/lib/pacman/db.lck` is gone afterwards.
 - **No network** (`nmcli networking off`): the check fails ("Could not
