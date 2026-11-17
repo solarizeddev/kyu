@@ -67,6 +67,7 @@ has "$d/out" 'Manual intervention for foo' news-no
 has "$d/out" 'Continue? [y/N]' news-no
 has "$d/out" 'Stopped. Nothing was installed.' news-no
 [ ! -e "$d/pacman-ran" ] || fail "news-no: pacman ran"
+[ ! -e "$d/state/kyu/news-seen.json" ] || fail "news-no: marked as read without a y"
 
 echo "news: y continues"
 prepare news-yes; state "$work/news-yes/state.json" 2 1 1
@@ -81,9 +82,19 @@ run newsonce 'y\ny\n'
 has "$work/newsonce/out" 'Continue? [y/N]' newsonce
 grep -q 'archlinux.org/news/foo' "$work/newsonce/state/kyu/news-seen.json" || fail "newsonce: not remembered as seen"
 run newsonce 'y\n'
-has "$work/newsonce/out" 'Arch Linux news since your last update (read)' newsonce-2
+has "$work/newsonce/out" 'News (read): Manual intervention for foo · https://archlinux.org/news/foo/' newsonce-2
 hasnt "$work/newsonce/out" 'Continue? [y/N]' newsonce-2
 has "$work/newsonce/out" 'Done in ' newsonce-2
+
+echo "news: one read, one new: only the new one is asked about"
+prepare newsmixed; state "$work/newsmixed/state.json" 2 1 1
+sed -i 's#"items":\[{#"items":[{"title":"Second thing","link":"https://archlinux.org/news/second/","published":"2099-01-02T00:00:00Z"},{#' "$work/newsmixed/state.json"
+mkdir -p "$work/newsmixed/state/kyu"
+printf '{"seen":["https://archlinux.org/news/foo/"]}' >"$work/newsmixed/state/kyu/news-seen.json"
+run newsmixed 'y\ny\n'
+has "$work/newsmixed/out" 'Second thing' newsmixed
+hasnt "$work/newsmixed/out" 'Manual intervention for foo' newsmixed
+has "$work/newsmixed/out" 'Continue? [y/N]' newsmixed
 
 echo "failure: keyring, explained, Flatpaks skipped"
 KYU_FAKE_MODE=keyring run keyring 'y\n'

@@ -93,9 +93,10 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_link->setTextInteractionFlags(Qt::TextBrowserInteraction);
     // Opening the announcement counts as reading it: kyu-update won't ask.
     connect(m_link, &QLabel::linkActivated, this, [this](const QString &url) {
-        QDesktopServices::openUrl(QUrl(url));
-        Kyu::markNewsSeen({url});
-        refresh();
+        if (QDesktopServices::openUrl(QUrl(url)) && !m_view.linkKey.isEmpty()) {
+            Kyu::markNewsSeen({m_view.linkKey});
+            refresh();
+        }
     });
 
     m_mergeRow = new QWidget(this);

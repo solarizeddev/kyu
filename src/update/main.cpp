@@ -731,18 +731,21 @@ int main(int argc, char **argv)
         }
         out.blank();
         if (fresh.isEmpty()) {
-            out.heading(QStringLiteral("%1 since your last update (read)").arg(state->news.source), Tone::Dim);
-            for (const Kyu::NewsItem &item : state->news.items.mid(0, 3)) {
-                out.note(item.title + QStringLiteral(" · ") + item.link, Tone::Dim);
-            }
+            // Read before: one quiet line, the link to go back to it.
+            const Kyu::NewsItem &newest = state->news.items.constFirst();
+            const qsizetype more = state->news.items.size() - 1;
+            out.note(QStringLiteral("News (read): ") + newest.title + QStringLiteral(" · ") + newest.link
+                         + (more > 0 ? QStringLiteral(" · +%1 more").arg(more) : QString()),
+                     Tone::Dim);
         } else {
+            const QList<Kyu::NewsItem> shown = fresh.mid(0, 5);
             out.heading(QStringLiteral("%1 since your last update").arg(state->news.source), Tone::Warn);
-            for (const Kyu::NewsItem &item : fresh.mid(0, 5)) {
+            for (const Kyu::NewsItem &item : shown) {
                 out.note(item.title);
                 out.note(item.link, Tone::Dim);
             }
-            if (fresh.size() > 5) {
-                out.note(QStringLiteral("… and %1 more: %2").arg(fresh.size() - 5).arg(state->news.page), Tone::Dim);
+            if (fresh.size() > shown.size()) {
+                out.note(QStringLiteral("… and %1 more: %2").arg(fresh.size() - shown.size()).arg(state->news.page), Tone::Dim);
             }
             // No by default: Enter alone must not skip news that may need action.
             out.prompt(QStringLiteral("Continue? [y/N] "), Tone::Warn);
@@ -754,8 +757,10 @@ int main(int argc, char **argv)
                 out.warn(QStringLiteral("Stopped. Nothing was installed."));
                 return finish(4);
             }
+            // Read once the person said y, before pacman runs: they saw them,
+            // and the next run still lists them. Only the ones shown.
             QStringList keys;
-            for (const Kyu::NewsItem &item : std::as_const(fresh)) {
+            for (const Kyu::NewsItem &item : shown) {
                 keys.append(Kyu::newsKey(item));
             }
             Kyu::markNewsSeen(keys);

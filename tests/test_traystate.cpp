@@ -148,6 +148,16 @@ void TestTrayState::cards()
     QCOMPARE(cardView(in).linkText, QStringLiteral("News: Manual intervention for foo"));
     in.newsSeen.clear();
     QCOMPARE(trayView(in).mark, TrayMark::News);
+    // Two announcements, the first read: the second is the one to read.
+    UpdateState two = s;
+    two.news.items.append(NewsItem{QStringLiteral("Second"), QStringLiteral("https://forum.manjaro.org/t/2"), QDateTime()});
+    in.state = two;
+    in.newsSeen = {QStringLiteral("https://forum.manjaro.org/t/1")};
+    c = cardView(in);
+    QCOMPARE(c.linkText, QStringLiteral("Read first: Second"));
+    QCOMPARE(c.linkKey, QStringLiteral("https://forum.manjaro.org/t/2"));
+    QVERIFY(trayView(in).tooltip.startsWith(QStringLiteral("Read first: Second")));
+    in.newsSeen.clear();
 
     // Flatpaks only: no password.
     UpdateState fp = withUpdates(0, false);

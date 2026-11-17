@@ -268,9 +268,11 @@ CardView cardView(const TrayInput &in)
         if (const NewsItem *unread = unreadNews(in)) {
             c.linkText = QStringLiteral("Read first: ") + unread->title;
             c.linkUrl = unread->link;
+            c.linkKey = newsKey(*unread);
         } else if (!s.news.items.isEmpty()) {
             c.linkText = QStringLiteral("News: ") + s.news.items.constFirst().title;
             c.linkUrl = s.news.items.constFirst().link;
+            c.linkKey = newsKey(s.news.items.constFirst());
         }
         c.action = CardView::Action::Update;
         c.actionText = QStringLiteral("Update");

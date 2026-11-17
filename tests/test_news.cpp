@@ -172,6 +172,31 @@ void TestNews::seen()
     markNewsSeen({QStringLiteral("https://b"), QStringLiteral("https://c")}, path);
     QCOMPARE(seenNews(path), (QStringList{QStringLiteral("https://a"), QStringLiteral("https://b"), QStringLiteral("https://c")}));
     QCOMPARE(newsKey(NewsItem{QStringLiteral("T"), QString(), QDateTime()}), QStringLiteral("T"));
+
+    // A Discourse topic by its number: a retitled topic is the same one.
+    const NewsItem before{QStringLiteral("Stable"), QStringLiteral("https://forum.manjaro.org/t/stable-update-2026-11-14/190001"), QDateTime()};
+    const NewsItem after{QStringLiteral("Stable!"), QStringLiteral("https://forum.manjaro.org/t/stable-update-2026-11-14-kernels/190001"), QDateTime()};
+    QCOMPARE(newsKey(before), newsKey(after));
+    QCOMPARE(newsKey(before), QStringLiteral("topic:https://forum.manjaro.org/190001"));
+    QCOMPARE(newsKey(NewsItem{QStringLiteral("A"), QStringLiteral("https://archlinux.org/news/foo/"), QDateTime()}), QStringLiteral("https://archlinux.org/news/foo/"));
+
+    // At most a hundred kept, the newest.
+    QStringList many;
+    for (int i = 0; i < 120; ++i) {
+        many.append(QStringLiteral("k%1").arg(i));
+    }
+    markNewsSeen(many, path);
+    QCOMPARE(seenNews(path).size(), 100);
+    QCOMPARE(seenNews(path).constLast(), QStringLiteral("k119"));
+
+    // A broken file reads as nothing seen, and is replaced.
+    QFile broken(path);
+    QVERIFY(broken.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    broken.write("{not json");
+    broken.close();
+    QVERIFY(seenNews(path).isEmpty());
+    markNewsSeen({QStringLiteral("x")}, path);
+    QCOMPARE(seenNews(path), QStringList{QStringLiteral("x")});
 }
 
 QTEST_GUILESS_MAIN(TestNews)

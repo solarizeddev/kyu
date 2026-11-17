@@ -53,6 +53,7 @@ struct CardView {
     QString detail;
     QString linkText; // "Read first: …"
     QString linkUrl;
+    QString linkKey; // the announcement's key (news.h), marked read when opened
     QString mergeText; // "1 settings file changed: /etc/sddm.conf" (with a Merge… button)
     QString failureKind; // Failed: the failure.h kind, for the sentence
     bool transactionStarted = false; // Failed: pacman had begun changing packages

@@ -76,7 +76,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
 | 13 | Manjaro's announcement for your branch; Arch news on Arch | Arch-Update/informant: wrong feed on Manjaro | have | 1 |
-| 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | have: asked once per announcement; opening it from the card counts as read; read ones are listed without a question | 1 |
+| 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | have: asked once per announcement; opening it from the card counts as read; read ones get one quiet line. On Manjaro each stable update brings a new announcement, so it is still asked once per update; the saving is on repeated runs and when read from the card first | 1 |
 | 15 | Wait for pamac or another package manager to finish, then go on | pamac's own background refresh takes the lock routinely | part (says so, stops) | 1 |
 | 16 | Keyrings first when they are among the updates: `pacman -Sy --needed archlinux-keyring manjaro-keyring` then `pacman -Su` at once, in the same run | Manjaro advice; the top real failure after long gaps | missing | 1 |
 | 17 | Long gap warning: last full upgrade more than a few weeks ago → "read the announcements in between; keyrings first" | — | missing | 2 |

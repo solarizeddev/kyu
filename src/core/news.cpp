@@ -11,6 +11,7 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSysInfo>
 #include <QTimer>
@@ -231,6 +232,12 @@ QString seenPath(const QString &path)
 
 QString newsKey(const NewsItem &item)
 {
+    // A Discourse topic (Manjaro's forum) by its number: the slug in front
+    // of it changes when a topic is retitled.
+    static const QRegularExpression topic(QStringLiteral("/t/[^/]+/(\\d+)"));
+    if (const QRegularExpressionMatch m = topic.match(item.link); m.hasMatch()) {
+        return QStringLiteral("topic:") + item.link.left(item.link.indexOf(QStringLiteral("/t/"))) + QLatin1Char('/') + m.captured(1);
+    }
     return item.link.isEmpty() ? item.title : item.link;
 }
 
@@ -250,10 +257,15 @@ QStringList seenNews(const QString &path)
 void markNewsSeen(const QStringList &keys, const QString &path)
 {
     QStringList seen = seenNews(path);
+    bool added = false;
     for (const QString &key : keys) {
         if (!key.isEmpty() && !seen.contains(key)) {
             seen.append(key);
+            added = true;
         }
+    }
+    if (!added) {
+        return;
     }
     // The newest hundred are plenty: older ones fall out of the feeds.
     while (seen.size() > 100) {
