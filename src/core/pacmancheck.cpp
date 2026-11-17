@@ -4,6 +4,7 @@
 #include "paths.h"
 
 #include <QDir>
+#include <QFile>
 
 #include <algorithm>
 #include <QFileInfo>
@@ -37,6 +38,11 @@ PacmanResult checkPacman(const PacmanCheckOptions &options)
     PacmanResult result;
     const QString dbPath = options.dbPath.isEmpty() ? Paths::checkupDbDir() : options.dbPath;
     QDir().mkpath(dbPath);
+    // A lock left in this private copy (a check killed, the power gone)
+    // would fail every later check for good ("Cannot fetch updates"; seen
+    // in a real run). Only Kyu uses this copy, and kyu-check runs one check
+    // at a time (its own lock), so a lock here now is left over.
+    QFile::remove(dbPath + QStringLiteral("/db.lck"));
 
     auto env = cLocaleEnvironment();
     env.insert(QStringLiteral("CHECKUPDATES_DB"), dbPath);

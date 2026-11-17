@@ -121,6 +121,22 @@ private Q_SLOTS:
         QVERIFY(state->pacman.error.contains(QStringLiteral("does-not-exist")));
     }
 
+    // A lock left in Kyu's private database copy (a check killed) is
+    // removed first; it failed every later check (seen in a real run).
+    void staleLockInPrivateCopy()
+    {
+        QDir().mkpath(m_dir.filePath(QStringLiteral("db")));
+        QFile lock(m_dir.filePath(QStringLiteral("db/db.lck")));
+        QVERIFY(lock.open(QIODevice::WriteOnly));
+        lock.close();
+        // Like checkupdates: fails while the lock is there.
+        const QString script = writeScript(QStringLiteral("checkupdates-lock"), "[ -e \"$CHECKUPDATES_DB/db.lck\" ] && exit 1\nexit 2\n");
+        QCOMPARE(run(script), 0);
+        const auto state = UpdateState::load(statePath());
+        QVERIFY(state);
+        QVERIFY(state->pacman.ok);
+    }
+
     void noUpdates()
     {
         QCOMPARE(run(writeScript(QStringLiteral("checkupdates-none"), "exit 2\n")), 0);

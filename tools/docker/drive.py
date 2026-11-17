@@ -124,8 +124,11 @@ while True:
             reply = "j"  # German pacman's yes
     elif line and "Continue? [y/N]" in line:
         reply = choice("DRIVE_NEWS", "y")
-    elif line and re.search(r"Proceed with these changes", line):
+    elif line and re.search(r"Proceed with these changes|\[[YJ]/n\]:\s*$", line):
+        # flatpak's question, in any language (it ends in "[Y/n]:").
         reply = choice("DRIVE_FLATPAK", "y")
+        if reply == "y" and "[J/n]" in line:
+            reply = "j"
     elif line and re.search(r"\[v/[a-z/]*q\]", line):
         reply = env("DRIVE_PACDIFF", "s")
     elif "[Enter] close" in recent:
