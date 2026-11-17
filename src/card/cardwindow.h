@@ -13,7 +13,6 @@ class QPushButton;
 class QGridLayout;
 class QHBoxLayout;
 class QTimer;
-class QToolButton;
 class QTreeWidget;
 class StateWatcher;
 class CheckScheduler;
@@ -24,6 +23,9 @@ class CheckScheduler;
 class IconView : public QWidget
 {
 public:
+    // Breeze's monochrome status icons are drawn for 22 px: shown at that
+    // size they are sharp (and match the tray's).
+    static constexpr int Size = 22;
     explicit IconView(QWidget *parent = nullptr);
     void setIcon(const QIcon &icon);
     QSize sizeHint() const override;
@@ -81,16 +83,14 @@ private:
     QLabel *m_detail;
     QLabel *m_slot;
     QWidget *m_textColumn;
-    QLabel *m_stamp;
-    QToolButton *m_refresh;
     QProgressBar *m_busy;
+    QWidget *m_busyGap;
     QPushButton *m_details;
     QPushButton *m_secondary;
     QPushButton *m_action;
     QWidget *m_detailsArea;
     QGridLayout *m_grid;
     QHBoxLayout *m_footer;
-    QSpacerItem *m_footerIndent; // the time starts where the text does
     QWidget *m_footerHeight; // the button row as tall without buttons (no width)
     QTreeWidget *m_list;
     QPlainTextEdit *m_raw;

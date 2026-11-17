@@ -109,8 +109,6 @@ void TestTrayState::cards()
     QCOMPARE(c.heading, QStringLiteral("8 updates"));
     QCOMPARE(c.icon, QStringLiteral("update-medium")); // news to read
     QVERIFY(c.detail.startsWith(QStringLiteral("6 packages, 2 Flatpaks")));
-    QCOMPARE(c.stamp, QStringLiteral("Checked 14:02"));
-    QVERIFY(c.canRefresh);
     QCOMPARE(c.rows.size(), 8);
     QCOMPARE(c.linkText, QStringLiteral("Read first: Manual intervention for foo"));
     QCOMPARE(c.linkUrl, QStringLiteral("https://forum.manjaro.org/t/1"));
@@ -120,12 +118,9 @@ void TestTrayState::cards()
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
     QVERIFY(cardView(in).note.isEmpty());
     in.configs.clear();
-    // While a check runs: the same card, "Checking…" in the corner.
+    // While a check runs: the same card.
     in.checking = true;
-    c = cardView(in);
-    QCOMPARE(c.kind, CardView::Kind::Updates);
-    QCOMPARE(c.stamp, QStringLiteral("Checking…"));
-    QVERIFY(!c.canRefresh);
+    QCOMPARE(cardView(in).kind, CardView::Kind::Updates);
     in.checking = false;
 
     // AUR packages: counted on their own; only AUR still needs a password.
@@ -151,7 +146,6 @@ void TestTrayState::cards()
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Updates);
     QCOMPARE(c.detail.section(QLatin1Char('\n'), 1), QStringLiteral("Check failed; this list is from yesterday 20:02."));
-    QCOMPARE(c.stamp, QStringLiteral("Tried 14:02"));
     QCOMPARE(c.raw, QStringLiteral("Flatpak: Unable to connect to dl.flathub.org"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
     // ...with none listed it is "Could not check", with the reason.
@@ -208,8 +202,12 @@ void TestTrayState::cards()
     QCOMPARE(c.action, CardView::Action::Check);
     QCOMPARE(c.actionText, QStringLiteral("Check now"));
     QVERIFY(!c.primary);
+    // While checking: the button stays, greyed out.
     in.checking = true;
-    QCOMPARE(cardView(in).action, CardView::Action::None);
+    c = cardView(in);
+    QCOMPARE(c.action, CardView::Action::Check);
+    QCOMPARE(c.actionText, QStringLiteral("Checking…"));
+    QVERIFY(!c.actionEnabled);
     in.checking = false;
     // ...unless a settings file waits: then that, and the tray stays in view.
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
@@ -230,7 +228,6 @@ void TestTrayState::cards()
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Restart);
     QCOMPARE(c.detail, QStringLiteral("Kernel 6.18.22-1-MANJARO is installed.\nThe old one runs until you restart."));
-    QVERIFY(c.stamp.startsWith(QStringLiteral("Updated ")));
     QCOMPARE(c.secondary, CardView::Action::None);
     // A settings file too: noted, and Merge… next to Restart.
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
@@ -271,7 +268,6 @@ void TestTrayState::cards()
     QCOMPARE(c.failureKind, QStringLiteral("keyring"));
     QVERIFY(c.transactionStarted);
     QCOMPARE(c.changed, 0);
-    QVERIFY(c.stamp.startsWith(QStringLiteral("Tried ")));
     QCOMPARE(c.actionText, QStringLiteral("Update again"));
     QCOMPARE(c.icon, QStringLiteral("update-high"));
     QCOMPARE(c.detail, QStringLiteral("pacman stopped halfway."));

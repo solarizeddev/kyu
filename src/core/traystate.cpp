@@ -208,11 +208,6 @@ TrayView trayView(const TrayInput &in)
 
 namespace
 {
-// "Updated 14:12": a word and when.
-QString stamped(const QString &word, const QDateTime &when, const QDateTime &now)
-{
-    return when.isValid() ? word + QLatin1Char(' ') + shortWhen(when, now) : QString();
-}
 
 // What a check looks at: "repositories, AUR, Flatpak".
 QString sources(const UpdateState &s)
@@ -306,10 +301,12 @@ CardView cardView(const TrayInput &in)
     const TrayView tray = trayView(in);
     const QDateTime lastTime = lastRunTime(in.lastRun);
     const int total = in.state ? in.state->total() : 0;
-    const QString checked = in.state ? stamped(QStringLiteral("Checked"), in.state->checkedAt, in.now) : QString();
-    // A check running over what is known: that card, "Checking…" in its corner.
-    const auto corner = [&in](const QString &stamp) {
-        return in.checking ? QStringLiteral("Checking…") : stamp;
+    // A Check button while a check runs: still there, "Checking…", greyed out.
+    const auto checkButton = [&c, &in](const QString &text, bool primary) {
+        c.action = CardView::Action::Check;
+        c.actionText = in.checking ? QStringLiteral("Checking…") : text;
+        c.actionEnabled = !in.checking;
+        c.primary = primary;
     };
 
     switch (tray.mark) {
@@ -334,7 +331,6 @@ CardView cardView(const TrayInput &in)
         if (tray.lastFailed) {
             c.kind = CardView::Kind::Failed;
             c.icon = QStringLiteral("update-high");
-            c.stamp = stamped(QStringLiteral("Tried"), lastTime, in.now);
             c.heading = QStringLiteral("The update did not finish");
             c.failureKind = in.lastRun.value(QStringLiteral("failure")).toString();
             c.transactionStarted = in.lastRun.value(QStringLiteral("transactionStarted")).toBool();
@@ -350,7 +346,6 @@ CardView cardView(const TrayInput &in)
             if (!in.configs.isEmpty()) {
                 c.note = toMerge(in.configs, QStringLiteral(" after the update"));
             }
-            c.canRefresh = !in.checking;
             c.action = CardView::Action::Update;
             c.actionText = QStringLiteral("Update again");
             c.primary = true;
@@ -367,21 +362,13 @@ CardView cardView(const TrayInput &in)
                     c.detail += QStringLiteral("\nLast successful check: ") + shortWhen(ok, in.now) + QLatin1Char('.');
                 }
                 c.raw = checkErrors(*in.state);
-                c.stamp = corner(stamped(QStringLiteral("Tried"), in.state->checkedAt, in.now));
             }
-            if (!in.checking) {
-                c.action = CardView::Action::Check;
-                c.actionText = QStringLiteral("Try again");
-                c.primary = true;
-            }
+            checkButton(QStringLiteral("Try again"), true);
         }
         return c;
     case TrayMark::Restart: {
         c.kind = CardView::Kind::Restart;
         c.icon = QStringLiteral("system-reboot-update");
-        if (lastTime.isValid() && in.sameBoot) {
-            c.stamp = stamped(QStringLiteral("Updated"), lastTime, in.now);
-        }
         c.heading = QStringLiteral("Restart to finish");
         // "new kernel 6.18.22-1-MANJARO", "the running kernel 6.18.20-1 was
         // removed", "systemd was updated" (a package name keeps its case).
@@ -442,22 +429,18 @@ CardView cardView(const TrayInput &in)
             if (s.restartNeeded()) {
                 first += QStringLiteral(" · needs a restart");
             }
-            // When it failed is in the corner ("Tried 14:02").
             const QDateTime ok = lastSuccess(s);
             second = ok.isValid() ? QStringLiteral("Check failed; this list is from %1.").arg(shortWhen(ok, in.now))
                                   : QStringLiteral("Check failed; this is the last list.");
             c.raw = checkErrors(s);
-            c.stamp = corner(stamped(QStringLiteral("Tried"), s.checkedAt, in.now));
         } else {
             if (s.restartNeeded()) {
                 second = QStringLiteral("Needs a restart afterwards.");
             } else if (s.packages.isEmpty() && s.aurPackages.isEmpty()) {
                 second = QStringLiteral("No password needed.");
             }
-            c.stamp = corner(checked);
         }
         c.detail = second.isEmpty() ? first : first + QLatin1Char('\n') + second;
-        c.canRefresh = !in.checking;
         // The news: "Read first" until read (confirmed in kyu-update, or
         // opened from here); afterwards just the link.
         if (unread) {
@@ -482,8 +465,6 @@ CardView cardView(const TrayInput &in)
     if (!in.configs.isEmpty()) {
         c.kind = CardView::Kind::Settings;
         c.icon = QStringLiteral("merge");
-        c.stamp = corner(stamped(QStringLiteral("Updated"), lastTime, in.now));
-        c.canRefresh = !in.checking;
         c.heading = in.configs.size() == 1 ? QStringLiteral("1 settings file to merge") : QStringLiteral("%1 settings files to merge").arg(in.configs.size());
         if (in.configs.size() > 1) {
             c.detail = QStringLiteral("New versions came with the update.\nYours stay in use until you merge.");
@@ -504,9 +485,7 @@ CardView cardView(const TrayInput &in)
         c.detail = in.checking ? QStringLiteral("Asking the repositories, AUR and Flatpak.") : QStringLiteral("Kyu has not looked for updates yet.");
         c.busy = in.checking;
         if (!in.checking) {
-            c.action = CardView::Action::Check;
-            c.actionText = QStringLiteral("Check now");
-            c.primary = true;
+            checkButton(QStringLiteral("Check now"), true);
         }
         return c;
     }
@@ -520,11 +499,7 @@ CardView cardView(const TrayInput &in)
     if (!in.aurFailed.isEmpty()) {
         c.note = aurFailedLine(in.aurFailed);
     }
-    c.stamp = corner(checked);
-    if (!in.checking) {
-        c.action = CardView::Action::Check;
-        c.actionText = QStringLiteral("Check now");
-    }
+    checkButton(QStringLiteral("Check now"), false);
     return c;
 }
 }

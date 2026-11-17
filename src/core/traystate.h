@@ -66,9 +66,7 @@ struct CardView {
     enum class Action { None, Update, Restart, Merge, Check, ShowWindow };
     Kind kind = Kind::NotChecked;
     QString icon; // a theme icon (Breeze's monochrome ones)
-    QString stamp; // "Checked 14:02", "Updated 14:12", "Tried 14:12", "Checking…"
-    bool busy = false; // something runs: a progress bar instead of the stamp
-    bool canRefresh = false; // a "Check now" button next to the stamp
+    bool busy = false; // something runs: a progress bar
     QString heading;
     QString detail; // up to two lines, "\n" between them
     QString linkText; // "Read first: …"
@@ -81,6 +79,7 @@ struct CardView {
     Action action = Action::None;
     QString actionText;
     bool primary = false; // the main thing to do (the default button) or just available
+    bool actionEnabled = true; // false: shown greyed out ("Checking…")
     Action secondary = Action::None; // a second button, left of the first
     QString secondaryText;
     QList<DetailRow> rows; // Details: what the update changes
