@@ -46,7 +46,7 @@ FailureText describeFailure(const QJsonObject &failure)
         const QStringList files = strings(failure.value(QStringLiteral("files")));
         t.title = QStringLiteral("A mirror is out of date");
         t.text = QStringLiteral("%1 had the new package lists but not %2 (404 Not Found). Mirrors copy the main repositories with a "
-                                "delay. Update again later, or use other mirrors.")
+                                "delay. Try again later, or use other mirrors.")
                      .arg(hosts.isEmpty() ? QStringLiteral("The mirror") : hosts.join(QStringLiteral(", ")),
                           files.size() == 1 ? QStringLiteral("the package file below") : QStringLiteral("%1 package files").arg(files.size()));
         t.items = files;

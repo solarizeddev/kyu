@@ -1,5 +1,5 @@
 // kyu: the card the tray opens. What is going on (updates, news to read
-// first, a restart to finish, a settings file to merge, a failed update) and
+// first, a restart required, a configuration file to merge, a failed update) and
 // the one thing to do next, which opens the update in Kyu's window.
 
 #include "cardwindow.h"
@@ -152,9 +152,14 @@ int main(int argc, char **argv)
     CardWindow card(fixed ? nullptr : &watcher, &scheduler);
     if (fixed) {
         card.setFixedView(*fixed);
-        card.showDetails(parser.isSet(detailsOption));
     }
     card.show();
+    // Details as a click opens them: once the card shows (rows measured).
+    if (fixed && parser.isSet(detailsOption)) {
+        QTimer::singleShot(0, &card, [&card]() {
+            card.showDetails(true);
+        });
+    }
 
     if (parser.isSet(shot)) {
         const QString file = parser.value(shot);

@@ -164,28 +164,40 @@ QSize Disclosure::sizeHint() const
 {
     const QFontMetrics metrics(font());
     const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
-    const int arrow = metrics.height() / 2 + 2;
-    return {arrow + gap + metrics.horizontalAdvance(text()) + 2, metrics.height() + 2};
+    return {chevron() + gap + metrics.horizontalAdvance(text()) + 2, metrics.height() + 2};
+}
+
+int Disclosure::chevron() const
+{
+    return qMax(6, QFontMetrics(font()).xHeight());
 }
 
 void Disclosure::paintEvent(QPaintEvent *)
 {
+    // A chevron as Breeze draws them (› closed, ⌄ open), its ink from the
+    // left edge, where the text above starts; then the label.
     QPainter painter(this);
-    const QFontMetrics metrics(font());
-    // The arrow about half the text's height, from the very left edge (where
-    // the text above starts), then the label.
-    const int arrow = metrics.height() / 2 + 2;
+    painter.setRenderHint(QPainter::Antialiasing);
+    const QColor colour = palette().color(QPalette::WindowText);
+    QPen pen(colour, 1.2);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+    const qreal size = chevron();
+    const qreal cy = height() / 2.0;
+    const qreal half = size / 2.0;
+    if (m_open) {
+        painter.drawPolyline(QPolygonF{QPointF(0.6, cy - half / 2), QPointF(half, cy + half / 2), QPointF(size - 0.6, cy - half / 2)});
+    } else {
+        painter.drawPolyline(QPolygonF{QPointF(half / 2, cy - half), QPointF(half / 2 + half, cy), QPointF(half / 2, cy + half)});
+    }
     const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
-    QStyleOption option;
-    option.initFrom(this);
-    option.rect = QRect(0, (height() - arrow) / 2, arrow, arrow);
-    style()->drawPrimitive(m_open ? QStyle::PE_IndicatorArrowDown : QStyle::PE_IndicatorArrowRight, &option, &painter, this);
     QFont label = font();
     label.setUnderline(underMouse());
     painter.setFont(label);
-    painter.setPen(palette().color(QPalette::WindowText));
-    const QRect text(arrow + gap, 0, width() - arrow - gap, height());
-    painter.drawText(text, Qt::AlignLeft | Qt::AlignVCenter, this->text());
+    painter.setPen(colour);
+    const int x = int(size) + gap;
+    painter.drawText(QRect(x, 0, width() - x, height()), Qt::AlignLeft | Qt::AlignVCenter, text());
     if (hasFocus()) {
         QStyleOptionFocusRect focus;
         focus.initFrom(this);
@@ -216,7 +228,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     // text: heading, two lines, and a third (a link to read first, or a
     // note) when there is one.
     m_grid = new QGridLayout;
-    m_grid->setHorizontalSpacing(across * 3 / 2);
+    m_grid->setHorizontalSpacing(2 * across);
     m_grid->setVerticalSpacing(0);
     m_icon = new IconView(this);
     m_textColumn = new QWidget(this);
@@ -226,8 +238,12 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_heading = textLabel(m_textColumn);
     m_detail = textLabel(m_textColumn);
     m_detail->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    // The quieter line: same size, the colour scheme's placeholder colour.
+    m_muted = textLabel(m_textColumn);
+    m_muted->setForegroundRole(QPalette::PlaceholderText);
     m_slot = new QLabel(m_textColumn);
     m_slot->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    m_slot->setContentsMargins(0, down / 2, 0, 0); // a little apart from the text above
     // Opening the announcement counts as reading it: kyu-update won't ask.
     connect(m_slot, &QLabel::linkActivated, this, [this](const QString &url) {
         if (QDesktopServices::openUrl(QUrl(url)) && !m_view.linkKey.isEmpty()) {
@@ -237,14 +253,19 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     });
     text->addWidget(m_heading);
     text->addWidget(m_detail);
+    text->addWidget(m_muted);
     text->addWidget(m_slot);
-    // While something runs: a progress bar under the text, as wide as it.
-    m_busy = new QProgressBar(m_textColumn);
+    // While something runs: a progress bar right under its sentence, as wide
+    // as the text.
+    m_busyRow = new QWidget(m_textColumn);
+    auto *busyRow = new QVBoxLayout(m_busyRow);
+    busyRow->setContentsMargins(0, down / 2, 0, 0);
+    m_busy = new QProgressBar(m_busyRow);
     m_busy->setRange(0, 0);
     m_busy->setTextVisible(false);
     m_busy->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    text->addSpacing(down / 2);
-    text->addWidget(m_busy);
+    busyRow->addWidget(m_busy);
+    text->addWidget(m_busyRow);
     // "▸ Details" under the text, as in KDE's message boxes: a disclosure,
     // not a button beside the actions; what it shows opens below the buttons.
     m_detailsRow = new QWidget(m_textColumn);
@@ -334,13 +355,13 @@ void CardWindow::applyFonts()
         heading.setPixelSize(qRound(heading.pixelSize() * 1.2));
     }
     // KDE's font carries a style name ("Regular"), and with one set Qt
-    // ignores the weight: cleared, so the heading is really semibold.
+    // ignores the weight: cleared. Bold (a semibold face is not always there,
+    // and the heading came out regular).
     heading.setStyleName(QString());
-    heading.setWeight(QFont::DemiBold);
+    heading.setWeight(QFont::Bold);
     m_heading->setFont(heading);
     const QFontMetrics metrics(font());
     m_textColumn->setFixedWidth(metrics.averageCharWidth() * 42);
-    m_detail->setMinimumHeight((m_view.busy ? 1 : 2) * metrics.lineSpacing());
     // The icon at the size Breeze draws its monochrome status icons (and the
     // tray shows them): 22 px, sharp; top-left, level with the heading.
     m_icon->setFixedSize(22, 22);
@@ -348,7 +369,6 @@ void CardWindow::applyFonts()
     m_list->header()->resizeSection(0, small + 8);
     keepFooterHeight();
     sizeDetails();
-    setNote(m_noteText);
 }
 
 void CardWindow::keepFooterHeight()
@@ -406,18 +426,6 @@ void CardWindow::changeEvent(QEvent *event)
     QWidget::changeEvent(event);
 }
 
-void CardWindow::setNote(const QString &text)
-{
-    // One line: a long path is cut in the middle, all of it in the tooltip.
-    m_noteText = text;
-    if (!m_view.linkText.isEmpty()) {
-        return;
-    }
-    m_slot->setTextFormat(Qt::PlainText);
-    m_slot->setText(m_slot->fontMetrics().elidedText(text, Qt::ElideMiddle, m_textColumn->maximumWidth()));
-    m_slot->setToolTip(text == m_slot->text() ? QString() : text);
-    m_slot->setVisible(!text.isEmpty());
-}
 
 void CardWindow::setFixedView(const Kyu::CardView &view)
 {
@@ -454,10 +462,13 @@ void CardWindow::present(const Kyu::CardView &view)
     // A failed update: what went wrong (the failure's title), then what changed.
     if (view.kind == Kyu::CardView::Kind::Failed && !view.failureKind.isEmpty()) {
         if (const QString title = failureTitle(view.failureKind); !title.isEmpty()) {
-            detail = title + QStringLiteral(".\n") + detail;
+            detail = title + QStringLiteral(". ") + detail;
         }
     }
     m_detail->setText(detail);
+    m_detail->setVisible(!detail.isEmpty());
+    m_muted->setText(view.muted);
+    m_muted->setVisible(!view.muted.isEmpty());
     if (!view.linkText.isEmpty()) {
         m_slot->setTextFormat(Qt::RichText);
         const QString shown = m_slot->fontMetrics().elidedText(view.linkText, Qt::ElideRight, m_textColumn->maximumWidth());
@@ -465,13 +476,13 @@ void CardWindow::present(const Kyu::CardView &view)
         m_slot->setToolTip(view.linkText + QLatin1Char('\n') + view.linkUrl);
         m_slot->show();
     } else {
-        setNote(view.note);
+        m_slot->clear();
+        m_slot->hide();
     }
 
     // While something runs: a progress bar under the text, and one line of
     // text kept instead of two (the card stays about as tall).
-    m_busy->setVisible(view.busy);
-    m_detail->setMinimumHeight((view.busy ? 1 : 2) * QFontMetrics(font()).lineSpacing());
+    m_busyRow->setVisible(view.busy);
 
     // Details: the list of what changes, or the failure's own words.
     const bool hasDetails = !view.rows.isEmpty() || !view.raw.isEmpty();

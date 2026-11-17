@@ -50,6 +50,7 @@ protected:
     void paintEvent(QPaintEvent *event) override;
 
 private:
+    int chevron() const; // the chevron's size: the font's x-height
     bool m_open = false;
 };
 
@@ -83,7 +84,6 @@ private:
     void merge();
     void showUpdateWindow();
     void applyFonts();
-    void setNote(const QString &text);
     void sizeDetails();
     void keepFooterHeight();
 
@@ -92,13 +92,14 @@ private:
     QTimer *m_poll;
     bool m_fixed = false;
     Kyu::CardView m_view;
-    QString m_noteText;
     IconView *m_icon;
     QLabel *m_heading;
     QLabel *m_detail;
+    QLabel *m_muted;
     QLabel *m_slot;
     QWidget *m_textColumn;
     QProgressBar *m_busy;
+    QWidget *m_busyRow; // the bar, a little below its sentence
     Disclosure *m_details;
     QWidget *m_detailsRow; // the disclosure, a line's spacing below the text
     QPushButton *m_measure; // never shown: how tall a button with icon and text is

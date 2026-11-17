@@ -18,7 +18,7 @@ struct TrayInput {
     bool checking = false;
     QString loadError;
     QJsonObject lastRun; // kyu-update's last-run.json
-    QStringList configs; // the settings files lastRun lists that still exist
+    QStringList configs; // the configuration files (.pacnew, .pacsave) lastRun lists that still exist
     bool sameBoot = false; // lastRun was written in this boot
     bool kernelReplaced = false; // the running kernel's modules are gone
     QString kernelInstalled; // the installed version of the running kernel's package, when known
@@ -68,11 +68,11 @@ struct CardView {
     QString icon; // a theme icon (Breeze's monochrome ones)
     bool busy = false; // something runs: a progress bar
     QString heading;
-    QString detail; // up to two lines, "\n" between them
+    QString detail; // the body: one sentence or fact line
     QString linkText; // "Read first: …"
     QString linkUrl;
     QString linkKey; // the announcement's key (news.h), marked read when opened
-    QString note; // the extra line when there is no link ("1 settings file to merge: /etc/sddm.conf")
+    QString muted; // a quieter line under the detail: times, "Requires a restart", a file to merge
     QString failureKind; // Failed: the failure.h kind; the card puts its title before the detail
     bool transactionStarted = false; // Failed: the failing pacman run had begun changing packages
     int changed = 0; // Failed: packages an earlier pacman run of the update changed (the keyrings first)

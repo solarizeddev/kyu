@@ -4,7 +4,7 @@
 // and their own questions
 // ("Proceed?" included), and ends with one verdict: done, or why it failed,
 // and what is left to do, each with one key: [r] restart, [m] merge the
-// settings files (pacdiff), [f] fix and update again.
+// configuration files (pacdiff), [f] fix and update again.
 //
 // Before pacman: the distro news since the last full upgrade (and a
 // "Continue? [y/N]" when there is any), and pacman's lock. Nothing here runs
@@ -690,7 +690,7 @@ int main(int argc, char **argv)
     QCommandLineOption procDir(QStringLiteral("proc-dir"), QStringLiteral("/proc (testing)."), QStringLiteral("path"), QStringLiteral("/proc"));
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
-    QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the settings files the last update left (pacdiff)."));
+    QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the configuration files the last update left (pacdiff)."));
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
     lockWait.setFlags(QCommandLineOption::HiddenFromHelp);
@@ -807,7 +807,7 @@ int main(int argc, char **argv)
                     k.configsLeft(left);
                 }
                 if (left.isEmpty()) {
-                    out.good(QStringLiteral("Settings files merged."));
+                    out.good(QStringLiteral("Configuration files merged."));
                 }
             } else if (answer == QLatin1String("f") && !k.fix.isEmpty()) {
                 if (k.fixAllowed && !k.fixAllowed()) {
@@ -868,9 +868,9 @@ int main(int argc, char **argv)
         }
     }
 
-    // --- Settings files only (the card's Merge…) ----------------------------
+    // --- Configuration files only (the card's Merge…) ----------------------------
     if (parser.isSet(mergeOnly)) {
-        out.header(QStringLiteral("Kyu · settings files"));
+        out.header(QStringLiteral("Kyu · configuration files"));
         out.blank();
         QJsonObject record = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
         if (runPacdiff(out, elevate)) {
@@ -890,9 +890,9 @@ int main(int argc, char **argv)
             }
             out.blank();
             if (left.isEmpty()) {
-                out.good(QStringLiteral("Settings files merged."));
+                out.good(QStringLiteral("Configuration files merged."));
             } else {
-                out.warn(QStringLiteral("%1 still to merge.").arg(plural(left.size(), QStringLiteral("settings file"), QStringLiteral("settings files"))));
+                out.warn(QStringLiteral("%1 still to merge.").arg(plural(left.size(), QStringLiteral("configuration file"), QStringLiteral("configuration files"))));
             }
         }
         return finish(0);
@@ -1412,7 +1412,7 @@ int main(int argc, char **argv)
     // --- AUR -----------------------------------------------------------------
     // Last, so a long build or a failed one holds nothing else up. What it
     // installed is in pacman's log too: a restart (an NVIDIA driver from the
-    // AUR) and settings files count.
+    // AUR) and configuration files count.
     int aurExit = -1;
     Kyu::PacmanRun aurRun;
     // {name, version}: not updated last time, not offered again until a
@@ -1630,8 +1630,8 @@ int main(int argc, char **argv)
         for (const QString &path : configs) {
             shown.append(QString(path).remove(QRegularExpression(QStringLiteral("\\.pac(new|save)$"))));
         }
-        out.warn(QStringLiteral("%1 changed: %2")
-                     .arg(plural(configs.size(), QStringLiteral("settings file"), QStringLiteral("settings files")),
+        out.warn(QStringLiteral("%1 to merge: %2")
+                     .arg(plural(configs.size(), QStringLiteral("configuration file"), QStringLiteral("configuration files")),
                           shown.mid(0, 3).join(QStringLiteral(", ")) + (shown.size() > 3 ? QStringLiteral(", …") : QString())));
         keys.configs = configs;
     }

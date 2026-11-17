@@ -49,7 +49,7 @@ has "$d/out" 'Flatpaks   flatpak update' ok
 has "$d/out" ' · 2 packages · 1 Flatpak' ok
 has "$d/out" 'Done in ' ok
 has "$d/out" 'Restart needed: new kernel 6.18.22-1-MANJARO' ok
-has "$d/out" '1 settings file changed: /etc/sddm.conf' ok
+has "$d/out" '1 configuration file to merge: /etc/sddm.conf' ok
 hasnt "$d/out" 'Nothing else to do' ok
 has "$d/out" 'Keep this window open until Kyu says it is done.' ok
 hasnt "$d/out" 'Snapshot' ok
@@ -483,7 +483,7 @@ d=$work/mergeonly
 : >"$d/pacdiff-ran.before"
 rm -f "$d/pacdiff-ran"
 run mergeonly '' --merge
-has "$d/out" 'Kyu · settings files' mergeonly
+has "$d/out" 'Kyu · configuration files' mergeonly
 [ -e "$d/pacdiff-ran" ] || fail "mergeonly: pacdiff did not run"
 grep -q 'sddm.conf.pacnew' "$d/state/kyu/last-run.json" && fail "mergeonly: a merged file is still listed" || true
 
