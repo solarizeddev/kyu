@@ -46,7 +46,8 @@ build() {
         -DCMAKE_BUILD_TYPE=None \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DKYU_REQUIRE_KSNI=ON \
-        -DKYU_REQUIRE_WINDOW=ON
+        -DKYU_REQUIRE_WINDOW=ON \
+        -DKYU_REQUIRE_NOTIFICATIONS=ON
     cmake --build build
 }
 

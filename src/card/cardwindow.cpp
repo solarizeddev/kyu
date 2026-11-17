@@ -784,9 +784,15 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
         close();
         return;
     }
-    // F5: check for updates, as Refresh in any KDE application.
+    // F5: check for updates, as Refresh in any KDE application; not while
+    // a check or an update runs, nor on a demo card.
     if (event->matches(QKeySequence::Refresh)) {
-        run(Kyu::CardView::Action::Check);
+        using Kind = Kyu::CardView::Kind;
+        const bool busy = m_view.kind == Kind::Checking || m_view.kind == Kind::Updating || m_view.kind == Kind::Merging
+            || (m_watcher && m_watcher->checking());
+        if (!m_fixed && !busy) {
+            run(Kyu::CardView::Action::Check);
+        }
         return;
     }
     // Enter: the focused button (a card is not a QDialog, which would do

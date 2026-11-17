@@ -99,7 +99,8 @@ build/bin/kyu-tray &
   while `kyu-update` runs) on a light and a dark panel;
 - a click opens the card; its button does the right thing;
 - on the card, holding Alt underlines each button's letter (Alt+U updates);
-  F5 checks again; with Details open the buttons stay the last row;
+  F5 checks again; Details opens a list below the buttons, from window edge
+  to window edge, and the buttons do not move;
 - the tooltip says the same as the card.
 
 Notifications, from the build tree: Plasma shows Kyu's notifications only
@@ -111,7 +112,7 @@ install -Dm644 build/data/kyu.notifyrc ~/.local/share/knotifications6/kyu.notify
 
 - **The update is waiting for you:** start `build/bin/kyu-window`, and when
   sudo asks for the password (or pacman asks "Proceed?") switch to another
-  window. Within about three seconds: a notification "The update is waiting
+  window. Within a few seconds: a notification "The update is waiting
   for you" ("Your password is needed." or pacman's question), and the Kyu
   window's taskbar entry asks for attention. **Show** brings the window
   forward and the notification goes; so does answering from the window.

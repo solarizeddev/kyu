@@ -27,11 +27,12 @@ Two notifications, each of which can be switched off in System Settings →
 Notifications → Kyu:
 
 - **The update is waiting for you**: pacman, sudo, flatpak, the AUR helper or
-  Kyu asks a question while Kyu's window is behind others (the question, or
-  "Your password is needed."; the taskbar entry asks for attention too). It
-  goes when you answer or bring the window forward.
-- **Read before updating**: a new announcement from your distribution, once
-  per announcement, until it is read.
+  Kyu asks a question while Kyu's window is not the active one (the question,
+  or "Your password is needed."; the taskbar entry asks for attention too).
+  It goes when you answer or switch to the window.
+- **Read before updating**: a new announcement from your distribution. Shown
+  once per announcement; it stays until you dismiss it or read it (**Read**
+  opens it; clicking it opens the card).
 
 Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.

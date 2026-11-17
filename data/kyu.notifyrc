@@ -4,7 +4,7 @@ Comment=Kyu
 DesktopEntry=@KYU_APP_ID@
 
 [Event/news]
-Name=News to read before updating
+Name=Read before updating
 Comment=A new announcement from your distribution, once; it stays until dismissed
 Action=Popup
 Urgency=Normal
