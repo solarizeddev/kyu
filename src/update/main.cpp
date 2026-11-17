@@ -647,21 +647,32 @@ QStringList inhibited(const QStringList &command)
 }
 
 // A command line for `script -c` (run by /bin/sh).
+// Where `script` records a command's output: on disk in Kyu's state
+// directory, not in /tmp (RAM on Arch; an AUR build prints a lot).
+QString recordingTemplate()
+{
+    QDir().mkpath(Kyu::Paths::stateDir());
+    return Kyu::Paths::stateDir() + QStringLiteral("/recording-XXXXXX");
+}
+
 // A command that may ask questions (flatpak, the AUR helper), run inside
-// util-linux `script` so its output can be watched for them; without
-// `script`, as it is.
+// util-linux `script` so its output can be watched for them; as it is
+// without `script`, or when nobody is at a terminal to answer.
 int runWatched(const QStringList &command)
 {
     const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
-    QTemporaryDir recording;
-    if (script.isEmpty() || !recording.isValid()) {
+    QTemporaryDir recording(recordingTemplate());
+    if (script.isEmpty() || !recording.isValid() || !stdinIsTerminal()) {
         return runInTerminal(command.first(), command.mid(1));
     }
     const QString typescript = recording.filePath(QStringLiteral("typescript"));
+    // script runs the command with $SHELL: /bin/sh, and the command gets
+    // the user's own back (makepkg and the helper may use it).
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    const QString shell = env.value(QStringLiteral("SHELL"));
     env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
-    return runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shellJoin(command), typescript}, env,
-                         typescript);
+    const QString line = (shell.isEmpty() ? QStringLiteral("unset SHELL; exec ") : QStringLiteral("SHELL=%1 exec ").arg(shellJoin({shell}))) + shellJoin(command);
+    return runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), line, typescript}, env, typescript);
 }
 
 QString shellJoin(const QStringList &args)
@@ -1244,7 +1255,7 @@ int main(int argc, char **argv)
             // its own) and records what it prints, for the explanation of a
             // failure. The password is never echoed, so never recorded. It runs
             // the command with $SHELL: /bin/sh, whatever the login shell is.
-            QTemporaryDir recording;
+            QTemporaryDir recording(recordingTemplate());
             const QString typescript = recording.filePath(QStringLiteral("pacman.typescript"));
             // Written when the second command starts: where pacman's log was then.
             const QString mark = recording.filePath(QStringLiteral("second"));

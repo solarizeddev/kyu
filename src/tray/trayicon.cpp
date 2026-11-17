@@ -160,6 +160,17 @@ void TrayIcon::refresh()
 #endif
 }
 
+TrayIcon::~TrayIcon()
+{
+    // Its buttons would do nothing once the tray is gone; a new tray sends
+    // no second one (news-notified.json).
+#ifdef KYU_HAVE_KNOTIFICATIONS
+    if (m_news) {
+        m_news->close();
+    }
+#endif
+}
+
 void TrayIcon::spin()
 {
 #ifdef KYU_HAVE_KSNI
@@ -201,8 +212,10 @@ void TrayIcon::notifyNews(const QString &key, const QString &title, const QStrin
     notification->setText(title.toHtmlEscaped());
     if (!link.isEmpty()) {
         connect(notification->addAction(QStringLiteral("Read")), &KNotificationAction::activated, this, [key, link]() {
-            Kyu::markNewsSeen({key});
-            QDesktopServices::openUrl(QUrl(link));
+            // Read once it opened (as from the card).
+            if (QDesktopServices::openUrl(QUrl(link))) {
+                Kyu::markNewsSeen({key});
+            }
         });
     }
     connect(notification->addDefaultAction(QStringLiteral("Show updates")), &KNotificationAction::activated, this, [this, notification]() {

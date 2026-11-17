@@ -167,7 +167,9 @@ How "Waiting for you" knows: kyu-update runs pacman, flatpak and the AUR
 helper inside util-linux `script` and watches what they print. When the
 output stands still for 1.5 s on a question (a "[Y/n]" choice, or a line
 ending in "?" or ":"; a password prompt in any language through "[sudo]" or
-"password"), it writes the question to `~/.local/state/kyu/waiting`, and
+"password"; paru's and yay's menus by the question above their "==> "; a
+pager as "Something to read"; a fingerprint reader as "Your confirmation is
+needed"), it writes the question to `~/.local/state/kyu/waiting`, and
 removes it once output moves on; its own "Continue?" too. The Kyu window
 looks at that file every second and notifies only when it is not in front.
 

@@ -20,6 +20,7 @@ class TrayIcon : public QObject
     Q_OBJECT
 public:
     TrayIcon(StateWatcher *watcher, QObject *parent = nullptr);
+    ~TrayIcon() override;
 
 Q_SIGNALS:
     void checkRequested();
