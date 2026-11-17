@@ -1368,6 +1368,17 @@ int main(int argc, char **argv)
         }
         return a;
     };
+    // pacman's last lines (not script's own), for a failure Kyu has no name for.
+    const auto lastLines = [&pacmanLines]() {
+        QJsonArray out;
+        for (auto it = pacmanLines.crbegin(); it != pacmanLines.crend() && out.size() < 5; ++it) {
+            const QString l = it->trimmed();
+            if (!l.isEmpty() && !l.startsWith(QLatin1String("Script done"))) {
+                out.prepend(l);
+            }
+        }
+        return out;
+    };
     // For the tray's card: what is left to do (last-run.json).
     const auto recordOf = [&](const After &a, const QStringList &programs, int aurExit, const QJsonArray &aurFailed) {
         return QJsonObject{
@@ -1385,6 +1396,9 @@ int main(int argc, char **argv)
             {QStringLiteral("configs"), QJsonArray::fromStringList(a.configs)},
             {QStringLiteral("programs"), QJsonArray::fromStringList(programs)},
             {QStringLiteral("failure"), failure.value(QStringLiteral("kind"))},
+            // pacman's own lines about it, for the card's Details: the ones
+            // the failure was recognised by, else pacman's last lines.
+            {QStringLiteral("failureLines"), pacmanExit <= 0 ? QJsonValue() : failure.contains(QStringLiteral("lines")) ? failure.value(QStringLiteral("lines")) : lastLines()},
         };
     };
     const auto writeRecord = [](const QJsonObject &record) {

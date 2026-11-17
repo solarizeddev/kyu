@@ -2,6 +2,8 @@
 
 #include "traystate.h"
 
+#include <QJsonArray>
+
 #include <QTest>
 
 using namespace Kyu;
@@ -105,17 +107,26 @@ void TestTrayState::cards()
     CardView c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Updates);
     QCOMPARE(c.heading, QStringLiteral("8 updates"));
-    QVERIFY(c.detail.startsWith(QStringLiteral("6 packages · 2 Flatpaks")));
+    QCOMPARE(c.icon, QStringLiteral("update-medium")); // news to read
+    QVERIFY(c.detail.startsWith(QStringLiteral("6 packages, 2 Flatpaks")));
+    QCOMPARE(c.stamp, QStringLiteral("Checked 14:02"));
+    QVERIFY(c.canRefresh);
+    QCOMPARE(c.rows.size(), 8);
     QCOMPARE(c.linkText, QStringLiteral("Read first: Manual intervention for foo"));
     QCOMPARE(c.linkUrl, QStringLiteral("https://forum.manjaro.org/t/1"));
     QCOMPARE(c.action, CardView::Action::Update);
     QVERIFY(c.primary);
-    // A settings file from the last update: the extra row.
+    // A settings file waiting: not on the updates card (merge after).
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
-    QCOMPARE(cardView(in).mergeText, QStringLiteral("1 settings file changed: /etc/sddm.conf"));
-    in.configs = {QStringLiteral("/etc/a.pacnew"), QStringLiteral("/etc/b.pacsave")};
-    QCOMPARE(cardView(in).mergeText, QStringLiteral("2 settings files changed"));
+    QVERIFY(cardView(in).note.isEmpty());
     in.configs.clear();
+    // While a check runs: the same card, "Checking…" in the corner.
+    in.checking = true;
+    c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::Updates);
+    QCOMPARE(c.stamp, QStringLiteral("Checking…"));
+    QVERIFY(!c.canRefresh);
+    in.checking = false;
 
     // AUR packages: counted on their own; only AUR still needs a password.
     UpdateState aur = withUpdates(0, false);
@@ -125,16 +136,23 @@ void TestTrayState::cards()
     QCOMPARE(c.kind, CardView::Kind::Updates);
     QCOMPARE(c.heading, QStringLiteral("1 update"));
     QCOMPARE(c.detail, QStringLiteral("1 AUR"));
+    QCOMPARE(c.icon, QStringLiteral("update-low"));
+    QCOMPARE(c.rows.value(0).source, QStringLiteral("AUR"));
+    QCOMPARE(c.rows.value(0).version, QStringLiteral("1-1 → 2-1"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
 
     // A failed check with updates listed still shows the updates.
     UpdateState partly = withUpdates(6, false);
     partly.flatpak.checked = true;
     partly.flatpak.ok = false;
+    partly.flatpak.error = QStringLiteral("Unable to connect to dl.flathub.org");
+    partly.flatpak.lastSuccessAt = QDateTime::fromString(QStringLiteral("2026-11-15T20:02:00"), Qt::ISODate);
     in.state = partly;
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Updates);
-    QVERIFY(c.detail.endsWith(QStringLiteral("a check failed")));
+    QCOMPARE(c.detail.section(QLatin1Char('\n'), 1), QStringLiteral("Check failed at 14:02; this list is from yesterday 20:02."));
+    QCOMPARE(c.stamp, QStringLiteral("Tried 14:02"));
+    QCOMPARE(c.raw, QStringLiteral("Flatpak: Unable to connect to dl.flathub.org"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
     // ...with none listed it is "Could not check", with the reason.
     UpdateState none = withUpdates(0, false);
@@ -144,11 +162,17 @@ void TestTrayState::cards()
     in.state = none;
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::CheckFailed);
-    QVERIFY(c.detail.contains(QStringLiteral("could not resolve host")));
+    QCOMPARE(c.icon, QStringLiteral("data-warning"));
+    // In plain words; the program's own in Details.
+    QCOMPARE(c.detail, QStringLiteral("No network connection."));
+    QCOMPARE(c.raw, QStringLiteral("pacman: could not resolve host"));
     QCOMPARE(c.action, CardView::Action::Check);
+    QCOMPARE(c.actionText, QStringLiteral("Try again"));
     in.state.reset();
     in.loadError = QStringLiteral("state.json is not JSON");
-    QCOMPARE(cardView(in).detail, QStringLiteral("state.json is not JSON"));
+    c = cardView(in);
+    QCOMPARE(c.detail, QStringLiteral("Kyu could not read its list of updates."));
+    QCOMPARE(c.raw, QStringLiteral("state.json is not JSON"));
     in.loadError.clear();
 
     // News already read: no "Read first", no orange tray; the link stays.
@@ -173,13 +197,16 @@ void TestTrayState::cards()
     UpdateState fp = withUpdates(0, false);
     fp.flatpaks = {f, f};
     in.state = fp;
-    QCOMPARE(cardView(in).detail, QStringLiteral("2 Flatpaks · no password needed"));
+    QCOMPARE(cardView(in).detail, QStringLiteral("2 Flatpaks\nNo password needed."));
 
     // Up to date: a quiet button; none while checking.
     in.state = withUpdates(0, false);
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::UpToDate);
+    QCOMPARE(c.icon, QStringLiteral("checkmark"));
+    QCOMPARE(c.detail, QStringLiteral("Nothing new: repositories."));
     QCOMPARE(c.action, CardView::Action::Check);
+    QCOMPARE(c.actionText, QStringLiteral("Check now"));
     QVERIFY(!c.primary);
     in.checking = true;
     QCOMPARE(cardView(in).action, CardView::Action::None);
@@ -188,7 +215,9 @@ void TestTrayState::cards()
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Settings);
-    QCOMPARE(c.detail, QStringLiteral("/etc/sddm.conf has a new version"));
+    QCOMPARE(c.heading, QStringLiteral("1 settings file to merge"));
+    QCOMPARE(c.detail, QStringLiteral("/etc/sddm.conf has a new version.\nYours stays in use until you merge."));
+    QCOMPARE(c.icon, QStringLiteral("merge"));
     QCOMPARE(c.action, CardView::Action::Merge);
     QVERIFY(!trayView(in).passive);
     in.configs.clear();
@@ -200,20 +229,33 @@ void TestTrayState::cards()
                              {QStringLiteral("time"), QStringLiteral("2026-11-16T14:12:00Z")}};
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Restart);
-    QCOMPARE(c.detail, QStringLiteral("New kernel 6.18.22-1-MANJARO"));
-    QVERIFY(c.stamp.startsWith(QStringLiteral("updated ")));
+    QCOMPARE(c.detail, QStringLiteral("Kernel 6.18.22-1-MANJARO is installed.\nThe old one runs until you restart."));
+    QVERIFY(c.stamp.startsWith(QStringLiteral("Updated ")));
+    QCOMPARE(c.secondary, CardView::Action::None);
+    // A settings file too: noted, and Merge… next to Restart.
+    in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
+    c = cardView(in);
+    QCOMPARE(c.note, QStringLiteral("1 settings file to merge: /etc/sddm.conf"));
+    QCOMPARE(c.secondary, CardView::Action::Merge);
+    QCOMPARE(c.action, CardView::Action::Restart);
+    in.configs.clear();
+    in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("systemd was updated"));
+    QCOMPARE(cardView(in).detail, QStringLiteral("Systemd was updated.\nThe old version runs until you restart."));
+    in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("new kernel 6.18.22-1-MANJARO"));
     in.sameBoot = false;
     in.lastRun = {};
     in.kernelReplaced = true;
     in.kernelInstalled = QStringLiteral("6.18.23-1-MANJARO");
-    QCOMPARE(cardView(in).detail, QStringLiteral("New kernel 6.18.23-1-MANJARO"));
+    QCOMPARE(cardView(in).detail, QStringLiteral("Kernel 6.18.23-1-MANJARO is installed.\nThe old one runs until you restart."));
     in.kernelReplaced = false;
 
-    // Updating, or merging: no button.
+    // Updating, or merging: busy, and the window can be brought forward.
     in.updating = true;
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Updating);
-    QCOMPARE(c.action, CardView::Action::None);
+    QVERIFY(c.busy);
+    QCOMPARE(c.action, CardView::Action::ShowWindow);
+    QCOMPARE(c.detail, QStringLiteral("The update is running in Kyu's window."));
     in.activity = QStringLiteral("merge");
     QCOMPARE(cardView(in).kind, CardView::Kind::Merging);
     QCOMPARE(trayView(in).tooltip, QStringLiteral("Merging settings files"));
@@ -229,10 +271,20 @@ void TestTrayState::cards()
     QCOMPARE(c.failureKind, QStringLiteral("keyring"));
     QVERIFY(c.transactionStarted);
     QCOMPARE(c.changed, 0);
-    QVERIFY(c.stamp.startsWith(QStringLiteral("tried ")));
+    QVERIFY(c.stamp.startsWith(QStringLiteral("Tried ")));
     QCOMPARE(c.actionText, QStringLiteral("Update again"));
+    QCOMPARE(c.icon, QStringLiteral("update-high"));
+    QCOMPARE(c.detail, QStringLiteral("pacman stopped halfway."));
+    in.lastRun.insert(QStringLiteral("transactionStarted"), false);
     in.lastRun.insert(QStringLiteral("changed"), 1); // the keyrings went in first
-    QCOMPARE(cardView(in).changed, 1);
+    in.lastRun.insert(QStringLiteral("failureLines"), QJsonArray{QStringLiteral("error: one"), QStringLiteral("error: two")});
+    c = cardView(in);
+    QCOMPARE(c.changed, 1);
+    QCOMPARE(c.detail, QStringLiteral("Only 1 package was updated."));
+    QCOMPARE(c.raw, QStringLiteral("error: one\nerror: two"));
+    in.configs = {QStringLiteral("/etc/a.pacnew"), QStringLiteral("/etc/b.pacnew")};
+    QCOMPARE(cardView(in).note, QStringLiteral("2 settings files to merge after the update"));
+    in.configs.clear();
 
     // Never checked: the check button.
     in = TrayInput{};

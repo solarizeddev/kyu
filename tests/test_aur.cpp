@@ -189,7 +189,7 @@ private Q_SLOTS:
         // Only that one: up to date, with the line on the card.
         in.state->aurPackages.removeLast();
         QCOMPARE(trayView(in).mark, TrayMark::UpToDate);
-        QVERIFY(cardView(in).detail.startsWith(QStringLiteral("AUR: foo-bin not updated last time")));
+        QVERIFY(cardView(in).note.startsWith(QStringLiteral("AUR: foo-bin not updated last time")));
         // A newer version: offered again.
         in.state = s;
         in.state->aurPackages.first().newVersion = QStringLiteral("2-2");

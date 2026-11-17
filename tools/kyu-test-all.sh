@@ -104,11 +104,15 @@ if [ "$status" = ok ]; then
     mkdir -p "$out/cards"
     # Each card as a window, with your window decoration (Spectacle, the
     # active window); without Spectacle, the card's contents alone.
-    for state in updates flatpaks uptodate checking checkfailed updating restart settings failed; do
-        file="$out/cards/$state.png"
+    # NAME-details: the same card with Details open.
+    for shot in updates updates-details stale flatpaks uptodate checking checkfailed updating merging restart settings failed failed-details; do
+        state=${shot%-details}
+        details=
+        [ "$state" = "$shot" ] || details=--details
+        file="$out/cards/$shot.png"
         if command -v spectacle >/dev/null; then
             rm -f "$stage/card-active"
-            KYU_CARD_ACTIVE_FILE="$stage/card-active" "$build/bin/kyu" --demo "$state" >/dev/null 2>&1 &
+            KYU_CARD_ACTIVE_FILE="$stage/card-active" "$build/bin/kyu" --demo "$state" $details >/dev/null 2>&1 &
             card=$!
             for i in $(seq 50); do [ "$(cat "$stage/card-active" 2>/dev/null)" = 1 ] && break; sleep 0.2; done
             if [ "$(cat "$stage/card-active" 2>/dev/null)" = 1 ]; then
@@ -119,10 +123,10 @@ if [ "$status" = ok ]; then
             kill "$card" 2>/dev/null
             wait "$card" 2>/dev/null
         else
-            timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$file" >/dev/null 2>&1
+            timeout 20 "$build/bin/kyu" --demo "$state" $details --screenshot "$file" >/dev/null 2>&1
         fi
         if [ ! -s "$file" ]; then
-            echo "card $state: failed (the card was not the active window, or no screenshot)"
+            echo "card $shot: failed (the card was not the active window, or no screenshot)"
             [ "$status" = ok ] && status="card screenshots failed" || status="$status, card screenshots failed"
         fi
     done

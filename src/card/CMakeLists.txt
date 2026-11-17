@@ -11,3 +11,11 @@ if(KF6WindowSystem_FOUND)
     target_link_libraries(kyu PRIVATE KF6::WindowSystem)
     target_compile_definitions(kyu PRIVATE KYU_HAVE_KWINDOWSYSTEM)
 endif()
+
+# Optional: KDE's icon engine everywhere (Breeze's monochrome icons follow the
+# colour scheme even outside a Plasma session).
+find_package(KF6IconThemes QUIET)
+if(KF6IconThemes_FOUND)
+    target_link_libraries(kyu PRIVATE KF6::IconThemes)
+    target_compile_definitions(kyu PRIVATE KYU_HAVE_KICONTHEMES)
+endif()

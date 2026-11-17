@@ -48,25 +48,43 @@ struct TrayView {
 
 TrayView trayView(const TrayInput &in);
 
-// The card the tray opens: one heading, one line, at most one link and one
-// extra row, one button.
+// One row of the card's Details list: what an update changes.
+struct DetailRow {
+    QString name;
+    QString version; // "6.18.20-1 → 6.18.22-1"; a Flatpak's branch
+    QString source; // the repo, "AUR" or "Flatpak"
+    bool restart = false; // the running kernel's package
+
+    bool operator==(const DetailRow &) const = default;
+};
+
+// The card the tray opens (a small dialog): an icon, a heading, two lines,
+// one more line (a link to read first, or a note), and at most two buttons;
+// Details below on request.
 struct CardView {
     enum class Kind { NotChecked, Checking, UpToDate, CheckFailed, Updates, Updating, Merging, Restart, Settings, Failed };
-    enum class Action { None, Update, Restart, Merge, Check };
+    enum class Action { None, Update, Restart, Merge, Check, ShowWindow };
     Kind kind = Kind::NotChecked;
-    QString stamp; // "checked 14:02", "updated 14:12", "tried 14:12"
+    QString icon; // a theme icon (Breeze's monochrome ones)
+    QString stamp; // "Checked 14:02", "Updated 14:12", "Tried 14:12", "Checking…"
+    bool busy = false; // something runs: a progress bar instead of the stamp
+    bool canRefresh = false; // a "Check now" button next to the stamp
     QString heading;
-    QString detail;
+    QString detail; // up to two lines, "\n" between them
     QString linkText; // "Read first: …"
     QString linkUrl;
     QString linkKey; // the announcement's key (news.h), marked read when opened
-    QString mergeText; // "1 settings file changed: /etc/sddm.conf" (with a Merge… button)
-    QString failureKind; // Failed: the failure.h kind, for the sentence
+    QString note; // the extra line when there is no link ("1 settings file to merge: /etc/sddm.conf")
+    QString failureKind; // Failed: the failure.h kind; the card puts its title before the detail
     bool transactionStarted = false; // Failed: the failing pacman run had begun changing packages
     int changed = 0; // Failed: packages an earlier pacman run of the update changed (the keyrings first)
     Action action = Action::None;
     QString actionText;
-    bool primary = false; // the main thing to do (accent button) or just available
+    bool primary = false; // the main thing to do (the default button) or just available
+    Action secondary = Action::None; // a second button, left of the first
+    QString secondaryText;
+    QList<DetailRow> rows; // Details: what the update changes
+    QString raw; // Details: the failure as the program said it
 
     bool operator==(const CardView &) const = default;
 };

@@ -18,6 +18,7 @@ QStringList statusLines(const std::optional<UpdateState> &state,
 // Only the "... check failed at ..." lines.
 QStringList failureLines(const UpdateState &state, const QDateTime &now);
 
-// "14:05" today, else a short date and time.
+// "14:05" today, "yesterday 14:05", "Mon 14:05" within the week, else a
+// short date and time.
 QString shortWhen(const QDateTime &dt, const QDateTime &now);
 }

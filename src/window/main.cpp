@@ -17,6 +17,7 @@
 // characters, and KYU_WINDOW_NO_FALLBACK=1 makes it fail (status 3) rather
 // than open Konsole when Konsole's part is missing.
 
+#include "activator.h"
 #include "paths.h"
 
 #include <KParts/ReadOnlyPart>
@@ -221,6 +222,8 @@ int main(int argc, char **argv)
     }
     window->resize(size);
     window->show();
+    // The card's "Show window" finds it here (the first Kyu window only).
+    (new Activator(window))->publish();
 
     // Test kit: answers typed into the terminal from a pipe.
     const QByteArray answers = qgetenv("KYU_WINDOW_ANSWERS");

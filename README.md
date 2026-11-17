@@ -34,7 +34,7 @@ recognised as they are). Otherwise Kyu shows pacman's own last lines.
 ## Build
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons konsole flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes konsole flatpak pacman-contrib
 ```
 
 ```bash

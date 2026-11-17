@@ -1,6 +1,7 @@
 #include "statustext.h"
 
 #include <QLocale>
+#include <QRegularExpression>
 
 namespace Kyu
 {
@@ -10,8 +11,19 @@ QString when(const QDateTime &dt, const QDateTime &now)
 {
     const QDateTime local = dt.toLocalTime();
     const QLocale locale;
-    if (local.date() == now.toLocalTime().date()) {
-        return locale.toString(local.time(), QLocale::ShortFormat);
+    // Hours and minutes (the C locale's short format has seconds too).
+    QString format = locale.timeFormat(QLocale::ShortFormat);
+    format.remove(QRegularExpression(QStringLiteral("[:.]ss")));
+    const QString time = locale.toString(local.time(), format);
+    const qint64 days = local.date().daysTo(now.toLocalTime().date());
+    if (days == 0) {
+        return time;
+    }
+    if (days == 1) {
+        return QStringLiteral("yesterday ") + time;
+    }
+    if (days > 1 && days < 7) {
+        return locale.dayName(local.date().dayOfWeek(), QLocale::ShortFormat) + QLatin1Char(' ') + time;
     }
     return locale.toString(local, QLocale::ShortFormat);
 }

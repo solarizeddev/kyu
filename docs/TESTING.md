@@ -8,7 +8,7 @@ system changes), then a real update.
 ## 1. Get it and build it
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons konsole spectacle flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes konsole spectacle flatpak pacman-contrib
 ```
 
 ```bash
