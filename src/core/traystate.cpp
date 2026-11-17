@@ -323,8 +323,8 @@ CardView cardView(const TrayInput &in)
             c.changed = in.lastRun.value(QStringLiteral("changed")).toInt();
             // What changed (the card puts what went wrong before it).
             c.detail = c.transactionStarted ? QStringLiteral("The update was interrupted.")
-                : c.changed > 0             ? plural(c.changed, QStringLiteral("package was upgraded; the rest were not."),
-                                                     QStringLiteral("packages were upgraded; the rest were not."))
+                : c.changed > 0             ? QStringLiteral("Only ") + plural(c.changed, QStringLiteral("package was upgraded."),
+                                                                             QStringLiteral("packages were upgraded."))
                                             : QStringLiteral("No packages were upgraded.");
             QStringList lines;
             for (const QJsonValue &v : in.lastRun.value(QStringLiteral("failureLines")).toArray()) {
@@ -332,7 +332,7 @@ CardView cardView(const TrayInput &in)
             }
             c.raw = lines.join(QLatin1Char('\n'));
             if (!in.configs.isEmpty()) {
-                c.muted = toMerge(in.configs, QStringLiteral(" after the update"));
+                c.muted = toMerge(in.configs);
             }
             c.action = CardView::Action::Update;
             c.actionText = QStringLiteral("Try Again");
@@ -364,17 +364,17 @@ CardView cardView(const TrayInput &in)
         reason.remove(QStringLiteral(" (from an earlier update)"));
         static const QRegularExpression updatedPackage(QStringLiteral("^(\\S+) was updated$"));
         if (reason.startsWith(QLatin1String("new kernel "))) {
-            c.detail = QStringLiteral("Kernel %1 is installed. Restart for the update to take effect.").arg(reason.mid(11));
+            c.detail = QStringLiteral("Kernel %1 is installed.").arg(reason.mid(11));
         } else if (reason.startsWith(QLatin1String("the running kernel"))) {
             reason[0] = reason[0].toUpper();
-            c.detail = reason + QStringLiteral(". Restart to use the installed one.");
+            c.detail = reason + QLatin1Char('.');
         } else if (const auto m = updatedPackage.match(reason); m.hasMatch()) {
-            c.detail = QStringLiteral("An update of %1 is installed. Restart for the update to take effect.").arg(m.captured(1));
+            c.detail = QStringLiteral("An update of %1 is installed.").arg(m.captured(1));
         } else {
             if (reason.startsWith(QLatin1String("the "))) {
                 reason[0] = QLatin1Char('T');
             }
-            c.detail = reason + QStringLiteral(". Restart for the update to take effect.");
+            c.detail = reason + QLatin1Char('.');
         }
         if (!in.configs.isEmpty()) {
             c.muted = toMerge(in.configs);

@@ -459,16 +459,19 @@ void CardWindow::present(const Kyu::CardView &view)
     m_icon->setIcon(themeIcon(view.icon));
     m_heading->setText(view.heading);
     QString detail = view.detail;
-    // A failed update: what went wrong (the failure's title), then what changed.
+    QString muted = view.muted;
+    // A failed update: what went wrong (the failure's title), then, muted,
+    // what changed. One short line each, so neither wraps.
     if (view.kind == Kyu::CardView::Kind::Failed && !view.failureKind.isEmpty()) {
         if (const QString title = failureTitle(view.failureKind); !title.isEmpty()) {
-            detail = title + QStringLiteral(". ") + detail;
+            muted = muted.isEmpty() ? detail : detail + QLatin1Char('\n') + muted;
+            detail = title + QLatin1Char('.');
         }
     }
     m_detail->setText(detail);
     m_detail->setVisible(!detail.isEmpty());
-    m_muted->setText(view.muted);
-    m_muted->setVisible(!view.muted.isEmpty());
+    m_muted->setText(muted);
+    m_muted->setVisible(!muted.isEmpty());
     if (!view.linkText.isEmpty()) {
         m_slot->setTextFormat(Qt::RichText);
         const QString shown = m_slot->fontMetrics().elidedText(view.linkText, Qt::ElideRight, m_textColumn->maximumWidth());

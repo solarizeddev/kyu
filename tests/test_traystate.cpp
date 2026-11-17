@@ -230,7 +230,7 @@ void TestTrayState::cards()
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Restart);
     QCOMPARE(c.heading, QStringLiteral("Restart required"));
-    QCOMPARE(c.detail, QStringLiteral("Kernel 6.18.22-1-MANJARO is installed. Restart for the update to take effect."));
+    QCOMPARE(c.detail, QStringLiteral("Kernel 6.18.22-1-MANJARO is installed."));
     QCOMPARE(c.secondary, CardView::Action::None);
     // A settings file too: noted, and Merge… next to Restart.
     in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
@@ -240,13 +240,13 @@ void TestTrayState::cards()
     QCOMPARE(c.action, CardView::Action::Restart);
     in.configs.clear();
     in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("systemd was updated"));
-    QCOMPARE(cardView(in).detail, QStringLiteral("An update of systemd is installed. Restart for the update to take effect."));
+    QCOMPARE(cardView(in).detail, QStringLiteral("An update of systemd is installed."));
     in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("new kernel 6.18.22-1-MANJARO"));
     in.sameBoot = false;
     in.lastRun = {};
     in.kernelReplaced = true;
     in.kernelInstalled = QStringLiteral("6.18.23-1-MANJARO");
-    QCOMPARE(cardView(in).detail, QStringLiteral("Kernel 6.18.23-1-MANJARO is installed. Restart for the update to take effect."));
+    QCOMPARE(cardView(in).detail, QStringLiteral("Kernel 6.18.23-1-MANJARO is installed."));
     in.kernelReplaced = false;
 
     // Updating, or merging: busy, and the window can be brought forward.
@@ -281,10 +281,10 @@ void TestTrayState::cards()
     in.lastRun.insert(QStringLiteral("failureLines"), QJsonArray{QStringLiteral("error: one"), QStringLiteral("error: two")});
     c = cardView(in);
     QCOMPARE(c.changed, 1);
-    QCOMPARE(c.detail, QStringLiteral("1 package was upgraded; the rest were not."));
+    QCOMPARE(c.detail, QStringLiteral("Only 1 package was upgraded."));
     QCOMPARE(c.raw, QStringLiteral("error: one\nerror: two"));
     in.configs = {QStringLiteral("/etc/a.pacnew"), QStringLiteral("/etc/b.pacnew")};
-    QCOMPARE(cardView(in).muted, QStringLiteral("2 configuration files to merge after the update"));
+    QCOMPARE(cardView(in).muted, QStringLiteral("2 configuration files to merge"));
     in.configs.clear();
 
     // Never checked: the check button.
