@@ -8,6 +8,7 @@
 class QLabel;
 class QProgressBar;
 class QSpacerItem;
+class QToolButton;
 class QPlainTextEdit;
 class QPushButton;
 class QGridLayout;
@@ -23,9 +24,6 @@ class CheckScheduler;
 class IconView : public QWidget
 {
 public:
-    // Breeze's monochrome status icons are drawn for 22 px: shown at that
-    // size they are sharp (and match the tray's).
-    static constexpr int Size = 22;
     explicit IconView(QWidget *parent = nullptr);
     void setIcon(const QIcon &icon);
     QSize sizeHint() const override;
@@ -84,7 +82,7 @@ private:
     QLabel *m_slot;
     QWidget *m_textColumn;
     QProgressBar *m_busy;
-    QPushButton *m_details;
+    QToolButton *m_details;
     QPushButton *m_secondary;
     QPushButton *m_action;
     QWidget *m_detailsArea;
@@ -94,5 +92,6 @@ private:
     QTreeWidget *m_list;
     QPlainTextEdit *m_raw;
     bool m_shown = false;
+    bool m_detailsShown = false;
     bool m_windowOpen = false; // Kyu's update window was there when last shown
 };

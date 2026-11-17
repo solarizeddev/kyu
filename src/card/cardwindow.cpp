@@ -125,14 +125,18 @@ void IconView::setIcon(const QIcon &icon)
 
 QSize IconView::sizeHint() const
 {
-    return {Size, Size};
+    return size();
 }
 
 void IconView::paintEvent(QPaintEvent *)
 {
-    // At Breeze's own size, centred in the widget (as tall as the heading).
+    // Breeze's monochrome icons are drawn for 22 px: asked for at that size
+    // and rendered for this widget's (32 at 100 %), so the vector is drawn
+    // sharp at the size shown, not a small icon in a big box.
+    constexpr int design = 22;
     QPainter painter(this);
-    m_icon.paint(&painter, rect(), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    const QPixmap pixmap = m_icon.pixmap(QSize(design, design), devicePixelRatioF() * width() / qreal(design), isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    painter.drawPixmap(rect(), pixmap);
 }
 
 void IconView::changeEvent(QEvent *event)
@@ -167,7 +171,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     // text: heading, two lines, and a third (a link to read first, or a
     // note) when there is one.
     m_grid = new QGridLayout;
-    m_grid->setHorizontalSpacing(across + 2);
+    m_grid->setHorizontalSpacing(2 * across);
     m_grid->setVerticalSpacing(0);
     m_icon = new IconView(this);
     m_textColumn = new QWidget(this);
@@ -196,21 +200,28 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_busy->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     text->addSpacing(down / 2);
     text->addWidget(m_busy);
+    // "▸ Details" under the text, as in KDE's message boxes: a disclosure,
+    // not a button beside the actions; what it shows opens below the buttons.
+    m_details = new QToolButton(m_textColumn);
+    m_details->setText(QStringLiteral("Details"));
+    m_details->setAutoRaise(true);
+    m_details->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_details->setArrowType(Qt::RightArrow);
+    connect(m_details, &QToolButton::clicked, this, [this]() {
+        showDetails(!m_detailsShown);
+    });
+    text->addWidget(m_details, 0, Qt::AlignLeft);
     m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
     m_grid->addWidget(m_textColumn, 0, 1);
-    m_grid->setColumnStretch(2, 1); // a wider window (Details open): the space goes here
+    m_grid->setColumnStretch(1, 1); // a wider window (Details open): the text gets the room
     layout->addLayout(m_grid);
     layout->addSpacing(2 * down);
 
 
-    // The buttons, on the right: Details, then what to do, the main one last.
+    // The buttons, on the right: what to do, the main one last.
     m_footer = new QHBoxLayout;
     m_footer->setSpacing(across); // the root's 0 is not for between buttons
     m_footerHeight = new QWidget(this);
-    m_details = new QPushButton(QIcon::fromTheme(QStringLiteral("arrow-down")), QStringLiteral("Details"), this);
-    m_details->setCheckable(true);
-    m_details->setAutoDefault(false);
-    connect(m_details, &QPushButton::toggled, this, &CardWindow::showDetails);
     m_secondary = new QPushButton(this);
     m_secondary->setAutoDefault(false);
     connect(m_secondary, &QPushButton::clicked, this, [this]() {
@@ -222,7 +233,6 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     });
     m_footer->addStretch(1);
     m_footer->addWidget(m_footerHeight); // no width: keeps a button's height without buttons
-    m_footer->addWidget(m_details);
     m_footer->addWidget(m_secondary);
     m_footer->addWidget(m_action);
     layout->addLayout(m_footer);
@@ -283,8 +293,10 @@ void CardWindow::applyFonts()
     const QFontMetrics metrics(font());
     m_textColumn->setFixedWidth(metrics.averageCharWidth() * 42);
     m_detail->setMinimumHeight((m_view.busy ? 1 : 2) * metrics.lineSpacing());
-    // The icon at Breeze's own size for it, centred on the heading's line.
-    m_icon->setFixedSize(IconView::Size, qMax(IconView::Size, QFontMetrics(heading).height()));
+    // The icon at the style's large size (32 at 100 %), top-left, level
+    // with the heading.
+    const int large = style()->pixelMetric(QStyle::PM_LargeIconSize, nullptr, this);
+    m_icon->setFixedSize(large, large);
     const int small = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
     m_list->header()->resizeSection(0, small + 8);
     keepFooterHeight();
@@ -418,8 +430,8 @@ void CardWindow::present(const Kyu::CardView &view)
     // Details: the list of what changes, or the failure's own words.
     const bool hasDetails = !view.rows.isEmpty() || !view.raw.isEmpty();
     m_details->setVisible(hasDetails);
-    if (!hasDetails && m_details->isChecked()) {
-        m_details->setChecked(false);
+    if (!hasDetails && m_detailsShown) {
+        showDetails(false);
     }
     m_list->clear();
     for (const Kyu::DetailRow &row : view.rows) {
@@ -464,16 +476,22 @@ void CardWindow::present(const Kyu::CardView &view)
 
 void CardWindow::showDetails(bool shown)
 {
-    if (m_details->isChecked() != shown) {
-        m_details->setChecked(shown); // comes back here through toggled
-        return;
-    }
+    m_detailsShown = shown;
     m_detailsArea->setVisible(shown);
-    m_details->setIcon(QIcon::fromTheme(shown ? QStringLiteral("arrow-up") : QStringLiteral("arrow-down")));
+    m_details->setArrowType(shown ? Qt::DownArrow : Qt::RightArrow);
+    // Open: the window can grow, and the text with it; closed: its own width.
+    const int column = QFontMetrics(font()).averageCharWidth() * 42;
+    if (shown) {
+        m_textColumn->setMinimumWidth(column);
+        m_textColumn->setMaximumWidth(QWIDGETSIZE_MAX);
+    } else {
+        m_textColumn->setFixedWidth(column);
+    }
     // Closed: the size of the contents. Open: the list can use a bigger window.
     layout()->setSizeConstraint(shown ? QLayout::SetMinimumSize : QLayout::SetFixedSize);
     if (shown) {
         setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        sizeDetails(); // measured now that it shows (rows have their real height)
     }
     adjustSize();
 }
