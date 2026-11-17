@@ -7,6 +7,7 @@
 
 #ifdef KYU_HAVE_KWINDOWSYSTEM
 #include <KWaylandExtras>
+#include <kwindowsystem_version.h>
 #include <KWindowSystem>
 #endif
 
@@ -17,6 +18,7 @@
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QProgressBar>
+#include <QFuture>
 #include <QGridLayout>
 #include <QStyle>
 #include <QToolButton>
@@ -595,7 +597,6 @@ void CardWindow::showUpdateWindow()
     };
 #ifdef KYU_HAVE_KWINDOWSYSTEM
     if (KWindowSystem::isPlatformWayland() && windowHandle()) {
-        const quint32 serial = KWaylandExtras::lastInputSerial(windowHandle());
         // Once: with the token, or without it after a second (no answer).
         auto done = std::make_shared<bool>(false);
         auto finish = [this, send, done](const QString &token) {
@@ -606,6 +607,16 @@ void CardWindow::showUpdateWindow()
             send(token);
             close();
         };
+        QTimer::singleShot(1000, this, [finish]() {
+            finish(QString());
+        });
+#if KWINDOWSYSTEM_VERSION >= QT_VERSION_CHECK(6, 19, 0)
+        // KF 6.19 and later: the token as a future (for this window's last click).
+        KWaylandExtras::xdgActivationToken(windowHandle(), QStringLiteral(KYU_APP_ID)).then(this, [finish](const QString &token) {
+            finish(token);
+        });
+#else
+        const quint32 serial = KWaylandExtras::lastInputSerial(windowHandle());
         auto connection = std::make_shared<QMetaObject::Connection>();
         *connection = connect(KWaylandExtras::self(), &KWaylandExtras::xdgActivationTokenArrived, this,
                               [serial, connection, finish](int arrived, const QString &token) {
@@ -615,11 +626,8 @@ void CardWindow::showUpdateWindow()
                                   QObject::disconnect(*connection);
                                   finish(token);
                               });
-        QTimer::singleShot(1000, this, [connection, finish]() {
-            QObject::disconnect(*connection);
-            finish(QString());
-        });
         KWaylandExtras::requestXdgActivationToken(windowHandle(), serial, QStringLiteral(KYU_APP_ID));
+#endif
         return;
     }
 #endif
