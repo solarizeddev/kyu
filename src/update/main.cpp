@@ -34,6 +34,7 @@
 #include <QSet>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QThread>
 
 #include <cerrno>
 #include <clocale>
@@ -292,7 +293,7 @@ QString runningPackageManager(const QString &procDir)
         static const QStringList managers{QStringLiteral("pacman"), QStringLiteral("pamac-daemon"), QStringLiteral("pamac-manager"),
                                           QStringLiteral("pamac-installer"), QStringLiteral("packagekitd")};
         if (managers.contains(name)) {
-            return QStringLiteral("%1, pid %2").arg(name, entry);
+            return QStringLiteral("%1 (pid %2)").arg(name, entry);
         }
     }
     return {};
@@ -502,12 +503,15 @@ int main(int argc, char **argv)
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the settings files the last update left (pacdiff)."));
+    QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
+                                QStringLiteral("seconds"), QStringLiteral("600"));
+    lockWait.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption newsRead(QStringLiteral("news-read"), QStringLiteral("Do not show the news (they were read in this window)."));
     newsRead.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption synced(QStringLiteral("synced"), QStringLiteral("The package lists were just synced by a fix."));
     synced.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -767,37 +771,51 @@ int main(int argc, char **argv)
         }
     }
 
-    // pacman's lock: another package manager, or one left over from a run that was stopped.
-    if (QFileInfo::exists(parser.value(dbLock))) {
-        out.blank();
-        const QString holder = runningPackageManager(parser.value(procDir));
-        if (!holder.isEmpty()) {
-            out.warn(QStringLiteral("Another package manager is running (%1). Update when it is done.").arg(holder));
-            return finish(1);
-        }
-        out.warn(QStringLiteral("pacman's lock is left over from a stopped run; nothing is using it."));
-        Keys keys;
-        if (!elevate.isEmpty()) {
-            keys.fix = shellJoin({elevate, QStringLiteral("rm"), parser.value(dbLock)});
-            out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
-            // Minutes may pass before [f]: a package manager may have started.
-            const QString lockPath = parser.value(dbLock), procPath = parser.value(procDir);
-            keys.fixAllowed = [&out, lockPath, procPath]() {
-                const QString now = runningPackageManager(procPath);
-                if (!now.isEmpty() && QFileInfo::exists(lockPath)) {
-                    out.warn(QStringLiteral("%1 is running now and may be using the lock: wait until it is done.").arg(now));
-                    return false;
-                }
-                return true;
-            };
-        }
-        return finish(1, keys);
-    }
-
     // Only Flatpaks pending (by the last check): no sudo, no pacman.
     const bool flatpakOnly = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty() && !state->flatpaks.isEmpty();
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
+
+    // pacman's lock (not needed for Flatpaks only): another package manager
+    // working (pamac often is, in the background) is waited for; one left
+    // over from a run that was stopped is said, with the fix.
+    const QString lockPath = parser.value(dbLock), procPath = parser.value(procDir);
+    if (!flatpakOnly && QFileInfo::exists(lockPath)) {
+        out.blank();
+        if (const QString holder = runningPackageManager(procPath); !holder.isEmpty()) {
+            out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(holder));
+            const qint64 limit = parser.value(lockWait).toLongLong() * 1000;
+            QElapsedTimer waited;
+            waited.start();
+            while (QFileInfo::exists(lockPath) && !runningPackageManager(procPath).isEmpty() && waited.elapsed() < limit) {
+                QThread::msleep(500);
+            }
+            if (!QFileInfo::exists(lockPath)) {
+                out.note(QStringLiteral("It has finished."), Tone::Dim);
+            } else if (!runningPackageManager(procPath).isEmpty()) {
+                out.warn(QStringLiteral("Still busy after %1. Update when it is done.").arg(duration(limit)));
+                return finish(1);
+            }
+        }
+        if (QFileInfo::exists(lockPath)) {
+            out.warn(QStringLiteral("pacman's lock is left over from a stopped run; nothing is using it."));
+            Keys keys;
+            if (!elevate.isEmpty()) {
+                keys.fix = shellJoin({elevate, QStringLiteral("rm"), lockPath});
+                out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+                // Minutes may pass before [f]: a package manager may have started.
+                keys.fixAllowed = [&out, lockPath, procPath]() {
+                    const QString now = runningPackageManager(procPath);
+                    if (!now.isEmpty() && QFileInfo::exists(lockPath)) {
+                        out.warn(QStringLiteral("%1 is running now and may be using the lock: wait until it is done.").arg(now));
+                        return false;
+                    }
+                    return true;
+                };
+            }
+            return finish(1, keys);
+        }
+    }
 
     if (!flatpakOnly && elevate.isEmpty()) {
         out.bad(QStringLiteral("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."));

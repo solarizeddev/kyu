@@ -118,10 +118,27 @@ d=$work/lock
 has "$d/out" "pacman's lock is left over" lock
 [ ! -e "$d/pacman-ran" ] || fail "lock: pacman ran"
 
-echo "lock held by a running pacman"
+echo "lock held by a running pacman: waited for, then given up"
 prepare busy; touch "$work/busy/db.lck"; mkdir -p "$work/busy/proc/4242"; echo pacman >"$work/busy/proc/4242/comm"
-run busy ''
-has "$work/busy/out" 'Another package manager is running (pacman, pid 4242)' busy
+run busy '' --lock-wait 2
+has "$work/busy/out" 'Waiting for pacman (pid 4242) to finish. Ctrl+C stops.' busy
+has "$work/busy/out" 'Still busy after 2 s. Update when it is done.' busy
+[ ! -e "$work/busy/pacman-ran" ] || fail "busy: pacman ran"
+
+echo "lock held by pamac: waited for, then the update goes on"
+prepare busywait; touch "$work/busywait/db.lck"; mkdir -p "$work/busywait/proc/4243"; echo pamac-daemon >"$work/busywait/proc/4243/comm"
+(sleep 1.5; rm -f "$work/busywait/db.lck") &
+run busywait 'y\n' --lock-wait 30
+wait
+has "$work/busywait/out" 'Waiting for pamac-daemon (pid 4243) to finish.' busywait
+has "$work/busywait/out" 'It has finished.' busywait
+has "$work/busywait/out" 'Done in ' busywait
+
+echo "Flatpaks only: pacman's lock does not matter"
+prepare fplock; state "$work/fplock/state.json" 0 2 0; touch "$work/fplock/db.lck"
+run fplock ''
+has "$work/fplock/out" 'Flatpaks   flatpak update' fplock
+hasnt "$work/fplock/out" "pacman's lock" fplock
 
 echo "Flatpaks only: no sudo, no pacman"
 prepare fponly; state "$work/fponly/state.json" 0 2 0

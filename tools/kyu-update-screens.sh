@@ -95,7 +95,7 @@ send() {
 #   RUNNING=VERSION (the running kernel; the default is older than the
 #   installed one, so a restart is needed).
 #   Setup steps (before the window opens): "lock" (a stale pacman lock),
-#   "busy" (pacman holds it), "running" (another kyu-update holds Kyu's
+#   "busy" (pacman holds it; the step "unlock" lets it go), "running" (another kyu-update holds Kyu's
 #   lock), "oldlibs" (one of your programs uses a replaced library).
 #   Steps: "until TEXT" (wait for TEXT on screen, where Konsole can say;
 #   else 2 seconds), "wait SECONDS", "type TEXT" (then Enter), "enter",
@@ -186,6 +186,7 @@ shot() {
         arg=${step#* }
         case "$step" in
         lock | busy | oldlibs | running) ;;
+        unlock) rm -f "$d/db.lck" ;;
         until\ *)
             if [ -n "$can_read" ]; then
                 for i in $(seq 50); do
@@ -293,7 +294,7 @@ shot A-09-declined - normal normal - "until Proceed with" "type n" "until [Enter
 shot A-10-failed-midway - normal midfail - "until Proceed with" "type y" "until [Enter] close" shot
 shot A-11-other-language - normal german - "until [Enter] close" shot
 shot A-12-stale-lock - normal normal - lock "until [Enter] close" shot "type f" "until Proceed with" "type y" "until [Enter] close" shot
-shot A-13-busy - normal normal - busy "until [Enter] close" shot
+shot A-13-busy - normal normal - busy "until Waiting for" shot unlock "until Proceed with" "type y" "until [Enter] close" shot
 shot A-14-already-running - normal normal - running "until [Enter] close" shot
 shot A-15-flatpak-only - normal normal "0 2 0" "until [Enter] close" shot
 FLATPAK_EXIT=1 shot A-16-flatpak-failed - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
