@@ -28,7 +28,7 @@ constexpr int SpinFrames = 24;
 constexpr int SpinInterval = 62; // ms
 
 // Plasma's "Animation speed: instant" (and reduced motion) is a factor of 0.
-bool animationsEnabled()
+[[maybe_unused]] bool animationsEnabled()
 {
     const QString kdeglobals = QStandardPaths::locate(QStandardPaths::GenericConfigLocation, QStringLiteral("kdeglobals"));
     if (kdeglobals.isEmpty()) {
@@ -46,7 +46,7 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
 {
     auto *show = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-update")), QStringLiteral("Show updates"));
     connect(show, &QAction::triggered, this, [this] {
-        Q_EMIT panelRequested(QString());
+        Q_EMIT cardRequested(QString());
     });
     m_checkAction = m_menu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), QStringLiteral("Check for updates now"));
     connect(m_checkAction, &QAction::triggered, this, &TrayIcon::checkRequested);
@@ -57,9 +57,9 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     m_item->setTitle(QStringLiteral("Kyu"));
     m_item->setToolTipTitle(QStringLiteral("Updates"));
     m_item->setContextMenu(m_menu); // takes ownership; adds Quit
-    // No associated window: a click asks for the panel, a separate process.
+    // No associated window: a click asks for the card, a separate process.
     connect(m_item, &KStatusNotifierItem::activateRequested, this, [this] {
-        Q_EMIT panelRequested(m_item->providedToken());
+        Q_EMIT cardRequested(m_item->providedToken());
     });
 #else
     m_menu->addSeparator();
@@ -69,7 +69,7 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     connect(this, &QObject::destroyed, m_menu, &QObject::deleteLater);
     connect(m_item, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Trigger) {
-            Q_EMIT panelRequested(QString());
+            Q_EMIT cardRequested(QString());
         }
     });
 #endif

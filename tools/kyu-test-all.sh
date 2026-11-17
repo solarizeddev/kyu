@@ -103,7 +103,10 @@ if [ "$status" = ok ]; then
     step "The card's states (cards/)"
     mkdir -p "$out/cards"
     for state in updates flatpaks uptodate checking checkfailed updating restart settings failed; do
-        timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$out/cards/$state.png" >/dev/null 2>&1 || echo "card $state: failed"
+        if ! timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$out/cards/$state.png" >/dev/null 2>&1; then
+            echo "card $state: failed"
+            [ "$status" = ok ] && status="card screenshots failed" || status="$status, card screenshots failed"
+        fi
     done
     ls "$out/cards" | wc -l | sed 's/$/ card screenshots/'
 
@@ -144,7 +147,7 @@ else
 fi
 if [ $? -eq 0 ]; then
     echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
-    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Konsole window."
+    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Kyu or Konsole window; and kyu-test/cards/."
 else
     # Keep the results rather than lose ten minutes of work.
     trap - EXIT

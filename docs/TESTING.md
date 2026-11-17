@@ -8,7 +8,7 @@ system changes), then a real update.
 ## 1. Get it and build it
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons konsole spectacle flatpak pacman-contrib
 ```
 
 ```bash
@@ -31,9 +31,9 @@ tools/kyu-test-all.sh
 It takes about 6 minutes:
 
 1. It builds Kyu and runs the automated tests.
-2. It saves a picture of the card in each state (`cards/`).
-3. It runs `kyu-update` against a fake system (fake `sudo`, `pacman` and
+2. It runs `kyu-update` against a fake system (fake `sudo`, `pacman` and
    `flatpak`) and keeps the text of every run (`transcripts/`).
+3. It saves a picture of the card in each state (`cards/`).
 4. It opens real Konsole windows (and Kyu's own window, when built) with
    `kyu-update` in them, types the answers itself and screenshots each
    outcome, in your Konsole profile, Konsole's colour schemes, and 60 and 160
@@ -45,7 +45,8 @@ It takes about 6 minutes:
    reads about your system (the kernel's module folder, the boot image name,
    whether pamac runs, your shell).
 6. It writes `~/kyu-test.zip`. Unzip it and look through `kyu-test/screens/`
-   (every picture should be a Kyu or Konsole window), then send it back.
+   (every picture should be a Kyu or Konsole window) and `kyu-test/cards/`,
+   then send it back.
 
 In the text files your home directory, user name and the checkout's path are
 replaced with `~`, `<user>` and `<kyu>`. The zip holds no hostname and no copy

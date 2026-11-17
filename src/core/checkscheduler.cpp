@@ -75,7 +75,7 @@ void CheckScheduler::runCheckBinary()
 
 QString CheckScheduler::checkBinary()
 {
-    // Testing (tools/kyu-demo.sh): a stand-in checker.
+    // Testing: a stand-in checker.
     const QString override = qEnvironmentVariable("KYU_CHECK");
     if (!override.isEmpty()) {
         return override;

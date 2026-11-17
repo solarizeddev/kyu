@@ -30,6 +30,7 @@ depends=(
     pacman-contrib
     qt6-base
     sudo
+    systemd
     util-linux
 )
 makedepends=(cmake ninja)

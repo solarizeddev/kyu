@@ -3,9 +3,9 @@
 #include <QJsonObject>
 #include <QStringList>
 
-// What a failed update's "failure" (see docs/helper-protocol.md) means, in
-// words, and the command that usually fixes it. Shared by the panel and
-// kyu-update. pacman's own lines are shown next to it, verbatim.
+// What a failed update's "failure" (src/core/failure.h kinds) means, in
+// words, and the command that usually fixes it. Shared by kyu-update and the
+// card. pacman's own lines are shown next to it, verbatim.
 struct FailureText {
     QString title;
     QString text;

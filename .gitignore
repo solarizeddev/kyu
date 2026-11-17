@@ -1,8 +1,8 @@
 build/
-helper/target/
 packaging/arch/src/
 packaging/arch/pkg/
 packaging/arch/*.pkg.tar.*
 
-# Downloads that do not belong in the repository
+# Build output of any kind, and downloads, never belong here
+target/
 *.whl

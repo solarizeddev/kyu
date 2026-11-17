@@ -21,7 +21,7 @@ tested less.
 | `kyu` | The card: what is going on and the one thing to do next (Update, Restart, Merge…, Check for updates). |
 | `kyu-window` | Kyu's own window with Konsole's terminal inside (your window decoration, no toolbars), running `kyu-update`. Built when KF6 Parts is available; otherwise the update opens in Konsole. |
 | `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu`, `flatpak update`, then one verdict and one key per thing left to do. `kyu-update --merge` only merges settings files (pacdiff). |
-| `kyu-check` | Counts pending updates without touching pacman's databases (like `checkupdates`), plus Flatpaks and news; run by a systemd user timer. |
+| `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks and news; run by a systemd user timer. |
 
 Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.
@@ -29,7 +29,7 @@ Nothing runs as root except pacman itself (through `sudo`, `doas` or
 ## Build
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons konsole flatpak pacman-contrib
 ```
 
 ```bash
@@ -83,9 +83,16 @@ screenshots everything into a zip, without changing your system.
 cd packaging/arch && makepkg -sif
 ```
 
-The tray starts at login (XDG autostart); the check runs from the
-`kyu-check.timer` user unit:
+The tray starts at login (XDG autostart) and starts the `kyu-check.timer`
+user unit itself. Without the tray, enable the timer by hand:
 
 ```bash
 systemctl --user enable --now kyu-check.timer
+```
+
+Coming from an older Kyu (with its root helper): its logs in `/var/log/kyu`
+are no longer used; remove them if you like:
+
+```bash
+sudo rm -r /var/log/kyu
 ```

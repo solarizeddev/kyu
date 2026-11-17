@@ -151,12 +151,12 @@ private Q_SLOTS:
             "<item><title>B</title><link>b</link><pubDate>Thu, 12 Nov 2026 10:00:00 +0000</pubDate></item>\n"
             "<item><title>C</title><link>c</link><pubDate>Mon, 09 Nov 2026 10:00:00 +0000</pubDate></item>\n"
             "</channel></rss>");
-        const auto r = fetchNews({QStringLiteral("Test"), QUrl::fromLocalFile(feed).toString()}, QDateTime(QDate(2026, 11, 10), QTime(0, 0), Qt::UTC));
+        const auto r = fetchNews({QStringLiteral("Test"), QUrl::fromLocalFile(feed).toString(), QString()}, QDateTime(QDate(2026, 11, 10), QTime(0, 0), Qt::UTC));
         QVERIFY2(r.ok, qPrintable(r.error));
         QCOMPARE(r.items.size(), 2);
         QCOMPARE(r.items[0].title, QStringLiteral("A"));
 
-        const auto missing = fetchNews({QStringLiteral("Test"), QUrl::fromLocalFile(dir.filePath(QStringLiteral("nope.xml"))).toString()}, {});
+        const auto missing = fetchNews({QStringLiteral("Test"), QUrl::fromLocalFile(dir.filePath(QStringLiteral("nope.xml"))).toString(), QString()}, {});
         QVERIFY(!missing.ok);
         QVERIFY(!missing.error.isEmpty());
     }

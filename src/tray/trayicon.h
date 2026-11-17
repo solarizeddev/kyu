@@ -22,9 +22,9 @@ public:
 
 Q_SIGNALS:
     void checkRequested();
-    // token: the Wayland activation token of the click, if any, so the panel
+    // token: the Wayland activation token of the click, if any, so the card
     // may take focus.
-    void panelRequested(const QString &token);
+    void cardRequested(const QString &token);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
