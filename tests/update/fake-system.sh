@@ -26,6 +26,9 @@ fake_system() {
     mkdir -p "$1/state" "$1/proc/sys/kernel" "$1/modules/6.18.22-1-MANJARO" "$1/hooks"
     : >"$1/pacman.log"
     echo "${RUNNING:-6.18.20-1-MANJARO}" >"$1/proc/sys/kernel/osrelease"
+    # pid 1 readable: other users' processes are visible (no hidepid).
+    mkdir -p "$1/proc/1"
+    echo systemd >"$1/proc/1/comm"
     echo "BOOT_IMAGE=/boot/vmlinuz-6.18-x86_64 rw" >"$1/proc/cmdline"
     touch "$1/modules/6.18.22-1-MANJARO/vmlinuz"
     echo linux618 >"$1/modules/6.18.22-1-MANJARO/pkgbase"

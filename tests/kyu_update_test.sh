@@ -168,6 +168,11 @@ run orphanlock '' --lock-wait 20
 has "$work/orphanlock/out" "pacman's lock is left over from a stopped run; nothing is using it." orphanlock
 hasnt "$work/orphanlock/out" 'Waiting for' orphanlock
 
+echo "other users' processes hidden (hidepid): say so; root decides"
+prepare hidden; touch "$work/hidden/db.lck"
+run hidden '' --lock-wait 20 --proc-dir "$work/hidden/noproc"
+has "$work/hidden/out" "Kyu cannot see other users' programs" hidden
+
 echo "Flatpaks only: pacman's lock does not matter"
 prepare fplock; state "$work/fplock/state.json" 0 2 0; touch "$work/fplock/db.lck"
 run fplock ''
@@ -245,7 +250,7 @@ echo "keys: [f] removes a stale lock, then the update runs again"
 prepare lockfix; touch "$work/lockfix/db.lck"
 runtty lockfix 'f\n|y\n|\n'
 d=$work/lockfix
-has "$d/out" "Fix: sudo rm $d/db.lck" lockfix
+has "$d/out" "Fix: sudo rm $d/db.lck, if no program has it open" lockfix
 has "$d/out" '[f] fix, update again   [Enter] close' lockfix
 [ ! -e "$d/db.lck" ] || fail "lockfix: the lock is still there"
 [ -e "$d/pacman-ran" ] || fail "lockfix: the update did not run again"
@@ -275,6 +280,14 @@ echo "pacman found the lock taken again: waited, then once more"
 KYU_FAKE_MODE=lockedonce runtty relocked 'y\n|\n'
 has "$work/relocked/out" 'Packages   sudo pacman -Syu (again)' relocked
 has "$work/relocked/out" 'Done in ' relocked
+
+echo "[f] removes the lock only if no program has it open (root checks)"
+prepare lockinuse; touch "$work/lockinuse/db.lck"
+exec 7<"$work/lockinuse/db.lck"
+runtty lockinuse 'f\n|\n'
+exec 7<&-
+has "$work/lockinuse/out" "pacman's lock is in use by" lockinuse
+[ -e "$work/lockinuse/db.lck" ] || fail "lockinuse: removed a lock in use"
 
 echo "keys: [r] asks, then restarts (here: a fake systemctl)"
 runtty reboot 'y\n|r\n|y\n'

@@ -286,8 +286,8 @@ QList<Manager> packageManagers(const QString &procDir)
 {
     // Exact names: the pamac tray ("pamac-tray-plas…") always runs and
     // takes no lock.
-    static const QStringList managers{QStringLiteral("pacman"), QStringLiteral("pamac-daemon"), QStringLiteral("pamac-manager"),
-                                      QStringLiteral("pamac-installer"), QStringLiteral("packagekitd")};
+    static const QStringList managers{QStringLiteral("pacman"),         QStringLiteral("pamac"),           QStringLiteral("pamac-daemon"),
+                                      QStringLiteral("pamac-manager"), QStringLiteral("pamac-installer"), QStringLiteral("packagekitd")};
     QList<Manager> found;
     for (const QString &entry : QDir(procDir).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         bool isPid = false;
@@ -400,12 +400,12 @@ QList<int> descendants(const QHash<int, int> &parents, int pid)
 // is open (a confirmation or password dialog).
 bool canBeIdle(const Manager &m, const QList<Manager> &all, const QHash<int, int> &parents)
 {
-    if (m.name == QLatin1String("pacman") || !descendants(parents, m.pid).isEmpty()) {
+    if (m.name == QLatin1String("pacman") || m.name == QLatin1String("pamac") || !descendants(parents, m.pid).isEmpty()) {
         return false;
     }
     if (m.name == QLatin1String("pamac-daemon")) {
         for (const Manager &other : all) {
-            if (other.name == QLatin1String("pamac-manager") || other.name == QLatin1String("pamac-installer")) {
+            if (other.name == QLatin1String("pamac") || other.name == QLatin1String("pamac-manager") || other.name == QLatin1String("pamac-installer")) {
                 return false;
             }
         }
@@ -425,6 +425,29 @@ QStringList cpuMarks(const QString &procDir, const QList<Manager> &managers, con
         }
     }
     return marks;
+}
+
+QString shellJoin(const QStringList &args);
+
+// The [f] for a left-over lock, run as root: removes the lock only if no
+// program has it open (libalpm keeps it open as long as it holds it; root
+// can see every process's open files), else says which program has it.
+// Kyu's own guesses only decide when to offer it.
+QString unlockCommand(const QString &elevate, const QString &lockPath)
+{
+    static const QString script = QStringLiteral(
+        "for f in /proc/[0-9]*/fd/*; do "
+        "if [ \"$(readlink \"$f\" 2>/dev/null)\" = \"$1\" ]; then "
+        "p=${f#/proc/}; p=${p%%/*}; "
+        "echo \"pacman's lock is in use by $(cat /proc/$p/comm 2>/dev/null) (pid $p); not removed.\"; exit 1; "
+        "fi; done; rm -f -- \"$1\"");
+    return shellJoin({elevate, QStringLiteral("sh"), QStringLiteral("-c"), script, QStringLiteral("kyu-unlock"), lockPath});
+}
+
+// Whether other users' processes are visible (/proc mounted without hidepid).
+bool canSeeAllProcesses(const QString &procDir)
+{
+    return QFileInfo(procDir + QStringLiteral("/1/comm")).isReadable();
 }
 
 // Set by Ctrl+C while waiting for the lock.
@@ -676,6 +699,7 @@ int main(int argc, char **argv)
         QStringList configs; // [m]: the .pacnew/.pacsave files
         std::function<void(const QStringList &)> configsLeft; // after pacdiff, the ones still there
         QString fix; // [f]: a command; after it, the whole update again
+        QString fixShown; // how the fix is said, when the command itself is long
         QStringList again; // ... with these options added
         std::function<bool()> fixAllowed; // checked when [f] is pressed
     };
@@ -919,7 +943,7 @@ int main(int argc, char **argv)
     // nobody holds, or one whose holder has been idle a while, is left over
     // from a run that was stopped.
     const QString lockPath = parser.value(dbLock), procPath = parser.value(procDir);
-    enum class Lock { Free, Stale, Idle, Stopped, TimedOut };
+    enum class Lock { Free, Stale, Idle, Unseen, Stopped, TimedOut };
     const qint64 lockLimit = parser.value(lockWait).toLongLong() * 1000;
     const qint64 idleLimit = parser.value(idleAfter).toLongLong() * 1000;
     QString idleHolder;
@@ -931,7 +955,7 @@ int main(int argc, char **argv)
         // than the lock may be a clock step (NTP, a dual-boot clock): those
         // are waited for like holders, and only ever called idle.
         if (packageManagers(procPath).isEmpty()) {
-            return Lock::Stale;
+            return canSeeAllProcesses(procPath) ? Lock::Stale : Lock::Unseen;
         }
         auto candidates = [&]() {
             const QList<Manager> holders = lockHolders(procPath, lockPath);
@@ -1011,13 +1035,16 @@ int main(int argc, char **argv)
     auto staleLock = [&](Lock why) {
         if (why == Lock::Idle) {
             out.warn(QStringLiteral("pacman's lock looks left over: %1 is running but idle.").arg(idleHolder));
+        } else if (why == Lock::Unseen) {
+            out.warn(QStringLiteral("pacman's lock is there; Kyu cannot see other users' programs to tell who has it."));
         } else {
             out.warn(QStringLiteral("pacman's lock is left over from a stopped run; nothing is using it."));
         }
         Keys keys;
         if (!elevate.isEmpty()) {
-            keys.fix = shellJoin({elevate, QStringLiteral("rm"), lockPath});
-            out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+            keys.fix = unlockCommand(elevate, lockPath);
+            keys.fixShown = QStringLiteral("%1 rm %2, if no program has it open").arg(elevate, lockPath);
+            out.note(QStringLiteral("Fix: ") + keys.fixShown, Tone::Info);
             // Minutes may pass before [f]: a package manager may have started working.
             keys.fixAllowed = [&out, lockPath, procPath]() {
                 if (!QFileInfo::exists(lockPath)) {
@@ -1058,6 +1085,7 @@ int main(int argc, char **argv)
             return finish(1);
         case Lock::Stale:
         case Lock::Idle:
+        case Lock::Unseen:
             return staleLock(lock);
         }
     }
@@ -1128,7 +1156,7 @@ int main(int argc, char **argv)
                 out.warn(QStringLiteral("Stopped. Nothing was installed."));
                 return finish(4);
             }
-            if (lock == Lock::Stale || lock == Lock::Idle) {
+            if (lock == Lock::Stale || lock == Lock::Idle || lock == Lock::Unseen) {
                 return staleLock(lock);
             }
             if (lock != Lock::Free) {
