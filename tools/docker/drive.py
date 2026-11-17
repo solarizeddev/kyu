@@ -108,7 +108,7 @@ while True:
             reply, what = "wrong", "a wrong password"
         else:
             reply, what = password, "the password"
-    elif line and re.search(r"Proceed with installation\? \[[YJ]/n\]|Proceed with download|Fortfahren", line):
+    elif line and re.search(r"(Proceed with installation|Installation fortsetzen)\? \[[YJ]/n\]|Proceed with download|Fortfahren", line):
         reply = choice("DRIVE_PROCEED", "y")
     elif line and "Continue? [y/N]" in line:
         reply = choice("DRIVE_NEWS", "y")

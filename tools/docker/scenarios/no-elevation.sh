@@ -1,2 +1,2 @@
-# Neither sudo, doas nor pkexec.
-setup() { pacman -Rdd --noconfirm sudo polkit; }
+# Neither sudo, doas nor pkexec (polkit's library stays: Flatpak needs it).
+setup() { pacman -Rdd --noconfirm sudo; rm -f /usr/bin/pkexec; }

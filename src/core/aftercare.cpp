@@ -112,9 +112,14 @@ QList<OldLibraryProcess> processesOnReplacedLibraries(uint uid, const QString &p
         if (!maps.open(QIODevice::ReadOnly)) {
             continue; // exited, or not readable
         }
+        // Read whole: /proc files have no size, so QFile::atEnd() is true
+        // before the first line (the old loop never read a real process).
         bool replaced = false;
-        while (!maps.atEnd() && !replaced) {
-            replaced = !replacedLibrary(QString::fromUtf8(maps.readLine())).isEmpty();
+        for (const QByteArray &line : maps.readAll().split('\n')) {
+            if (!replacedLibrary(QString::fromUtf8(line)).isEmpty()) {
+                replaced = true;
+                break;
+            }
         }
         if (replaced) {
             const QString name = readTrimmed(dir + QStringLiteral("/comm"));
