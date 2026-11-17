@@ -11,6 +11,7 @@ add_library(kyucore STATIC
     news.cpp
     aftercare.cpp
     failure.cpp
+    keyrings.cpp
     traystate.cpp
 )
 target_include_directories(kyucore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -3,18 +3,41 @@
 # prints, asks "Proceed?" on the terminal, and appends what pacman would to
 # the fake pacman.log. KYU_FAKE_MODE: normal | keyring | slow | systemd
 # (upgrades systemd) | nothing | midfail (fails after one package) | german.
-# The keyring fix: only the keyring packages.
-case "$*" in
--Qq) printf 'archlinux-keyring\nbase\nmanjaro-keyring\n'; exit 0 ;;
-"-Sy --needed "*) touch "$KYU_FAKE_DIR/keyring-fixed"; echo ":: Synchronizing package databases..."; exit 0 ;;
--Syu | -Syyu) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
-*) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;
-esac
+# The keyrings (first, or the keyring fix): up to date, or with
+# KYU_FAKE_KEYRING=new, upgraded after a "Proceed?".
 log=$KYU_FAKE_DIR/pacman.log
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
+case "$*" in
+"-Sy --needed "* | "-Syy --needed "*)
+    echo "$*" >"$KYU_FAKE_DIR/keyring-args"
+    touch "$KYU_FAKE_DIR/keyring-fixed"
+    echo ":: Synchronizing package databases..."
+    shift 2
+    if [ "${KYU_FAKE_KEYRING:-}" != new ]; then
+        for k in "$@"; do echo "warning: $k-1-1 is up to date -- skipping"; done
+        echo " there is nothing to do"
+        exit 0
+    fi
+    echo "resolving dependencies..."
+    echo ""
+    echo "Packages ($#) $*"
+    echo ""
+    printf ':: Proceed with installation? [Y/n] '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+    echo "[$(now)] [ALPM] transaction started" >>"$log"
+    for k in "$@"; do
+        echo "(1/$#) upgrading $k"
+        echo "[$(now)] [ALPM] upgraded $k (1-1 -> 2-1)" >>"$log"
+    done
+    echo "[$(now)] [ALPM] transaction completed" >>"$log"
+    exit 0 ;;
+-Syu | -Syyu | -Su) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
+*) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;
+esac
 touch "$KYU_FAKE_DIR/pacman-ran"
-echo "[$(now)] [PACMAN] Running 'pacman -Syu'" >>"$log"
-echo ":: Synchronizing package databases..."
+echo "[$(now)] [PACMAN] Running 'pacman $1'" >>"$log"
+[ "$1" = -Su ] || echo ":: Synchronizing package databases..."
 echo ":: Starting full system upgrade..."
 echo "[$(now)] [PACMAN] starting full system upgrade" >>"$log"
 if [ "${KYU_FAKE_MODE:-}" = nothing ]; then

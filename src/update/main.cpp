@@ -12,6 +12,7 @@
 #include "aftercare.h"
 #include "failure.h"
 #include "failuretext.h"
+#include "keyrings.h"
 #include "news.h"
 #include "paths.h"
 #include "updatestate.h"
@@ -1101,22 +1102,20 @@ int main(int argc, char **argv)
     QElapsedTimer clock;
     clock.start();
     int pacmanExit = -1;
-    Kyu::PacmanRun run;
+    Kyu::PacmanRun run; // every pacman run of this update together
+    bool lastStarted = false; // the last pacman run began changing packages
+    QStringList keyringsFirst; // updated first, in a transaction of their own
+    bool keyringsDone = false; // and that went through
     QJsonObject failure;
     QStringList pacmanLines;
-    if (!flatpakOnly) {
-        const QStringList hookDirs = parser.isSet(hooksDir) ? parser.values(hooksDir)
-                                                            : QStringList{QStringLiteral("/usr/share/libalpm/hooks"), QStringLiteral("/etc/pacman.d/hooks")};
-        if (const QString hook = snapshotHook(hookDirs); !hook.isEmpty()) {
-            out.blank();
-            out.quietStep(QStringLiteral("Snapshot"), QStringLiteral("%1 takes one first").arg(hook));
-        }
-        const QString syu = parser.isSet(refresh) ? QStringLiteral("-Syyu") : QStringLiteral("-Syu");
-        const QStringList command{elevate, QStringLiteral("pacman"), syu};
+    const QString localDb = QFileInfo(lockPath).absolutePath() + QStringLiteral("/local");
+    // One pacman command, once more if it found the lock taken again (pamac's
+    // refresh, then its upgrade) before changing anything. A value: the
+    // update ends here, with it.
+    const auto runPacman = [&](const QString &title, const QStringList &command) -> std::optional<int> {
         out.blank();
-        out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')));
-        // pacman, once more if it found the lock taken again (pamac's
-        // refresh, then its upgrade) before changing anything.
+        out.step(title, command.join(QLatin1Char(' ')));
+        Kyu::PacmanRun step;
         for (int attempt = 0; attempt < 2; ++attempt) {
             const qint64 logOffset = QFileInfo(parser.value(pacmanLog)).size();
             // util-linux `script` keeps pacman fully interactive (a terminal of
@@ -1146,9 +1145,9 @@ int main(int argc, char **argv)
                 const QStringList c = inhibited(command);
                 pacmanExit = runInTerminal(c.first(), c.mid(1));
             }
-            run = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(parser.value(pacmanLog), logOffset)));
+            step = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(parser.value(pacmanLog), logOffset)));
             failure = pacmanExit != 0 ? Kyu::classifyFailure(pacmanLines) : QJsonObject();
-            const bool lockTaken = failure.value(QStringLiteral("kind")).toString() == QLatin1String("lock") && !run.transactionStarted;
+            const bool lockTaken = failure.value(QStringLiteral("kind")).toString() == QLatin1String("lock") && !step.transactionStarted;
             if (attempt > 0 || !lockTaken) {
                 break;
             }
@@ -1164,7 +1163,58 @@ int main(int argc, char **argv)
             if (lock != Lock::Free) {
                 break; // timed out: the verdict says why pacman stopped
             }
-            out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')) + QStringLiteral(" (again)"));
+            out.step(title, command.join(QLatin1Char(' ')) + QStringLiteral(" (again)"));
+        }
+        lastStarted = step.transactionStarted;
+        run.transactionStarted = run.transactionStarted || step.transactionStarted;
+        run.transactionCompleted = run.transactionCompleted || step.transactionCompleted;
+        run.changed += step.changed;
+        run.upgraded += step.upgraded;
+        run.updated += step.updated;
+        for (const QString &c : std::as_const(step.configs)) {
+            if (!run.configs.contains(c)) {
+                run.configs.append(c);
+            }
+        }
+        return std::nullopt;
+    };
+    if (!flatpakOnly) {
+        const QStringList hookDirs = parser.isSet(hooksDir) ? parser.values(hooksDir)
+                                                            : QStringList{QStringLiteral("/usr/share/libalpm/hooks"), QStringLiteral("/etc/pacman.d/hooks")};
+        if (const QString hook = snapshotHook(hookDirs); !hook.isEmpty()) {
+            out.blank();
+            out.quietStep(QStringLiteral("Snapshot"), QStringLiteral("%1 takes one first").arg(hook));
+        }
+        // A keyring among the updates goes first, on its own: packages signed
+        // with keys newer than the installed keyring fail otherwise (the
+        // usual failure after a long gap). The rest follows at once (-Su),
+        // so this is not a partial upgrade. Not after the keyring fix
+        // (--synced): it has just done this.
+        if (state && !parser.isSet(synced)) {
+            const QStringList installed = Kyu::installedKeyrings(localDb);
+            for (const Kyu::PackageUpdate &p : state->packages) {
+                if (installed.contains(p.name) && !keyringsFirst.contains(p.name)) {
+                    keyringsFirst.append(p.name);
+                }
+            }
+        }
+        const bool refreshAll = parser.isSet(refresh);
+        if (!keyringsFirst.isEmpty()) {
+            const QStringList command = QStringList{elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syy") : QStringLiteral("-Sy"),
+                                                    QStringLiteral("--needed")}
+                + keyringsFirst;
+            if (const auto end = runPacman(QStringLiteral("Keyrings"), command)) {
+                return *end;
+            }
+            keyringsDone = pacmanExit == 0;
+            if (keyringsDone) {
+                if (const auto end = runPacman(QStringLiteral("Packages"), {elevate, QStringLiteral("pacman"), QStringLiteral("-Su")})) {
+                    return *end;
+                }
+            }
+        } else if (const auto end = runPacman(QStringLiteral("Packages"),
+                                              {elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syyu") : QStringLiteral("-Syu")})) {
+            return *end;
         }
     }
 
@@ -1237,23 +1287,38 @@ int main(int argc, char **argv)
             }
         }
         const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
-        if (run.transactionStarted) {
+        // What an earlier run of this update (the keyrings) installed.
+        const QString only = run.changed.isEmpty()
+            ? QStringLiteral("Nothing was installed.")
+            : QStringLiteral("Only %1 %2 updated.").arg(run.changed.join(QStringLiteral(", ")), run.changed.size() == 1 ? QStringLiteral("was") : QStringLiteral("were"));
+        if (lastStarted) {
             out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
         } else if (declined) {
-            out.warn(QStringLiteral("Stopped. Nothing was installed.") + skipped);
+            out.warn(QStringLiteral("Stopped. ") + only + skipped);
         } else {
-            out.bad(QStringLiteral("Nothing was installed.") + skipped);
+            out.bad((run.changed.isEmpty() ? QString() : QStringLiteral("pacman failed. ")) + only + skipped);
         }
-        // A fix synced the package lists (pacman -Sy) and this run did not
-        // install: installing anything now would be a partial upgrade.
-        if (parser.isSet(synced) && !run.transactionStarted) {
+        // The package lists were synced (pacman -Sy: the keyring fix, or the
+        // keyrings first) and the rest was not installed: installing anything
+        // now would be a partial upgrade.
+        if ((parser.isSet(synced) || keyringsDone) && !lastStarted) {
             out.warn(QStringLiteral("The package lists are newer than the system: update before installing anything."));
         }
         if (!failure.isEmpty()) {
-            const FailureText text = describeFailure(failure);
+            const QString kind = failure.value(QStringLiteral("kind")).toString();
+            if (kind == QLatin1String("keyring")) {
+                failure.insert(QStringLiteral("keyrings"), QJsonArray::fromStringList(Kyu::installedKeyrings(localDb)));
+            }
+            FailureText text = describeFailure(failure);
+            // The keyrings were updated a moment ago: updating them again
+            // does not help.
+            if (kind == QLatin1String("keyring") && keyringsDone) {
+                text.fix.clear();
+                text.text = QStringLiteral("Kyu updated the keyrings first in this run, so a newer keyring is not the answer here. "
+                                           "pacman's messages above name the package and the key.");
+            }
             out.note(text.title + QLatin1Char('.'));
             // Files and package files are not in the sentence: list them.
-            const QString kind = failure.value(QStringLiteral("kind")).toString();
             if (kind == QLatin1String("files") || kind == QLatin1String("mirror")) {
                 for (const QString &item : text.items.mid(0, 3)) {
                     out.note(QStringLiteral("· ") + item, Tone::Dim);
@@ -1308,7 +1373,7 @@ int main(int argc, char **argv)
     }
 
     if (!restartReason.isEmpty()) {
-        const bool unfinished = pacmanExit > 0 && run.transactionStarted;
+        const bool unfinished = pacmanExit > 0 && lastStarted;
         out.warn(QStringLiteral("Restart needed: ") + restartReason + (restartFromThisRun ? QString() : QStringLiteral(" (from an earlier update)")));
         if (unfinished) {
             // Half an update: the new kernel's boot files may not be there.
@@ -1344,7 +1409,7 @@ int main(int argc, char **argv)
         {QStringLiteral("pacmanExit"), pacmanExit < 0 ? QJsonValue() : QJsonValue(pacmanExit)},
         {QStringLiteral("flatpakExit"), flatpakExit < 0 ? QJsonValue() : QJsonValue(flatpakExit)},
         {QStringLiteral("changed"), int(run.changed.size())},
-        {QStringLiteral("transactionStarted"), run.transactionStarted},
+        {QStringLiteral("transactionStarted"), pacmanExit > 0 ? lastStarted : run.transactionStarted},
         {QStringLiteral("restartRequired"), !restartReason.isEmpty()},
         {QStringLiteral("restartReason"), restartReason},
         {QStringLiteral("configs"), QJsonArray::fromStringList(configs)},

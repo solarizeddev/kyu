@@ -20,7 +20,7 @@ tested less.
 | `kyu-tray` | The tray icon: your icon theme's update icons (none, updates, news to read first, restart to finish, failed) and a spinning one while updating. Hidden when there is nothing to do. Left click opens the card. |
 | `kyu` | The card: what is going on and the one thing to do next (Update, Restart, Merge…, Check for updates). |
 | `kyu-window` | Kyu's own window with Konsole's terminal inside (your window decoration, no toolbars), running `kyu-update`. Built when KF6 Parts is available; otherwise the update opens in Konsole. |
-| `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu`, `flatpak update`, then one verdict and one key per thing left to do. `kyu-update --merge` only merges settings files (pacdiff). |
+| `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu` (a new keyring first, on its own), `flatpak update`, then one verdict and one key per thing left to do. `kyu-update --merge` only merges settings files (pacdiff). |
 | `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks and news; run by a systemd user timer. |
 
 Nothing runs as root except pacman itself (through `sudo`, `doas` or

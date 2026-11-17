@@ -2,6 +2,7 @@
 // uses them (ported from the old root helper's tests).
 #include "aftercare.h"
 #include "failure.h"
+#include "keyrings.h"
 
 #include <QDir>
 #include <QFile>
@@ -172,6 +173,25 @@ private Q_SLOTS:
         QFETCH(QStringList, lines);
         QFETCH(QString, kind);
         QCOMPARE(classifyFailure(lines).value(QStringLiteral("kind")).toString(), kind);
+    }
+
+    void keyrings()
+    {
+        // pacman's local database: a directory per package, its files listed.
+        QTemporaryDir dir;
+        const auto package = [&](const QString &name, const QString &version, const QByteArray &files) {
+            const QString d = dir.filePath(name + QLatin1Char('-') + version);
+            write(d + QStringLiteral("/desc"), "%NAME%\n" + name.toUtf8() + "\n\n%VERSION%\n" + version.toUtf8() + "\n\n");
+            write(d + QStringLiteral("/files"), "%FILES%\n" + files + "\n");
+        };
+        package(QStringLiteral("manjaro-keyring"), QStringLiteral("20261001-1"), "usr/\nusr/share/pacman/keyrings/\nusr/share/pacman/keyrings/manjaro.gpg\n");
+        package(QStringLiteral("archlinux-keyring"), QStringLiteral("20261101-1"), "usr/share/pacman/keyrings/archlinux.gpg\n");
+        package(QStringLiteral("gnome-keyring"), QStringLiteral("1:48.0-1"), "usr/bin/gnome-keyring\n");
+        // Only the directory: not a keyring.
+        package(QStringLiteral("odd-keyring"), QStringLiteral("1-1"), "usr/share/pacman/keyrings/\n");
+        package(QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), "usr/share/pacman/keyrings/x.gpg\n"); // not read: no "keyring" in its name
+        QCOMPARE(installedKeyrings(dir.path()), (QStringList{QStringLiteral("archlinux-keyring"), QStringLiteral("manjaro-keyring")}));
+        QCOMPARE(installedKeyrings(dir.filePath(QStringLiteral("missing"))), QStringList());
     }
 
     void failureDetails()

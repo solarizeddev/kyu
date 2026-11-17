@@ -165,7 +165,9 @@ void CardWindow::present(const Kyu::CardView &view)
     QString detail = view.detail;
     if (view.kind == Kyu::CardView::Kind::Failed) {
         const QString title = view.failureKind.isEmpty() ? QString() : failureTitle(view.failureKind);
-        const QString changed = view.transactionStarted ? QStringLiteral("pacman stopped halfway.") : QStringLiteral("Nothing was installed.");
+        const QString changed = view.transactionStarted ? QStringLiteral("pacman stopped halfway.")
+            : view.changed > 0 ? (view.changed == 1 ? QStringLiteral("Only 1 package was updated.") : QStringLiteral("Only %1 packages were updated.").arg(view.changed))
+                               : QStringLiteral("Nothing was installed.");
         detail = title.isEmpty() ? changed : title + QStringLiteral(". ") + changed;
     }
     m_detail->setText(detail);

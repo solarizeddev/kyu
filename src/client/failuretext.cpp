@@ -1,8 +1,9 @@
 #include "failuretext.h"
 
+#include "keyrings.h"
+
 #include <QFile>
 #include <QJsonArray>
-#include <QProcess>
 
 namespace
 {
@@ -29,22 +30,6 @@ QString distroId()
         }
     }
     return {};
-}
-
-QStringList installedKeyrings()
-{
-    QProcess pacman;
-    pacman.start(QStringLiteral("pacman"), {QStringLiteral("-Qq")});
-    if (!pacman.waitForFinished(10000) || pacman.exitCode() != 0) {
-        return {};
-    }
-    QStringList keyrings;
-    for (const QString &name : QString::fromUtf8(pacman.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
-        if (name.endsWith(QLatin1String("-keyring"))) {
-            keyrings.append(name);
-        }
-    }
-    return keyrings;
 }
 
 FailureText describeFailure(const QJsonObject &failure)
@@ -78,7 +63,7 @@ FailureText describeFailure(const QJsonObject &failure)
                                 "updating the keyring first, then everything else, fixes it.")
                      .arg(packages.isEmpty() ? QStringLiteral("some packages") : packages.join(QStringLiteral(", ")));
         t.items = packages;
-        QStringList keyrings = installedKeyrings();
+        QStringList keyrings = failure.contains(QStringLiteral("keyrings")) ? strings(failure.value(QStringLiteral("keyrings"))) : Kyu::installedKeyrings();
         if (keyrings.isEmpty()) {
             keyrings = {QStringLiteral("archlinux-keyring")};
             if (distroId() == QLatin1String("manjaro")) {

@@ -307,6 +307,51 @@ d=$work/keyagain
 [ "$(grep -c 'Continue? \[y/N\]' "$d/out")" = 1 ] || fail "keyagain: the news were asked again"
 has "$d/out" 'The package lists are newer than the system: update before installing anything.' keyagain
 
+echo "keyrings first: their own transaction, then -Su; not gnome-keyring"
+prepare keyfirst; state "$work/keyfirst/state.json" 1 0 0 "gnome-keyring archlinux-keyring"
+KYU_FAKE_KEYRING=new runtty keyfirst 'y\n|y\n|\n'
+d=$work/keyfirst
+has "$d/out" 'Keyrings   sudo pacman -Sy --needed archlinux-keyring' keyfirst
+has "$d/out" 'Packages   sudo pacman -Su' keyfirst
+[ "$(cat "$d/keyring-args" 2>/dev/null)" = "-Sy --needed archlinux-keyring" ] || fail "keyfirst: keyrings with $(cat "$d/keyring-args" 2>/dev/null)"
+[ "$(cat "$d/pacman-args" 2>/dev/null)" = -Su ] || fail "keyfirst: then pacman $(cat "$d/pacman-args" 2>/dev/null)"
+has "$d/out" ' · 3 packages' keyfirst
+has "$d/out" 'Done in ' keyfirst
+hasnt "$d/out" 'newer than the system' keyfirst
+
+echo "keyrings first, refused: nothing else runs"
+prepare keyno; state "$work/keyno/state.json" 1 0 0 manjaro-keyring
+KYU_FAKE_KEYRING=new runtty keyno 'n\n|\n'
+d=$work/keyno
+has "$d/out" 'Stopped. Nothing was installed.' keyno
+[ ! -e "$d/pacman-args" ] || fail "keyno: pacman $(cat "$d/pacman-args") ran after the keyrings were refused"
+
+echo "keyrings first, then the rest refused: says what went in, and warns"
+prepare keyrest; state "$work/keyrest/state.json" 1 0 0 manjaro-keyring
+KYU_FAKE_KEYRING=new runtty keyrest 'y\n|n\n|\n'
+d=$work/keyrest
+has "$d/out" 'Stopped. Only manjaro-keyring was updated.' keyrest
+has "$d/out" 'The package lists are newer than the system: update before installing anything.' keyrest
+grep -q '"transactionStarted": false' "$d/state/kyu/last-run.json" || fail "keyrest: last-run.json says a transaction was cut short"
+grep -q '"changed": 1' "$d/state/kyu/last-run.json" || fail "keyrest: last-run.json without the keyring"
+
+echo "keyrings first, signatures still fail: no keyring fix offered again"
+prepare keystill; state "$work/keystill/state.json" 1 0 0 archlinux-keyring
+KYU_FAKE_KEYRING=new KYU_FAKE_MODE=keyring runtty keystill 'y\n|y\n|\n'
+d=$work/keystill
+has "$d/out" 'Package signatures could not be checked.' keystill
+has "$d/out" 'Kyu updated the keyrings first in this run' keystill
+has "$d/out" 'pacman failed. Only archlinux-keyring was updated.' keystill
+hasnt "$d/out" 'Fix: ' keystill
+hasnt "$d/out" '[f] fix' keystill
+
+echo "keyrings first with --refresh: -Syy"
+prepare keyrefresh; state "$work/keyrefresh/state.json" 1 0 0 archlinux-keyring
+runtty keyrefresh 'y\n|\n' --refresh
+d=$work/keyrefresh
+[ "$(cat "$d/keyring-args" 2>/dev/null)" = "-Syy --needed archlinux-keyring" ] || fail "keyrefresh: keyrings with $(cat "$d/keyring-args" 2>/dev/null)"
+[ "$(cat "$d/pacman-args" 2>/dev/null)" = -Su ] || fail "keyrefresh: then pacman $(cat "$d/pacman-args" 2>/dev/null)"
+
 echo "a restart from before this run says so"
 prepare earlier; state "$work/earlier/state.json" 0 0 0
 KYU_FAKE_MODE=nothing run earlier ''

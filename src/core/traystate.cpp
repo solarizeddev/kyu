@@ -213,6 +213,7 @@ CardView cardView(const TrayInput &in)
             c.heading = QStringLiteral("The update did not finish");
             c.failureKind = in.lastRun.value(QStringLiteral("failure")).toString();
             c.transactionStarted = in.lastRun.value(QStringLiteral("transactionStarted")).toBool();
+            c.changed = in.lastRun.value(QStringLiteral("changed")).toInt();
             c.action = CardView::Action::Update;
             c.actionText = QStringLiteral("Update again");
             c.primary = true;

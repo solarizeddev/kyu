@@ -1,12 +1,14 @@
 # Sourced by tests/kyu_update_test.sh and tools/kyu-update-screens.sh: a fake
 # system for kyu-update in a directory, so nothing real is read or changed.
 
-# fake_state FILE PACKAGES FLATPAKS NEWS(0/1): the checker's state file.
+# fake_state FILE PACKAGES FLATPAKS NEWS(0/1) [NAMES]: the checker's state
+# file; NAMES (space-separated) are pending packages besides p0, p1...
 fake_state() {
     news=""
     [ "$4" = 1 ] && news='"items":[{"title":"Manual intervention for foo","link":"https://archlinux.org/news/foo/","published":"2099-01-01T00:00:00Z"}],'
     pk=""; i=0
     while [ $i -lt "$2" ]; do pk="$pk${pk:+,}{\"name\":\"p$i\",\"repo\":\"core\",\"oldVersion\":\"1\",\"newVersion\":\"2\",\"size\":1}"; i=$((i + 1)); done
+    for n in ${5:-}; do pk="$pk${pk:+,}{\"name\":\"$n\",\"repo\":\"core\",\"oldVersion\":\"1\",\"newVersion\":\"2\",\"size\":1}"; done
     fp=""; i=0
     while [ $i -lt "$3" ]; do fp="$fp${fp:+,}{\"name\":\"org.x.App$i\",\"kind\":\"app\",\"branch\":\"stable\",\"origin\":\"flathub\",\"installation\":\"user\"}"; i=$((i + 1)); done
     cat >"$1" <<JSON
@@ -34,6 +36,18 @@ fake_system() {
     echo linux618 >"$1/modules/6.18.22-1-MANJARO/pkgbase"
     echo 6.18-x86_64 >"$1/modules/6.18.22-1-MANJARO/kernelbase"
     [ -f "$1/state.json" ] || fake_state "$1/state.json" 2 1 0
+    # pacman's local database (next to db.lck): two keyrings, and
+    # gnome-keyring, which is not one.
+    fake_package "$1" archlinux-keyring 20261101-1 usr/share/pacman/keyrings/archlinux.gpg
+    fake_package "$1" manjaro-keyring 20261001-1 usr/share/pacman/keyrings/manjaro.gpg
+    fake_package "$1" gnome-keyring 1:48.0-1 usr/lib/gnome-keyring-daemon
+}
+
+# fake_package DIR NAME VERSION FILE: an installed package with one file.
+fake_package() {
+    mkdir -p "$1/local/$2-$3"
+    printf '%%NAME%%\n%s\n\n%%VERSION%%\n%s\n\n' "$2" "$3" >"$1/local/$2-$3/desc"
+    printf '%%FILES%%\n%s/\n%s\n\n' "${4%/*}" "$4" >"$1/local/$2-$3/files"
 }
 
 # fake_args DIR: kyu-update's options pointing at the fake system.

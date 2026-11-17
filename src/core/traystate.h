@@ -56,7 +56,8 @@ struct CardView {
     QString linkKey; // the announcement's key (news.h), marked read when opened
     QString mergeText; // "1 settings file changed: /etc/sddm.conf" (with a Merge… button)
     QString failureKind; // Failed: the failure.h kind, for the sentence
-    bool transactionStarted = false; // Failed: pacman had begun changing packages
+    bool transactionStarted = false; // Failed: the failing pacman run had begun changing packages
+    int changed = 0; // Failed: packages an earlier pacman run of the update changed (the keyrings first)
     Action action = Action::None;
     QString actionText;
     bool primary = false; // the main thing to do (accent button) or just available
