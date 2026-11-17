@@ -27,7 +27,9 @@ Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.
 
 Kyu's own words are English. pacman keeps your language: Kyu recognises
-its failures with pacman's own translations.
+its failures with pacman's own translations, where they have the message
+(pacman leaves some messages in English in some languages; those are
+recognised as they are). Otherwise Kyu shows pacman's own last lines.
 
 ## Build
 

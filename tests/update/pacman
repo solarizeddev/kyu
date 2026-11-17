@@ -65,9 +65,10 @@ fi
 # germankeyring: the keyring failure as German pacman prints it (the test
 # catalogs in tests/update/locale turn it back).
 if [ "${KYU_FAKE_MODE:-}" = germankeyring ]; then
-    echo "Fehler: mesa: Signatur von \"Someone <s@example.org>\" hat unbekanntes Vertrauen" >&2
-    echo "Fehler: Konnte den Vorgang nicht durchführen (Ungültiges oder beschädigtes Paket (PGP-Signatur))" >&2
-    echo "Fehler aufgetreten, keine Pakete wurden aktualisiert." >&2
+    # (German pacman leaves the signature line in English.)
+    echo "Fehler: mesa: signature from \"Someone <s@example.org>\" is unknown trust" >&2
+    echo "Fehler: Der Vorgang konnte nicht durchgeführt werden (Ungültiges oder beschädigtes Paket (PGP-Signatur))" >&2
+    echo "Fehler sind aufgetreten, keine Pakete wurden aktualisiert." >&2
     exit 1
 fi
 if [ "${KYU_FAKE_MODE:-}" = german ]; then

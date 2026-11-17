@@ -5,6 +5,8 @@
 #include <QRegularExpression>
 #include <QStringList>
 
+#include <utility>
+
 namespace Kyu
 {
 // pacman speaks the person's language; Kyu recognises its failures by their
@@ -46,7 +48,9 @@ private:
     void add(const QHash<QString, QString> &catalog);
 
     QList<Pattern> m_patterns;
-    QList<std::pair<QString, QString>> m_prefixes; // "Fehler: " → "error: "
+    // "Fehler: " → "error: "; the English ones always (Spanish keeps "error: ").
+    QList<std::pair<QString, QString>> m_prefixes{{QStringLiteral("error: "), QStringLiteral("error: ")},
+                                                  {QStringLiteral("warning: "), QStringLiteral("warning: ")}};
     QStringList m_languages;
 };
 

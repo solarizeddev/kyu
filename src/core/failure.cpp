@@ -63,6 +63,14 @@ bool networkReason(const QString &line)
     return false;
 }
 
+// "pkg: /usr/bin/x exists in filesystem", "... (owned by other)", or
+// "/usr/bin/x exists in both 'a' and 'b'": what is before " exists".
+const QRegularExpression &conflictLine()
+{
+    static const QRegularExpression re(QStringLiteral("^(.*) exists in (?:filesystem(?: \\(owned by .*\\))?|both '.*' and '.*')$"));
+    return re;
+}
+
 bool missingOnMirror(const QString &line)
 {
     const QString r = reason(line);
@@ -104,7 +112,7 @@ QStringList terminalLines(const QByteArray &typescript)
 bool notableFailureLine(const QString &line)
 {
     const QString l = line.trimmed();
-    return l.startsWith(QLatin1String("error:")) || l.startsWith(QLatin1String("warning: failed")) || l.endsWith(QLatin1String(" exists in filesystem"))
+    return l.startsWith(QLatin1String("error:")) || l.startsWith(QLatin1String("warning: failed")) || conflictLine().match(l).hasMatch()
         || l.contains(QLatin1String("breaks dependency")) || l.contains(QLatin1String("unable to satisfy dependency"))
         || l.startsWith(QLatin1String("Errors occurred"));
 }
@@ -161,7 +169,7 @@ QJsonObject classifyFailure(const QStringList &allLines)
         f = {{QStringLiteral("kind"), QStringLiteral("mirror")}, {QStringLiteral("lines"), first(retrieving)},
              {QStringLiteral("files"), unique(files)}, {QStringLiteral("hosts"), unique(hosts)}};
     } else if (has("unknown trust") || has("marginal trust") || has("(PGP signature)") || has("required key missing from keyring")
-               || has("could not be looked up remotely") || has("unknown public key") || (has("signature from") && has("is invalid"))) {
+               || has("could not be looked up remotely") || (has("signature from") && has("is invalid"))) {
         QStringList packages;
         for (const QString &l : lines) {
             if (l.contains(QLatin1String("signature from")) && l.startsWith(QLatin1String("error: "))) {
@@ -177,9 +185,9 @@ QJsonObject classifyFailure(const QStringList &allLines)
         QJsonArray files;
         int count = 0;
         for (const QString &l : lines) {
-            if (l.endsWith(QLatin1String(" exists in filesystem"))) {
+            if (const auto m = conflictLine().match(l); m.hasMatch()) {
                 if (++count <= 50) {
-                    files.append(l.chopped(21));
+                    files.append(m.captured(1));
                 }
             }
         }

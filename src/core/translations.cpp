@@ -4,6 +4,9 @@
 #include <QFileInfo>
 #include <QtEndian>
 
+#include <algorithm>
+#include <optional>
+
 namespace Kyu
 {
 namespace
@@ -15,7 +18,7 @@ const char *const Needles[] = {
     "failed to commit transaction", "failed to prepare transaction", "unknown trust", "marginal trust", "is invalid", "PGP signature",
     "required key missing from keyring", "could not be looked up remotely", "unknown public key", "signature from", "conflicting files",
     "exists in filesystem", "too full", "not enough free disk space", "could not satisfy dependencies", "unable to satisfy dependency",
-    "breaks dependency", "Errors occurred", "invalid or corrupted package", "download library error",
+    "breaks dependency", "Errors occurred", "invalid or corrupted package", "download library error", "exists in both",
 };
 
 // printf conversions: %s, %d, %jd, %zu, %1$s... (and %% for a percent sign).
@@ -167,17 +170,24 @@ void PacmanTranslations::add(const QHash<QString, QString> &catalog)
     for (auto it = catalog.cbegin(); it != catalog.cend(); ++it) {
         const QString english = it.key();
         const QString translated = it.value();
+        // pacman's "error: " and "warning: " come before the message.
+        if (english == QLatin1String("error: ") || english == QLatin1String("warning: ")) {
+            if (translated != english) {
+                m_prefixes.append({translated, english});
+            }
+            continue;
+        }
         if (translated == english) {
             continue;
         }
-        // pacman's "error: " and "warning: " come before the message.
-        if (english == QLatin1String("error: ") || english == QLatin1String("warning: ")) {
-            m_prefixes.append({translated, english});
-            continue;
+        // One line each: what pacman prints ends in newlines at most.
+        QString e = english, t = translated;
+        while (e.endsWith(QLatin1Char('\n'))) {
+            e.chop(1);
         }
-        // One line each: what pacman prints ends in a newline at most.
-        const QString e = english.endsWith(QLatin1Char('\n')) ? english.chopped(1) : english;
-        const QString t = translated.endsWith(QLatin1Char('\n')) ? translated.chopped(1) : translated;
+        while (t.endsWith(QLatin1Char('\n'))) {
+            t.chop(1);
+        }
         if (e.contains(QLatin1Char('\n')) || t.contains(QLatin1Char('\n'))) {
             continue;
         }
@@ -219,8 +229,10 @@ QString PacmanTranslations::line(const QString &text, int depth) const
         QString out = p.english;
         for (int g = 1; g <= m.lastCapturedIndex(); ++g) {
             // What pacman filled in may be a translated message itself
-            // ("failed to commit transaction (%s)").
-            const QString arg = depth < 2 ? line(m.captured(g), depth + 1) : m.captured(g);
+            // ("failed to commit transaction (%s)"), with whatever spaces
+            // its translator left around it (French: a no-break space).
+            const QString captured = m.captured(g).trimmed();
+            const QString arg = depth < 2 ? line(captured, depth + 1) : captured;
             out.replace(QStringLiteral("\x03%1\x04").arg(g), arg);
         }
         // An argument the translation does not use.
@@ -239,19 +251,35 @@ QStringList PacmanTranslations::toEnglish(const QStringList &lines) const
     QStringList out;
     out.reserve(lines.size());
     for (const QString &raw : lines) {
+        // Very long lines are not pacman's messages (and cost time to match).
+        if (raw.size() > 2000) {
+            out.append(raw);
+            continue;
+        }
         // Keep the indentation; translate the rest.
-        const qsizetype indent = raw.size() - QString(raw).remove(QRegularExpression(QStringLiteral("^\\s+"))).size();
+        qsizetype indent = 0;
+        while (indent < raw.size() && raw.at(indent).isSpace()) {
+            ++indent;
+        }
         QString text = raw.mid(indent).trimmed();
         QString prefix;
+        bool changed = false;
+        // pacman's ":: " lines (a dependency that cannot be satisfied).
+        if (text.startsWith(QLatin1String(":: "))) {
+            prefix = QStringLiteral(":: ");
+            text = text.mid(3).trimmed();
+        }
         for (const auto &[translated, english] : m_prefixes) {
             if (text.startsWith(translated.trimmed())) {
-                prefix = english;
+                prefix += english;
                 text = text.mid(translated.trimmed().size()).trimmed();
+                changed = translated != english;
                 break;
             }
         }
         const QString message = line(text, 0);
-        out.append(prefix.isEmpty() && message == text ? raw : raw.left(indent) + prefix + message);
+        changed = changed || message != text;
+        out.append(changed ? raw.left(indent) + prefix + message : raw);
     }
     return out;
 }
@@ -268,7 +296,8 @@ PacmanTranslations PacmanTranslations::fromCatalogs(const QStringList &moFiles)
 PacmanTranslations PacmanTranslations::forEnvironment(const QString &localeDir)
 {
     // gettext: the locale from LC_ALL, LC_MESSAGES, LANG; with a locale that
-    // is not C, LANGUAGE's list comes first.
+    // is not C, LANGUAGE's list comes first, each tried in turn until one
+    // has a catalog (English has none but en_GB: it falls through too).
     QString locale;
     for (const char *name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
         locale = qEnvironmentVariable(name);
@@ -285,8 +314,8 @@ PacmanTranslations PacmanTranslations::forEnvironment(const QString &localeDir)
     for (const QString &domain : {QStringLiteral("libalpm"), QStringLiteral("pacman")}) {
         bool found = false;
         for (const QString &language : std::as_const(languages)) {
-            if (language.startsWith(QLatin1String("en"))) {
-                found = true; // English is first: nothing to turn back
+            if (language == QLatin1String("C") || language == QLatin1String("POSIX")) {
+                found = true;
                 break;
             }
             for (const QString &c : candidates(language)) {

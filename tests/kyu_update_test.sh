@@ -220,7 +220,7 @@ hasnt "$work/decline/out" "pacman's last lines" decline
 echo "another language: recognised with pacman's own translations, shown as printed"
 LC_ALL=de_DE.UTF-8 KYU_FAKE_MODE=germankeyring run germankey 'y\n' --locale-dir "$here/update/locale"
 d=$work/germankey
-has "$d/out" 'Fehler: Konnte den Vorgang nicht durchf' germankey
+has "$d/out" 'Fehler: Der Vorgang konnte nicht durchgef' germankey
 has "$d/out" 'Package signatures could not be checked.' germankey
 has "$d/out" 'Fix: sudo pacman -Sy --needed archlinux-keyring manjaro-keyring' germankey
 grep -q '"failure": "keyring"' "$d/state/kyu/last-run.json" || fail "germankey: last-run.json without the failure"
