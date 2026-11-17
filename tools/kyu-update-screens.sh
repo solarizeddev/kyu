@@ -12,7 +12,8 @@
 #
 #   tools/kyu-update-screens.sh OUTDIR
 #
-# Needs konsole, spectacle and busctl (and `script` for the Konsole fallback). Takes about 5 minutes; windows open
+# Needs konsole, spectacle and busctl (and `script` for the Konsole
+# fallback). Takes about 5 minutes; windows open
 # and close by themselves. Leave the desktop alone: the screenshot is of the
 # active window, and a shot is skipped if the window is not the active one.
 # Turn on Do Not Disturb first: each window can post Konsole notifications.
