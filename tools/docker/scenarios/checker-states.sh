@@ -15,7 +15,7 @@ after() {
     su tester -c 'export PATH=/opt/kyu-build/bin:$PATH; kyu-check --json > /out/nonet.json 2>/out/nonet.err; echo "exit $?" >> /out/nonet.err; QT_QPA_PLATFORM=offscreen kyu --screenshot /out/card-nonet.png' 2>/dev/null
     cp /tmp/mirrorlist.good /etc/pacman.d/mirrorlist
     lockdir=$(find /home/tester/.cache -type d -name 'checkup-db*' | head -1)
-    echo "checkup db: $lockdir" > /out/stale-db-lock.err
+    echo "checkup db: $lockdir" > /out/stale-db-lock.err; chmod 666 /out/stale-db-lock.err
     [ -n "$lockdir" ] && touch "$lockdir/db.lck"
     su tester -c 'export PATH=/opt/kyu-build/bin:$PATH; kyu-check --json > /out/stale-db-lock.json 2>>/out/stale-db-lock.err; echo "exit $?" >> /out/stale-db-lock.err'
 }
