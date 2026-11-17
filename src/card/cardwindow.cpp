@@ -22,6 +22,8 @@
 #include <QStyle>
 #include <QStyleOption>
 #include <QToolButton>
+#include <QAbstractTextDocumentLayout>
+#include <QTextBlock>
 #include <QTextCursor>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -422,7 +424,22 @@ void CardWindow::sizeDetails()
     m_raw->setVerticalScrollBarPolicy(lines > 12 ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     m_raw->setHorizontalScrollBarPolicy(sideways ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     const int bar = sideways ? style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, m_raw) : 0;
-    m_raw->setFixedHeight(qBound(3, lines, 12) * mono.lineSpacing() + frame + mono.descent() + bar);
+    // A line's real height is not a whole number of pixels (Hack's is
+    // about 16.4): the fractional one, the larger of regular and bold, so
+    // twelve lines do not come up short.
+    QFont boldLine = m_raw->font();
+    boldLine.setBold(true);
+    const qreal line = qMax(QFontMetricsF(m_raw->font()).lineSpacing(), QFontMetricsF(boldLine).lineSpacing());
+    int height = qCeil(qBound(3, lines, 12) * line) + mono.descent();
+    if (!m_view.rows.isEmpty() && lines <= 12) {
+        // Not wrapped: the lines' heights as the box lays them out.
+        qreal laid = 0;
+        for (QTextBlock block = m_raw->document()->begin(); block.isValid(); block = block.next()) {
+            laid += m_raw->document()->documentLayout()->blockBoundingRect(block).height();
+        }
+        height = qMax(height, qCeil(laid) + 1);
+    }
+    m_raw->setFixedHeight(height + frame + bar);
 }
 
 void CardWindow::changeEvent(QEvent *event)
