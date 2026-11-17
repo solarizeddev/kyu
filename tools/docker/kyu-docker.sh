@@ -24,7 +24,13 @@ common=(--network host -e TERM=xterm-256color)
 for v in HTTPS_PROXY HTTP_PROXY https_proxy http_proxy NO_PROXY no_proxy; do
     [ -n "${!v:-}" ] && common+=(-e "$v")
 done
-[ -n "${KYU_DOCKER_CA:-}" ] && common+=(-v "$KYU_DOCKER_CA:/etc/ssl/certs/ca-certificates.crt:ro")
+# The proxy's CA joins the container's trust store (pacman's hooks rewrite
+# the store, so it is added, not mounted over it).
+trust='true'
+if [ -n "${KYU_DOCKER_CA:-}" ]; then
+    common+=(-v "$KYU_DOCKER_CA:/run/kyu-proxy-ca.pem:ro")
+    trust='cp /run/kyu-proxy-ca.pem /etc/ca-certificates/trust-source/anchors/kyu-proxy-ca.pem && update-ca-trust'
+fi
 
 # Build Kyu from this checkout (without build trees) as the user "tester",
 # whose sudo asks for the password "kyu".
@@ -50,6 +56,7 @@ image)
         date=${3:-$(date -d '-6 weeks' +%Y/%m/%d)}
         tag=kyu-arch:${date//\//-}
         docker run --name "$name" "${common[@]}" -v "$repo:/src:ro" archlinux:latest bash -c "
+            $trust
             printf 'Server = https://archive.archlinux.org/repos/$date/\$repo/os/\$arch\n' > /etc/pacman.d/mirrorlist
             pacman -Syyuu --noconfirm
             pacman -S --needed --noconfirm $deps
@@ -59,6 +66,7 @@ image)
         # The image's packages stay as they are (it is months old), but for
         # what building Kyu needs: a partial upgrade, in a throwaway system.
         docker run --name "$name" "${common[@]}" -v "$repo:/src:ro" manjarolinux/base:latest bash -c "
+            $trust
             printf 'Server = $MANJARO_NOW\n' > /etc/pacman.d/mirrorlist
             pacman -Sy --noconfirm
             pacman -S --needed --noconfirm $deps
@@ -74,6 +82,7 @@ rebuild)
     name=kyu-build-$$
     docker run --name "$name" "${common[@]}" -v "$repo:/src:ro" "$image" bash -c "
         set -e
+        $trust
         echo 'Defaults env_keep += \"HTTPS_PROXY HTTP_PROXY https_proxy http_proxy NO_PROXY no_proxy\"' > /etc/sudoers.d/proxy
         rm -rf /opt/kyu-src && mkdir -p /opt/kyu-src
         tar -C /src --exclude=./build --exclude='./build-*' --exclude=./.git -cf - . | tar -C /opt/kyu-src -xf -
@@ -88,6 +97,7 @@ run)
     mkdir -p "$out" && chmod 777 "$out"
     case "$image" in kyu-manjaro*) now=$MANJARO_NOW ;; *) now=$ARCH_NOW ;; esac
     docker run --rm "${common[@]}" -v "$out:/out" -v "$here/drive.py:/drive.py:ro" "$image" bash -c "
+        $trust
         printf 'Server = $now\n' > /etc/pacman.d/mirrorlist
         cp /etc/pacman.d/mirrorlist /out/mirrorlist
         su tester -c '
@@ -97,7 +107,12 @@ run)
             kyu-check --json > /out/check-before.json 2>/out/check-before.err; echo check: \$?
             python /drive.py /out/update kyu -- kyu-update; echo update: \$?
             cp ~/.local/state/kyu/last-run.json /out/ 2>/dev/null
-            kyu-check --json > /out/check-after.json 2>/out/check-after.err
+            # After the check kyu-update started itself.
+            for i in \$(seq 1 120); do
+                kyu-check --json > /out/check-after.json 2>/out/check-after.err && break
+                grep -q \"already running\" /out/check-after.err || break
+                sleep 5
+            done
             QT_QPA_PLATFORM=offscreen kyu --screenshot /out/card-after.png 2>/dev/null
             QT_QPA_PLATFORM=offscreen kyu --details --screenshot /out/card-after-details.png 2>/dev/null
         '
