@@ -18,6 +18,9 @@ How to answer, from the environment (defaults in brackets):
                        comma-separated ("f,", "m,"); "" is Enter [Enter]
   DRIVE_PACDIFF        pacdiff's answer [s]
   DRIVE_KILL           kill pacman (SIGKILL) once the output shows this text
+  DRIVE_HANGUP         close the terminal (as closing its window) once the
+                       output shows this text
+  DRIVE_FLATPAK        flatpak's "Proceed with these changes?": y or n [y]
   DRIVE_OTHER          any other question: this answer [Enter]
 
 Usage: drive.py OUTDIR -- COMMAND...
@@ -32,6 +35,7 @@ password = env("DRIVE_PASSWORD", "kyu")
 wrong = int(env("DRIVE_WRONG", "0"))
 keys = env("DRIVE_KEYS", "").split(",") if env("DRIVE_KEYS") else []
 kill_on = env("DRIVE_KILL", "")
+hangup_on = env("DRIVE_HANGUP", "")
 waiting_file = os.path.join(env("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "kyu", "waiting")
 
 pid, fd = pty.fork()
@@ -80,6 +84,10 @@ while True:
         tail = (tail + data)[-8192:]
         seen = (seen + data)[-65536:]
         last_change = time.time()
+        if hangup_on and hangup_on in clean(seen):
+            log.write(f"closed the terminal at {hangup_on!r}\n"); log.flush()
+            os.close(fd)
+            break
         if kill_on and not killed and kill_on in clean(seen):
             subprocess.run(["sudo", "-n", "pkill", "-KILL", "-x", "pacman"])
             log.write(f"killed pacman at {kill_on!r}\n\n"); log.flush()
@@ -104,14 +112,16 @@ while True:
         reply = choice("DRIVE_PROCEED", "y")
     elif line and "Continue? [y/N]" in line:
         reply = choice("DRIVE_NEWS", "y")
-    elif line and re.search(r"\(V\)iew.*\[v/s/r/o/q\]|\[v/s/r/o/q\]", line):
+    elif line and re.search(r"Proceed with these changes", line):
+        reply = choice("DRIVE_FLATPAK", "y")
+    elif line and re.search(r"\[v/[a-z/]*q\]", line):
         reply = env("DRIVE_PACDIFF", "s")
     elif "[Enter] close" in recent:
         if "[Enter] close" not in line:
             log.write(f"after the last line: {line!r}\n")
         reply = keys.pop(0) if keys else ""
         line = line or "(last line)"
-    elif line and re.search(r"\[[YJ]/n\]|\[y/N\]|\?\s*$|:\s*$", line):
+    elif line and re.search(r"\[[YJ]/n\]|\[y/N\]|\?\s*$|:\s*$|^==>\s*$", line):
         reply = env("DRIVE_OTHER", "")
     if reply is not None:
         send(reply, line, what)
@@ -122,7 +132,17 @@ while True:
         os.kill(pid, signal.SIGKILL)
         break
 
-_, status = os.waitpid(pid, 0)
+if hangup_on:
+    # The window is gone: what runs in it gets SIGHUP; wait for it to end.
+    for _ in range(600):
+        if os.waitpid(pid, os.WNOHANG) != (0, 0):
+            break
+        time.sleep(0.5)
+    else:
+        os.kill(pid, signal.SIGKILL)
+    status = 0
+else:
+    _, status = os.waitpid(pid, 0)
 raw.close()
 # The text as the screen showed it: each line's last drawing.
 text = clean(open(os.path.join(out, "transcript.txt"), "rb").read().replace(b"\x1b(B", b""))

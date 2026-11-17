@@ -6,6 +6,9 @@
 #                                                      (Arch Linux Archive), Kyu built in it
 #   tools/docker/kyu-docker.sh image manjaro            Manjaro's official image as it is,
 #                                                      Kyu built in it
+#   tools/docker/kyu-docker.sh image arch-small kyu-arch:YYYY-MM-DD
+#   tools/docker/kyu-docker.sh image manjaro-small      from those: current, Flatpak and
+#                                                      (Manjaro) yay in, a few packages behind
 #   tools/docker/kyu-docker.sh rebuild IMAGE            Kyu again from this checkout, in IMAGE
 #   tools/docker/kyu-docker.sh scenario IMAGE NAME [OUTDIR]  one case, tools/docker/scenarios/NAME.sh
 #   tools/docker/kyu-docker.sh run IMAGE [OUTDIR]       today's mirrors, then kyu-check and
@@ -54,6 +57,38 @@ case "${1:-}" in
 image)
     kind=${2:?arch or manjaro}
     name=kyu-build-$$
+    if [ "$kind" = arch-small ] || [ "$kind" = manjaro-small ]; then
+        # From the big image: everything current, Flatpak and an AUR helper
+        # in, Kyu built with Flatpak; then a few packages put back, so an
+        # update is quick (Arch: from the Archive; Manjaro keeps its own).
+        if [ "$kind" = arch-small ]; then
+            from=${3:?the arch image, as kyu-arch:YYYY-MM-DD}
+            snapshot=${from#kyu-arch:}; snapshot=${snapshot//-//}
+            now=$ARCH_NOW; helper=; tag=kyu-arch-small:latest
+            back="printf 'Server = https://archive.archlinux.org/repos/$snapshot/\$repo/os/\$arch\n' > /etc/pacman.d/mirrorlist
+                  pacman -Syy && pacman -S --noconfirm zlib nano less"
+        else
+            from=kyu-manjaro:latest; now=$MANJARO_NOW; helper=yay; tag=kyu-manjaro-small:latest
+            back=":"
+        fi
+        docker run --name "$name" "${common[@]}" -v "$repo:/src:ro" "$from" bash -c "
+            set -e
+            $trust
+            printf 'Server = $now\n' > /etc/pacman.d/mirrorlist
+            pacman -Syu --noconfirm
+            pacman -S --needed --noconfirm flatpak nano git $helper
+            $back
+            printf 'Server = $now\n' > /etc/pacman.d/mirrorlist
+            rm -rf /opt/kyu-src && mkdir -p /opt/kyu-src
+            tar -C /src --exclude=./build --exclude='./build-*' --exclude=./.git -cf - . | tar -C /opt/kyu-src -xf -
+            cmake -S /opt/kyu-src -B /opt/kyu-build -G Ninja -DKYU_FLATPAK=ON >/dev/null
+            cmake --build /opt/kyu-build --target kyu-update kyu-check kyu
+            : > /var/log/pacman.log.kept"
+        docker commit "$name" "$tag" >/dev/null
+        docker rm "$name" >/dev/null
+        echo "$tag"
+        exit 0
+    fi
     if [ "$kind" = arch ]; then
         date=${3:-$(date -d '-6 weeks' +%Y/%m/%d)}
         tag=kyu-arch:${date//\//-}
@@ -90,7 +125,7 @@ scenario)
     rm -rf "$out"; mkdir -p "$out" && chmod 777 "$out"
     read -r -a extra <<< "$(sed -n 's/^# docker: //p' "$file")"
     case "$image" in kyu-manjaro*) now=$MANJARO_NOW ;; *) now=$ARCH_NOW ;; esac
-    docker run --rm "${common[@]}" "${extra[@]}" -v "$out:/out" -v "$here/drive.py:/drive.py:ro" \
+    docker run --rm "${common[@]}" "${extra[@]+"${extra[@]}"}" -v "$out:/out" -v "$here/drive.py:/drive.py:ro" \
         -v "$here/lib.sh:/lib.sh:ro" -v "$file:/scenario.sh:ro" "$image" bash -c "
         $trust
         echo 'tester ALL=(ALL) NOPASSWD: /usr/bin/pkill' > /etc/sudoers.d/tester-kill
@@ -148,7 +183,7 @@ run)
     echo "$out"
     ;;
 *)
-    sed -n '2,18p' "$0"
+    sed -n '2,21p' "$0"
     exit 2
     ;;
 esac
