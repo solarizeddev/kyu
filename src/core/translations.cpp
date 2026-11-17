@@ -16,7 +16,7 @@ namespace
 const char *const Needles[] = {
     "failed retrieving file", "failed to synchronize", "unable to lock database", "could not lock database", "failed to init transaction",
     "failed to commit transaction", "failed to prepare transaction", "unknown trust", "marginal trust", "is invalid", "PGP signature",
-    "required key missing from keyring", "could not be looked up remotely", "unknown public key", "signature from", "conflicting files",
+    "required key missing from keyring", "could not be looked up remotely", "signature from", "conflicting files",
     "exists in filesystem", "too full", "not enough free disk space", "could not satisfy dependencies", "unable to satisfy dependency",
     "breaks dependency", "Errors occurred", "invalid or corrupted package", "download library error", "exists in both",
 };
