@@ -87,7 +87,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
 | 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have (never run on a real update) | 1 |
-| 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | missing | 1 |
+| 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | have: paru, yay, or pamac with `EnableAUR`; checked against the AUR's web API (foreign packages, pacman's version order), counted apart; `paru -Sua` / `yay -Sua` / `pamac update --aur` last, after Flatpaks; its failure is its own line and leaves the update done. Runs before a restart, not after (Manjaro's "reboot, then AUR" is not followed) | 1 |
 | 21 | Then `flatpak update` | — | have | 1 |
 | 22 | The terminal you use: Konsole by default, one setting for another | terminal detection is Arch-Update's and Apdatifier's longest bug thread | part (Konsole / xdg-terminal-exec, no setting) | 2 |
 | 23 | Closing the window mid-update asks first | pamac's update keeps running hidden | part (the Kyu window asks; plain Konsole asks only Konsole's own question) | 2 |
@@ -173,7 +173,7 @@ Kyu's column is what it does today, tested only against a fake pacman.
 | Right news on Manjaro | yes | no (Arch feed) | no | if you add the feed | yes (only this) |
 | Real pacman in a terminal | yes | yes | no (daemon + GUI) | yes | — |
 | Closing the window mid-update | Kyu window asks first | same as any terminal | update goes on hidden | same as any terminal | — |
-| AUR | no | yes | yes | yes | — |
+| AUR | with your helper (paru, yay, pamac) | yes | yes | yes | — |
 | Flatpak | yes | yes | yes (and Snap) | yes | — |
 | Settings files | list + pacdiff | pacdiff | listed in its log | ? | — |
 | Restart needed | kernel, systemd, glibc, NVIDIA; remembered | kernel reboot prompt + services | yes (prompt) | optional list | — |

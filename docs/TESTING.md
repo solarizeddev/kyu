@@ -76,6 +76,15 @@ Check that:
 - `[m]` runs pacdiff, `[r]` opens Plasma's restart dialog, Enter closes;
 - closing Kyu's window during the update asks first.
 
+With an AUR helper (paru, yay, or pamac with `EnableAUR` in
+`/etc/pamac.conf`) and an AUR package with an update:
+
+- `build/bin/kyu-check` counts it ("AUR 1" in its summary);
+- the update runs it last, as `paru -Sua` (or yay's, or `pamac update --aur`),
+  and says "· 1 AUR" at the end;
+- answering `n` to the helper's question: "AUR packages not updated: … The
+  rest is done.", and the tray does not show a failed update.
+
 Then the tray and the card:
 
 ```bash

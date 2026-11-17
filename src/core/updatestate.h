@@ -53,6 +53,15 @@ struct PacmanResult {
     QList<PackageUpdate> packages;
 };
 
+// AUR packages with a newer version (aur.h); available is false when no
+// AUR helper is installed (Kyu leaves the AUR alone then).
+struct AurResult {
+    bool available = true;
+    bool ok = false;
+    QString error;
+    QList<PackageUpdate> packages; // repo "aur"
+};
+
 struct FlatpakResult {
     bool available = true; // false when built without libflatpak
     bool ok = false;
@@ -84,10 +93,12 @@ struct UpdateState {
     QList<PackageUpdate> packages;
     QList<FlatpakUpdate> flatpaks;
     NewsState news;
+    SourceStatus aur; // checked only with an AUR helper installed
+    QList<PackageUpdate> aurPackages;
 
     int total() const
     {
-        return packages.size() + flatpaks.size();
+        return packages.size() + aurPackages.size() + flatpaks.size();
     }
     // Sum of known package sizes; -1 when none is known.
     qint64 totalSize() const;
@@ -97,18 +108,19 @@ struct UpdateState {
             return p.restart;
         });
     }
-    // News failures are not counted: they do not affect what can be updated.
+    // News and AUR failures are not counted: the AUR's site is down now and
+    // then, and neither affects updating the system.
     bool hasError() const
     {
         return (pacman.checked && !pacman.ok) || (flatpak.checked && !flatpak.ok);
     }
 
-    // Counts per repo (pacman) and per remote (Flatpak), in first-seen order.
+    // Counts per repo (pacman), then "AUR", then per remote (Flatpak), in first-seen order.
     // kyu-check stores packages sorted by repo in pacman.conf order, so repos
     // come out in that order; remotes follow libflatpak's order.
     QList<std::pair<QString, int>> groups() const;
 
-    // "12 updates: core 2 · extra 7 · flathub 3", or "No updates".
+    // "12 updates: core 2 · extra 7 · AUR 1 · flathub 2", or "No updates".
     QString summary() const;
 
     QJsonObject toJson() const;
@@ -124,7 +136,8 @@ struct UpdateState {
                              const std::optional<PacmanResult> &pacman,
                              const std::optional<FlatpakResult> &flatpak,
                              const QDateTime &now,
-                             const std::optional<NewsResult> &news = std::nullopt);
+                             const std::optional<NewsResult> &news = std::nullopt,
+                             const std::optional<AurResult> &aur = std::nullopt);
 
     bool operator==(const UpdateState &) const = default;
 };

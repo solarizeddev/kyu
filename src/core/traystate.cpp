@@ -248,10 +248,13 @@ CardView cardView(const TrayInput &in)
         if (!s.packages.isEmpty()) {
             parts.append(plural(s.packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
         }
+        if (!s.aurPackages.isEmpty()) {
+            parts.append(QStringLiteral("%1 AUR").arg(s.aurPackages.size()));
+        }
         if (!s.flatpaks.isEmpty()) {
             parts.append(plural(s.flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
-        if (s.packages.isEmpty()) {
+        if (s.packages.isEmpty() && s.aurPackages.isEmpty()) {
             parts.append(QStringLiteral("no password needed"));
         } else if (s.totalSize() > 0) {
             parts.append(QLocale().formattedDataSize(s.totalSize(), 0));

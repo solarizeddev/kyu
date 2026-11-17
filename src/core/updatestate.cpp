@@ -76,6 +76,9 @@ QList<std::pair<QString, int>> UpdateState::groups() const
     for (const auto &p : packages) {
         add(p.repo);
     }
+    if (!aurPackages.isEmpty()) {
+        result.append({QStringLiteral("AUR"), int(aurPackages.size())});
+    }
     for (const auto &f : flatpaks) {
         add(f.origin);
     }
@@ -109,6 +112,14 @@ QString UpdateState::summary() const
 
 QJsonObject UpdateState::toJson() const
 {
+    QJsonArray aurArray;
+    for (const auto &p : aurPackages) {
+        aurArray.append(QJsonObject{
+            {QStringLiteral("name"), p.name},
+            {QStringLiteral("oldVersion"), p.oldVersion},
+            {QStringLiteral("newVersion"), p.newVersion},
+        });
+    }
     QJsonArray packageArray;
     for (const auto &p : packages) {
         QJsonObject o{
@@ -157,6 +168,8 @@ QJsonObject UpdateState::toJson() const
         {QStringLiteral("flatpak"), statusToJson(flatpak)},
         {QStringLiteral("packages"), packageArray},
         {QStringLiteral("flatpaks"), flatpakArray},
+        {QStringLiteral("aur"), statusToJson(aur)},
+        {QStringLiteral("aurPackages"), aurArray},
     };
 }
 
@@ -177,6 +190,13 @@ UpdateState UpdateState::fromJson(const QJsonObject &object)
             o.contains(QStringLiteral("size")) ? o.value(QStringLiteral("size")).toInteger() : -1,
             o.value(QStringLiteral("restart")).toBool(),
         });
+    }
+    // Absent in a state from before the AUR check: not checked.
+    state.aur = statusFromJson(object.value(QStringLiteral("aur")).toObject());
+    for (const auto &value : object.value(QStringLiteral("aurPackages")).toArray()) {
+        const auto o = value.toObject();
+        state.aurPackages.append({o.value(QStringLiteral("name")).toString(), QStringLiteral("aur"), o.value(QStringLiteral("oldVersion")).toString(),
+                                  o.value(QStringLiteral("newVersion")).toString(), -1, false});
     }
     const auto flatpakArray = object.value(QStringLiteral("flatpaks")).toArray();
     for (const auto &value : flatpakArray) {
@@ -261,7 +281,8 @@ UpdateState UpdateState::merge(const UpdateState &previous,
                                const std::optional<PacmanResult> &pacman,
                                const std::optional<FlatpakResult> &flatpak,
                                const QDateTime &now,
-                               const std::optional<NewsResult> &news)
+                               const std::optional<NewsResult> &news,
+                               const std::optional<AurResult> &aur)
 {
     UpdateState state = previous;
     state.checkedAt = now;
@@ -292,6 +313,24 @@ UpdateState UpdateState::merge(const UpdateState &previous,
             state.news.items = news->items;
         } else {
             state.news.error = news->error;
+        }
+    }
+
+    if (aur) {
+        if (!aur->available) {
+            state.aur = SourceStatus{};
+            state.aurPackages.clear();
+        } else {
+            state.aur.checked = true;
+            state.aur.ok = aur->ok;
+            state.aur.checkedAt = now;
+            if (aur->ok) {
+                state.aur.error.clear();
+                state.aur.lastSuccessAt = now;
+                state.aurPackages = aur->packages;
+            } else {
+                state.aur.error = aur->error;
+            }
         }
     }
 

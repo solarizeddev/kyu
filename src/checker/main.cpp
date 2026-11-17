@@ -1,6 +1,7 @@
 // kyu-check: checks for pending updates and writes them to the state file.
 // Runs as the user (from a systemd user timer or the tray); never needs root.
 
+#include "aur.h"
 #include "flatpakcheck.h"
 #include "news.h"
 #include "pacmancheck.h"
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
 
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        QStringLiteral("Checks for pending pacman and Flatpak updates and writes them to the Kyu state file."));
+        QStringLiteral("Checks for pending pacman, AUR and Flatpak updates and writes them to the Kyu state file."));
     parser.addHelpOption();
     parser.addVersionOption();
     QCommandLineOption noPacman(QStringLiteral("no-pacman"), QStringLiteral("Do not check repo packages."));
@@ -51,6 +52,9 @@ int main(int argc, char **argv)
                                     QStringLiteral("path"), QStringLiteral("checkupdates"));
     QCommandLineOption pacman(QStringLiteral("pacman"), QStringLiteral("pacman binary."), QStringLiteral("path"),
                               QStringLiteral("pacman"));
+    QCommandLineOption noAur(QStringLiteral("no-aur"), QStringLiteral("Do not check AUR packages."));
+    QCommandLineOption aurHelper(QStringLiteral("aur-helper"), QStringLiteral("AUR helper (paru, yay, pamac), or none."), QStringLiteral("program"));
+    QCommandLineOption aurRpc(QStringLiteral("aur-rpc"), QStringLiteral("AUR info URL."), QStringLiteral("url"));
     QCommandLineOption noNews(QStringLiteral("no-news"), QStringLiteral("Do not fetch the distro's news."));
     QCommandLineOption newsFeed(QStringLiteral("news-feed"), QStringLiteral("News feed URL."), QStringLiteral("url"));
     QCommandLineOption osRelease(QStringLiteral("os-release"), QStringLiteral("os-release file."), QStringLiteral("path"),
@@ -60,7 +64,7 @@ int main(int argc, char **argv)
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("Kernel modules directory."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption kernelRelease(QStringLiteral("kernel-release"), QStringLiteral("Running kernel release."), QStringLiteral("release"));
-    for (auto *o : {&newsFeed, &osRelease, &pacmanLog, &modulesDir, &kernelRelease}) {
+    for (auto *o : {&newsFeed, &osRelease, &pacmanLog, &modulesDir, &kernelRelease, &aurHelper, &aurRpc}) {
         o->setFlags(QCommandLineOption::HiddenFromHelp);
     }
     QCommandLineOption dbPath(QStringLiteral("db-path"),
@@ -68,7 +72,7 @@ int main(int argc, char **argv)
                               QStringLiteral("path"));
     checkupdates.setFlags(QCommandLineOption::HiddenFromHelp);
     pacman.setFlags(QCommandLineOption::HiddenFromHelp);
-    parser.addOptions({noPacman, noFlatpak, json, stateFile, checkupdates, pacman, dbPath, noNews, newsFeed, osRelease, pacmanLog,
+    parser.addOptions({noPacman, noFlatpak, noAur, aurHelper, aurRpc, json, stateFile, checkupdates, pacman, dbPath, noNews, newsFeed, osRelease, pacmanLog,
                        modulesDir, kernelRelease});
     parser.process(app);
 
@@ -124,6 +128,26 @@ int main(int argc, char **argv)
         }
     }
 
+    // AUR packages, only with an AUR helper to update them.
+    std::optional<Kyu::AurResult> aurResult;
+    if (!parser.isSet(noAur)) {
+        const QString helper = parser.value(aurHelper);
+        const auto found = parser.isSet(aurHelper) ? (helper == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(helper)) : Kyu::findAurHelper();
+        if (!found) {
+            aurResult = Kyu::AurResult{false, false, {}, {}};
+        } else {
+            Kyu::AurCheckOptions options;
+            options.pacman = parser.value(pacman);
+            if (parser.isSet(aurRpc)) {
+                options.rpc = parser.value(aurRpc);
+            }
+            aurResult = Kyu::checkAur(options);
+            if (!aurResult->ok) {
+                err << "kyu-check: AUR: " << aurResult->error << Qt::endl;
+            }
+        }
+    }
+
     std::optional<Kyu::NewsResult> newsResult;
     if (!parser.isSet(noNews)) {
         Kyu::NewsSource source = Kyu::newsSourceFor(parser.value(osRelease));
@@ -142,7 +166,7 @@ int main(int argc, char **argv)
         }
     }
 
-    const auto state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult);
+    const auto state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult, aurResult);
 
     QString saveError;
     if (!state.save(statePath, &saveError)) {

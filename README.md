@@ -1,8 +1,8 @@
 # Kyu
 
 A Plasma update notifier for Manjaro (and Arch). Kyu tells you when to
-update and what to read first, runs the real `sudo pacman -Syu` and then
-`flatpak update` in a terminal, and afterwards says plainly what is left to
+update and what to read first, runs the real `sudo pacman -Syu`, then
+`flatpak update` and your AUR helper, in a terminal, and afterwards says plainly what is left to
 do: restart, merge a settings file, or why it failed and how to fix it.
 
 What Kyu should be, what it should solve and what is still missing:
@@ -20,8 +20,8 @@ tested less.
 | `kyu-tray` | The tray icon: your icon theme's update icons (none, updates, news to read first, restart to finish, failed) and a spinning one while updating. Hidden when there is nothing to do. Left click opens the card. |
 | `kyu` | The card: what is going on and the one thing to do next (Update, Restart, Merge…, Check for updates). |
 | `kyu-window` | Kyu's own window with Konsole's terminal inside (your window decoration, no toolbars), running `kyu-update`. Built when KF6 Parts is available; otherwise the update opens in Konsole. |
-| `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu` (a new keyring first, on its own), `flatpak update`, then one verdict and one key per thing left to do. `kyu-update --merge` only merges settings files (pacdiff). |
-| `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks and news; run by a systemd user timer. |
+| `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu` (a new keyring first, on its own), `flatpak update`, then your AUR helper (paru, yay, or pamac with the AUR on), then one verdict and one key per thing left to do. `kyu-update --merge` only merges settings files (pacdiff). |
+| `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks, news, and AUR packages from the AUR's web API when an AUR helper is installed; run by a systemd user timer. |
 
 Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.

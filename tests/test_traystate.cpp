@@ -117,6 +117,16 @@ void TestTrayState::cards()
     QCOMPARE(cardView(in).mergeText, QStringLiteral("2 settings files changed"));
     in.configs.clear();
 
+    // AUR packages: counted on their own; only AUR still needs a password.
+    UpdateState aur = withUpdates(0, false);
+    aur.aurPackages = {PackageUpdate{QStringLiteral("foo-bin"), QStringLiteral("aur"), QStringLiteral("1-1"), QStringLiteral("2-1"), -1, false}};
+    in.state = aur;
+    c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::Updates);
+    QCOMPARE(c.heading, QStringLiteral("1 update"));
+    QCOMPARE(c.detail, QStringLiteral("1 AUR"));
+    QCOMPARE(trayView(in).mark, TrayMark::Updates);
+
     // A failed check with updates listed still shows the updates.
     UpdateState partly = withUpdates(6, false);
     partly.flatpak.checked = true;

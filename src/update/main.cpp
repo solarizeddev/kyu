@@ -12,6 +12,7 @@
 #include "aftercare.h"
 #include "failure.h"
 #include "failuretext.h"
+#include "aur.h"
 #include "keyrings.h"
 #include "news.h"
 #include "paths.h"
@@ -671,8 +672,8 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Updates the system in this terminal: sudo pacman -Syu, then flatpak update, "
-                                                    "with the news before and what is left to do after."));
+    parser.setApplicationDescription(QStringLiteral("Updates the system in this terminal: sudo pacman -Syu, then flatpak update, then "
+                                                    "the AUR helper's update, with the news before and what is left to do after."));
     parser.addHelpOption();
     parser.addVersionOption();
     QCommandLineOption noWait(QStringLiteral("no-wait"), QStringLiteral("Do not wait for a key at the end."));
@@ -697,8 +698,10 @@ int main(int argc, char **argv)
     newsRead.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption synced(QStringLiteral("synced"), QStringLiteral("The package lists were just synced by a fix."));
     synced.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption aurHelperOption(QStringLiteral("aur-helper"), QStringLiteral("AUR helper (paru, yay, pamac), or none."), QStringLiteral("program"));
+    aurHelperOption.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -733,7 +736,8 @@ int main(int argc, char **argv)
     // The end: the lock goes first (the tray's card stops saying "Updating"),
     // then the last line offers what is left to do.
     // The exit status says what happened (0 done, 1 pacman failed, 3 already
-    // running, 4 stopped at the news, 5 flatpak failed) only without the wait
+    // running, 4 stopped at the news, 5 flatpak failed, 6 the AUR helper
+    // failed) only without the wait
     // (--no-wait, or no terminal): after it the person has read the result,
     // last-run.json has it, and a non-zero status would only make Konsole
     // post a "Program exited with status" notification.
@@ -899,6 +903,9 @@ int main(int argc, char **argv)
         if (!state->packages.isEmpty()) {
             parts.append(plural(state->packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
         }
+        if (!state->aurPackages.isEmpty()) {
+            parts.append(QStringLiteral("%1 AUR").arg(state->aurPackages.size()));
+        }
         if (!state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
@@ -959,8 +966,16 @@ int main(int argc, char **argv)
         }
     }
 
-    // Only Flatpaks pending (by the last check): no sudo, no pacman.
-    const bool flatpakOnly = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty() && !state->flatpaks.isEmpty();
+    // The AUR helper, if one is installed: last, on its own; its failure is
+    // not the system update's.
+    const QString aurHelperName = parser.value(aurHelperOption);
+    const std::optional<Kyu::AurHelper> aurHelper = parser.isSet(aurHelperOption)
+        ? (aurHelperName == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(aurHelperName))
+        : Kyu::findAurHelper();
+    const bool aurWanted = aurHelper && (!state || !state->aur.checked || !state->aur.ok || !state->aurPackages.isEmpty());
+    // Only Flatpaks or AUR packages pending (by the last check): no pacman.
+    const bool skipPacman = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty()
+        && (!state->flatpaks.isEmpty() || !state->aurPackages.isEmpty());
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
 
@@ -1098,7 +1113,8 @@ int main(int argc, char **argv)
         }
         return finish(1, keys);
     };
-    if (!flatpakOnly && QFileInfo::exists(lockPath)) {
+    // The AUR helper installs with pacman: it needs the lock too.
+    if ((!skipPacman || aurWanted) && QFileInfo::exists(lockPath)) {
         out.blank();
         switch (const Lock lock = waitForLock()) {
         case Lock::Free:
@@ -1116,7 +1132,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!flatpakOnly && elevate.isEmpty()) {
+    if (!skipPacman && elevate.isEmpty()) {
         out.bad(QStringLiteral("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."));
         return finish(1);
     }
@@ -1257,7 +1273,7 @@ int main(int argc, char **argv)
         }
         return std::nullopt;
     };
-    if (!flatpakOnly) {
+    if (!skipPacman) {
         // A keyring among the updates goes first, on its own: packages signed
         // with keys newer than the installed keyring fail otherwise (the
         // usual failure after a long gap). All installed keyrings, as Manjaro
@@ -1298,10 +1314,31 @@ int main(int argc, char **argv)
 
     // --- flatpak -------------------------------------------------------------
     int flatpakExit = -1;
-    if ((flatpakOnly || pacmanExit == 0) && flatpakWanted) {
+    if ((skipPacman || pacmanExit == 0) && flatpakWanted) {
         out.blank();
         out.step(QStringLiteral("Flatpaks"), QStringLiteral("flatpak update"));
         flatpakExit = runInTerminal(flatpak, {QStringLiteral("update")});
+    }
+
+    // --- AUR -----------------------------------------------------------------
+    // Last, so a long build or a failed one holds nothing else up. What it
+    // installed is in pacman's log too: a restart (an NVIDIA driver from the
+    // AUR) and settings files count.
+    int aurExit = -1;
+    Kyu::PacmanRun aurRun;
+    if ((skipPacman || pacmanExit == 0) && aurWanted) {
+        out.blank();
+        out.step(QStringLiteral("AUR"), aurHelper->command.join(QLatin1Char(' ')));
+        const qint64 logOffset = QFileInfo(logPath).size();
+        const QStringList c = inhibited(aurHelper->command);
+        aurExit = runInTerminal(c.first(), c.mid(1));
+        aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
+        run.updated += aurRun.updated;
+        for (const QString &file : std::as_const(aurRun.configs)) {
+            if (!run.configs.contains(file)) {
+                run.configs.append(file);
+            }
+        }
     }
 
     // --- The verdict ---------------------------------------------------------
@@ -1341,7 +1378,7 @@ int main(int argc, char **argv)
     // Your own programs on replaced libraries (other users' are not readable
     // without root). Not needed when a restart is anyway.
     QStringList programs;
-    if (restartReason.isEmpty() && !run.changed.isEmpty()) {
+    if (restartReason.isEmpty() && (!run.changed.isEmpty() || !aurRun.changed.isEmpty())) {
         const QSet<int> mine = ancestors();
         for (const Kyu::OldLibraryProcess &p : Kyu::processesOnReplacedLibraries(::getuid(), parser.value(procDir))) {
             if (!mine.contains(p.pid) && !programs.contains(p.name)) {
@@ -1354,7 +1391,10 @@ int main(int argc, char **argv)
     const QString packages = plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages"));
     out.blank();
     if (pacmanExit > 0) {
-        const QString skipped = flatpakWanted ? QStringLiteral(" Flatpaks were skipped.") : QString();
+        const QString skipped = flatpakWanted && aurWanted ? QStringLiteral(" Flatpaks and AUR packages were skipped.")
+            : flatpakWanted                                 ? QStringLiteral(" Flatpaks were skipped.")
+            : aurWanted                                     ? QStringLiteral(" AUR packages were skipped.")
+                                                            : QString();
         // pacman's last lines, whatever the language; the last one is its
         // "::" question when it was answered no.
         QStringList last;
@@ -1453,11 +1493,19 @@ int main(int argc, char **argv)
         if (!run.changed.isEmpty()) {
             parts.append(packages);
         }
+        if (aurExit == 0 && !aurRun.upgraded.isEmpty()) {
+            parts.append(QStringLiteral("%1 AUR").arg(aurRun.upgraded.size()));
+        }
         if (flatpakExit == 0 && state && !state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
         out.good(parts.isEmpty() ? QStringLiteral("Already up to date.")
                                  : QStringLiteral("Done in %1 · %2").arg(duration(clock.elapsed()), parts.join(QStringLiteral(" · "))));
+    }
+
+    // The AUR on its own line: the system update is done either way.
+    if (aurExit > 0) {
+        out.warn(QStringLiteral("AUR packages not updated: %1 stopped (status %2), see above. The rest is done.").arg(aurHelper->name).arg(aurExit));
     }
 
     if (!restartReason.isEmpty()) {
@@ -1485,7 +1533,7 @@ int main(int argc, char **argv)
         out.warn(QStringLiteral("Still on old libraries: %1. Restart them.")
                      .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())));
     }
-    if (pacmanExit <= 0 && flatpakExit <= 0 && restartReason.isEmpty() && configs.isEmpty() && programs.isEmpty()) {
+    if (pacmanExit <= 0 && flatpakExit <= 0 && aurExit <= 0 && restartReason.isEmpty() && configs.isEmpty() && programs.isEmpty()) {
         out.note(QStringLiteral("Nothing else to do."));
     }
 
@@ -1496,6 +1544,7 @@ int main(int argc, char **argv)
         {QStringLiteral("bootId"), boot},
         {QStringLiteral("pacmanExit"), pacmanExit < 0 ? QJsonValue() : QJsonValue(pacmanExit)},
         {QStringLiteral("flatpakExit"), flatpakExit < 0 ? QJsonValue() : QJsonValue(flatpakExit)},
+        {QStringLiteral("aurExit"), aurExit < 0 ? QJsonValue() : QJsonValue(aurExit)},
         {QStringLiteral("changed"), int(run.changed.size())},
         {QStringLiteral("transactionStarted"), pacmanExit > 0 ? lastStarted : run.transactionStarted},
         {QStringLiteral("restartRequired"), !restartReason.isEmpty()},
@@ -1523,6 +1572,6 @@ int main(int argc, char **argv)
         QProcess::startDetached(checkBinary(), {});
     }
 
-    const int code = pacmanExit > 0 ? pacmanExit : flatpakExit > 0 ? 5 : 0;
+    const int code = pacmanExit > 0 ? pacmanExit : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
     return finish(code, keys);
 }

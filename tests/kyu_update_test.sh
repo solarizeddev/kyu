@@ -53,6 +53,7 @@ has "$d/out" '1 settings file changed: /etc/sddm.conf' ok
 hasnt "$d/out" 'Nothing else to do' ok
 has "$d/out" 'Keep this window open until Kyu says it is done.' ok
 hasnt "$d/out" 'Snapshot' ok
+hasnt "$d/out" 'AUR' ok
 grep -q '"restartRequired": true' "$d/state/kyu/last-run.json" || fail "ok: last-run.json without the restart"
 [ -e "$d/inhibited" ] || fail "ok: pacman did not run under systemd-inhibit"
 [ "$(cat "$d/pacman-args")" = -Syu ] || fail "ok: pacman ran with $(cat "$d/pacman-args")"
@@ -384,6 +385,42 @@ runtty keysynced 'y\n|\n' --synced
 d=$work/keysynced
 hasnt "$d/out" 'Keyrings ' keysynced
 [ "$(cat "$d/pacman-args" 2>/dev/null)" = -Syu ] || fail "keysynced: pacman ran with $(cat "$d/pacman-args" 2>/dev/null)"
+
+echo "AUR: last, after pacman and Flatpaks, counted on its own"
+prepare aur; state "$work/aur/state.json" 2 1 0 "" foo-bin
+runtty aur 'y\n|y\n|\n' --aur-helper "$here/update/paru"
+d=$work/aur
+has "$d/out" 'Kyu · 4 updates: 2 packages, 1 AUR, 1 Flatpak' aur
+has "$d/out" 'AUR        '"$here/update/paru"' -Sua' aur
+[ "$(cat "$d/aur-args" 2>/dev/null)" = -Sua ] || fail "aur: paru ran with $(cat "$d/aur-args" 2>/dev/null)"
+f=$(grep -n 'Flatpaks   flatpak update' "$d/out" | cut -d: -f1); a=$(grep -n ' -Sua' "$d/out" | head -1 | cut -d: -f1)
+[ -n "$f" ] && [ -n "$a" ] && [ "$f" -lt "$a" ] || fail "aur: the AUR did not come after the Flatpaks"
+has "$d/out" ' · 2 packages · 1 AUR · 1 Flatpak' aur
+
+echo "AUR failed: said on its own line; the system update is done"
+prepare aurfail; state "$work/aurfail/state.json" 2 0 0 "" foo-bin
+KYU_FAKE_AUR=fail runtty aurfail 'y\n|y\n|\n' --aur-helper "$here/update/paru"
+d=$work/aurfail
+has "$d/out" 'Done in ' aurfail
+has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above. The rest is done.' aurfail
+hasnt "$d/out" 'Nothing else to do' aurfail
+grep -q '"aurExit": 1' "$d/state/kyu/last-run.json" || fail "aurfail: last-run.json without the AUR's status"
+grep -q '"pacmanExit": 0' "$d/state/kyu/last-run.json" || fail "aurfail: the system update counted as failed"
+
+echo "AUR skipped when pacman failed"
+prepare aurskip; state "$work/aurskip/state.json" 2 1 0 "" foo-bin
+KYU_FAKE_MODE=keyring runtty aurskip 'y\n|\n' --aur-helper "$here/update/paru"
+d=$work/aurskip
+has "$d/out" 'Flatpaks and AUR packages were skipped.' aurskip
+[ ! -e "$d/aur-args" ] || fail "aurskip: the AUR helper ran after pacman failed"
+
+echo "only AUR packages pending: no pacman, the helper alone"
+prepare auronly; state "$work/auronly/state.json" 0 0 0 "" foo-bin
+runtty auronly 'y\n|\n' --aur-helper "$here/update/paru"
+d=$work/auronly
+[ ! -e "$d/pacman-ran" ] || fail "auronly: pacman ran"
+[ -e "$d/aur-args" ] || fail "auronly: the AUR helper did not run"
+has "$d/out" ' · 1 AUR' auronly
 
 echo "a restart from before this run says so"
 prepare earlier; state "$work/earlier/state.json" 0 0 0

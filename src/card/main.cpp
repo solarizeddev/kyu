@@ -34,7 +34,7 @@ std::optional<Kyu::CardView> demo(const QString &name)
         c.primary = primary;
     };
     if (name == QLatin1String("updates")) {
-        set(K::Updates, QStringLiteral("checked 14:02"), QStringLiteral("8 updates"), QStringLiteral("6 packages · 2 Flatpaks · 412 MB · restart after"),
+        set(K::Updates, QStringLiteral("checked 14:02"), QStringLiteral("9 updates"), QStringLiteral("6 packages · 1 AUR · 2 Flatpaks · 412 MB · restart after"),
             A::Update, QStringLiteral("Update"), true);
         c.linkText = QStringLiteral("Read first: Stable Update 2026-11-14");
         c.linkUrl = QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12");

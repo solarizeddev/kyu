@@ -40,7 +40,7 @@ private:
     {
         QProcess p;
         p.start(QStringLiteral(KYU_CHECK_BIN),
-                {QStringLiteral("--no-flatpak"),
+                {QStringLiteral("--no-flatpak"), QStringLiteral("--no-aur"),
                  QStringLiteral("--no-news"),
                  QStringLiteral("--state-file"), statePath(),
                  QStringLiteral("--db-path"), m_dir.filePath(QStringLiteral("db")),
@@ -160,7 +160,7 @@ private Q_SLOTS:
                                                  "echo 'linux618-headers 6.18.20-1 -> 6.18.22-1'\n");
         QProcess p;
         p.start(QStringLiteral(KYU_CHECK_BIN),
-                {QStringLiteral("--no-flatpak"), QStringLiteral("--state-file"), statePath(), QStringLiteral("--db-path"),
+                {QStringLiteral("--no-flatpak"), QStringLiteral("--no-aur"), QStringLiteral("--state-file"), statePath(), QStringLiteral("--db-path"),
                  m_dir.filePath(QStringLiteral("db")), QStringLiteral("--checkupdates"), checkupdates, QStringLiteral("--pacman"),
                  m_dir.filePath(QStringLiteral("pacman")), QStringLiteral("--modules-dir"), m_dir.filePath(QStringLiteral("modules")),
                  QStringLiteral("--kernel-release"), QStringLiteral("6.18.20-1-MANJARO"), QStringLiteral("--os-release"), osRelease,

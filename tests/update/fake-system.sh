@@ -1,14 +1,17 @@
 # Sourced by tests/kyu_update_test.sh and tools/kyu-update-screens.sh: a fake
 # system for kyu-update in a directory, so nothing real is read or changed.
 
-# fake_state FILE PACKAGES FLATPAKS NEWS(0/1) [NAMES]: the checker's state
-# file; NAMES (space-separated) are pending packages besides p0, p1...
+# fake_state FILE PACKAGES FLATPAKS NEWS(0/1) [NAMES] [AUR]: the checker's
+# state file; NAMES (space-separated) are pending packages besides p0, p1...;
+# AUR (space-separated) pending AUR packages.
 fake_state() {
     news=""
     [ "$4" = 1 ] && news='"items":[{"title":"Manual intervention for foo","link":"https://archlinux.org/news/foo/","published":"2099-01-01T00:00:00Z"}],'
     pk=""; i=0
     while [ $i -lt "$2" ]; do pk="$pk${pk:+,}{\"name\":\"p$i\",\"repo\":\"core\",\"oldVersion\":\"1\",\"newVersion\":\"2\",\"size\":1}"; i=$((i + 1)); done
     for n in ${5:-}; do pk="$pk${pk:+,}{\"name\":\"$n\",\"repo\":\"core\",\"oldVersion\":\"1\",\"newVersion\":\"2\",\"size\":1}"; done
+    aur=""
+    for n in ${6:-}; do aur="$aur${aur:+,}{\"name\":\"$n\",\"oldVersion\":\"1-1\",\"newVersion\":\"2-1\"}"; done
     fp=""; i=0
     while [ $i -lt "$3" ]; do fp="$fp${fp:+,}{\"name\":\"org.x.App$i\",\"kind\":\"app\",\"branch\":\"stable\",\"origin\":\"flathub\",\"installation\":\"user\"}"; i=$((i + 1)); done
     cat >"$1" <<JSON
@@ -16,6 +19,7 @@ fake_state() {
  "pacman":{"checked":true,"ok":true,"checkedAt":"2026-11-16T10:00:00Z"},
  "flatpak":{"checked":true,"ok":true,"checkedAt":"2026-11-16T10:00:00Z"},
  "packages":[$pk],"flatpaks":[$fp],
+ "aur":{"checked":true,"ok":true,"checkedAt":"2026-11-16T10:00:00Z"},"aurPackages":[$aur],
  "news":{"checked":true,"ok":true,$news"source":"Arch Linux news","url":"https://archlinux.org/feeds/news/","page":"https://archlinux.org/news/"}}
 JSON
 }
@@ -53,5 +57,5 @@ fake_package() {
 
 # fake_args DIR: kyu-update's options pointing at the fake system.
 fake_args() {
-    echo "--no-check --state-file $1/state.json --pacman-log $1/pacman.log --db-lock $1/db.lck --proc-dir $1/proc --modules-dir $1/modules --hooks-dir $1/hooks"
+    echo "--no-check --state-file $1/state.json --pacman-log $1/pacman.log --db-lock $1/db.lck --proc-dir $1/proc --modules-dir $1/modules --hooks-dir $1/hooks --aur-helper none"
 }
