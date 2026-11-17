@@ -75,6 +75,9 @@ public:
     void setFixedView(const Kyu::CardView &view);
     // For screenshots: Details open.
     void showDetails(bool shown);
+    // The band as tall as its lines as laid out (once the window has its
+    // size): measured, not estimated.
+    void fitBand();
 
 public Q_SLOTS:
     void refresh();
@@ -115,6 +118,7 @@ private:
     QGridLayout *m_grid;
     QHBoxLayout *m_footer;
     QWidget *m_footerHeight; // the button row as tall without buttons (no width)
+    QWidget *m_footerRow = nullptr; // Details and the buttons, twice a line's spacing below the text
     QPlainTextEdit *m_raw;
     bool m_shown = false;
     bool m_detailsShown = false;

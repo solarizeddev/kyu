@@ -2,6 +2,7 @@
 
 #include "traystate.h"
 
+#include <QLocale>
 #include <QJsonArray>
 
 #include <QTest>
@@ -344,7 +345,10 @@ void TestTrayState::details()
     QVERIFY(lines.at(7).header); // Flatpak (1)
     // Sizes: pacman's Download Size column, right-aligned; unknown ones blank.
     rows[0].size = 158 * 1024 * 1024 + 629146; // 158.6 MiB
+    // Sizes in the C locale here ("158.6"; a German desktop says "158,6").
+    QLocale::setDefault(QLocale::c());
     const QStringList sized = text(detailLines(rows));
+    QLocale::setDefault(QLocale::system());
     QCOMPARE(sized.at(0), QStringLiteral("Package (2)              Old Version   New Version   Download Size"));
     QCOMPARE(sized.at(1), QStringLiteral("core/linux618            6.18.20-1     6.18.22-1         158.6 MiB"));
     QCOMPARE(sized.at(2), QStringLiteral("extra/mesa               1:26.2.1-1    1:26.2.3-1"));

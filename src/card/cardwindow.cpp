@@ -19,6 +19,7 @@
 #include <QProgressBar>
 #include <QFuture>
 #include <QGridLayout>
+#include <QScrollBar>
 #include <QStyle>
 #include <QStyleOption>
 #include <QToolButton>
@@ -51,6 +52,9 @@ namespace
 {
 // Breeze's monochrome status icons, as the tray shows them.
 constexpr int IconSize = 22;
+// The most lines Details shows before it scrolls: three blocks of a
+// usual update.
+constexpr int MaxLines = 16;
 // A program next to this one (a build tree), else on PATH.
 QString sibling(const QString &name)
 {
@@ -307,7 +311,6 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_top->setContentsMargins(left, top, right, bottom);
     m_top->setSpacing(0);
     m_top->addLayout(m_grid);
-    m_top->addSpacing(2 * down); // twice a line's spacing above the buttons
     layout->addLayout(m_top);
 
     m_details = new Disclosure(QStringLiteral("Details"), this);
@@ -316,8 +319,12 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
         showDetails(!m_detailsShown);
     });
 
-    // The buttons, on the right: what to do, the main one last.
-    m_footer = new QHBoxLayout;
+    // The buttons, on the right: what to do, the main one last. The row
+    // goes when it has nothing (the first check): no empty space under
+    // the text then.
+    m_footerRow = new QWidget(this);
+    m_footer = new QHBoxLayout(m_footerRow);
+    m_footer->setContentsMargins(0, 2 * down, 0, 0); // twice a line's spacing above the buttons
     m_footer->setSpacing(across); // the root's 0 is not for between buttons
     m_footerHeight = new QWidget(this);
     m_secondary = new QPushButton(this);
@@ -337,7 +344,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_footer->addWidget(m_footerHeight); // no width: keeps a button's height without buttons
     m_footer->addWidget(m_secondary);
     m_footer->addWidget(m_action);
-    m_top->addLayout(m_footer);
+    m_top->addWidget(m_footerRow);
     setTabOrder(m_details, m_secondary);
     setTabOrder(m_secondary, m_action);
 
@@ -417,7 +424,6 @@ void CardWindow::keepFooterHeight()
 
 void CardWindow::sizeDetails()
 {
-    constexpr int MaxLines = 16;
     // The box as tall as its lines (3 to 16; more scroll: three blocks of
     // a usual update fit). The package list
     // is not wrapped: the box is as wide as its longest line (up to 80
@@ -486,6 +492,30 @@ void CardWindow::sizeDetails()
         height = qMax(height, qCeil(laid) + 1);
     }
     m_raw->setFixedHeight(height + frame + bar);
+    if (m_detailsShown) {
+        QTimer::singleShot(0, this, &CardWindow::fitBand);
+    }
+}
+
+void CardWindow::fitBand()
+{
+    if (!m_detailsShown || !m_raw->isVisible()) {
+        return;
+    }
+    // The lines as the box has laid them out at its width now (a wrapped
+    // line's breaks are the box's own), up to the most shown.
+    QFont boldLine = m_raw->font();
+    boldLine.setBold(true);
+    const qreal line = qMax(QFontMetricsF(m_raw->font()).lineSpacing(), QFontMetricsF(boldLine).lineSpacing());
+    qreal laid = 0;
+    for (QTextBlock block = m_raw->document()->begin(); block.isValid(); block = block.next()) {
+        laid += m_raw->document()->documentLayout()->blockBoundingRect(block).height();
+    }
+    const int wanted = qCeil(qMin(laid, MaxLines * line)) + 2 + (m_raw->horizontalScrollBar()->isVisible() ? m_raw->horizontalScrollBar()->height() : 0);
+    if (wanted > m_raw->height()) {
+        m_raw->setFixedHeight(wanted);
+        adjustSize();
+    }
 }
 
 void CardWindow::changeEvent(QEvent *event)
@@ -616,7 +646,7 @@ void CardWindow::present(const Kyu::CardView &view)
     m_action->setVisible(hasAction);
     m_action->setEnabled(view.actionEnabled);
     // No buttons at all (the first check): no empty button row.
-    m_footerHeight->setVisible(hasAction || hasDetails || view.secondary != Kyu::CardView::Action::None);
+    m_footerRow->setVisible(hasAction || hasDetails || view.secondary != Kyu::CardView::Action::None);
     m_action->setDefault(view.primary);
     m_action->setAutoDefault(view.primary);
     // Enter presses it, not the news link; only when what to do changed, so
