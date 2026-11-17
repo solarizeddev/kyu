@@ -656,7 +656,8 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // What this run does, for the tray and the card while the lock is held.
+    // What this run does, for the tray and the card while the lock is held
+    // (a file left by a killed run is replaced here).
     {
         QSaveFile activity(activityPath);
         if (activity.open(QIODevice::WriteOnly)) {

@@ -134,6 +134,9 @@ TrayView trayView(const TrayInput &in)
         v.mark = TrayMark::News;
         v.iconName = QStringLiteral("update-medium");
         v.tooltip = QStringLiteral("Read first: ") + in.state->news.items.constFirst().title + QLatin1Char('\n') + status.value(0);
+        if (const QString failed = failureLines(*in.state, in.now).value(0); !failed.isEmpty()) {
+            v.tooltip += QLatin1Char('\n') + failed;
+        }
     } else if (total > 0) {
         v.mark = TrayMark::Updates;
         v.iconName = QStringLiteral("update-low");
@@ -235,7 +238,7 @@ CardView cardView(const TrayInput &in)
         if (s.restartNeeded()) {
             parts.append(QStringLiteral("restart after"));
         }
-        if (s.hasError()) {
+        if (s.hasError() || !in.loadError.isEmpty()) {
             parts.append(QStringLiteral("a check failed"));
         }
         c.heading = plural(total, QStringLiteral("update"), QStringLiteral("updates"));

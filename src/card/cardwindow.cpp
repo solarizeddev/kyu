@@ -100,6 +100,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     row->addWidget(m_mergeText, 1);
     row->addWidget(m_mergeButton);
     connect(m_mergeButton, &QPushButton::clicked, this, &CardWindow::merge);
+    m_mergeButton->setAutoDefault(true); // Enter on it merges, not the main button
 
     m_action = new QPushButton(this);
     m_action->setMinimumHeight(m_action->sizeHint().height() + 6);
@@ -148,6 +149,7 @@ void CardWindow::present(const Kyu::CardView &view)
     if (m_shown && view == m_view) {
         return;
     }
+    const bool newThing = !m_shown || view.kind != m_view.kind || view.action != m_view.action;
     m_shown = true;
     m_view = view;
     m_stamp->setText(view.stamp);
@@ -176,8 +178,10 @@ void CardWindow::present(const Kyu::CardView &view)
     m_gap->setVisible(hasAction);
     m_action->setDefault(view.primary);
     m_action->setAutoDefault(view.primary);
-    if (hasAction) {
-        m_action->setFocus(); // Enter presses it, not the news link
+    // Enter presses it, not the news link; only when what to do changed, so
+    // a new stamp doesn't pull the focus off the Merge… button.
+    if (hasAction && newThing) {
+        m_action->setFocus();
     }
     adjustSize();
 }
@@ -229,7 +233,8 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
         close();
         return;
     }
-    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && m_action->isVisible()) {
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && m_action->isVisible()
+        && !qobject_cast<QPushButton *>(focusWidget())) {
         m_action->click();
         return;
     }
