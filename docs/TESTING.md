@@ -98,6 +98,10 @@ build/bin/kyu-tray &
   reason. Turn it back on with `nmcli networking on`.
 - **A stale lock** (`sudo touch /var/lib/pacman/db.lck` with no package
   manager running): Kyu says so and offers `[f]` to remove it and update.
+- **pacman keeps its lock open while it holds it** (Kyu's `[f]` relies on
+  this): run `sudo pacman -Syu`, leave it at its question, and in another
+  terminal `sudo ls -l /proc/$(pidof pacman)/fd | grep db.lck` should show the
+  lock. Answer `n` afterwards.
 - **Another language** (`LANG=de_DE.UTF-8 build/bin/kyu-update` with the
   network off): pacman's own last lines are shown.
 

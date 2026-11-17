@@ -435,12 +435,14 @@ QString shellJoin(const QStringList &args);
 // Kyu's own guesses only decide when to offer it.
 QString unlockCommand(const QString &elevate, const QString &lockPath)
 {
+    // One find over all open files (a desktop has tens of thousands); the
+    // lock's real path, as /proc shows it (/var may be a symlink).
     static const QString script = QStringLiteral(
-        "for f in /proc/[0-9]*/fd/*; do "
-        "if [ \"$(readlink \"$f\" 2>/dev/null)\" = \"$1\" ]; then "
-        "p=${f#/proc/}; p=${p%%/*}; "
-        "echo \"pacman's lock is in use by $(cat /proc/$p/comm 2>/dev/null) (pid $p); not removed.\"; exit 1; "
-        "fi; done; rm -f -- \"$1\"");
+        "l=$(readlink -f -- \"$1\"); "
+        "f=$(find /proc/[0-9]*/fd -lname \"$l\" -print -quit 2>/dev/null); "
+        "if [ -n \"$f\" ]; then p=${f#/proc/}; p=${p%%/*}; "
+        "echo \"pacman's lock is in use by $(cat /proc/$p/comm 2>/dev/null) (pid $p); not removed.\"; exit 1; fi; "
+        "rm -f -- \"$1\"");
     return shellJoin({elevate, QStringLiteral("sh"), QStringLiteral("-c"), script, QStringLiteral("kyu-unlock"), lockPath});
 }
 
