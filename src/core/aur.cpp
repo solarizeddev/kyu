@@ -265,9 +265,9 @@ QStringList heldBack(const QString &pacmanConf, const QString &pacman)
     };
     QStringList held = lines(pacmanConf, {QStringLiteral("IgnorePkg")});
 
-    const QStringList groups = lines(pacmanConf, {QStringLiteral("IgnoreGroup")});
-    if (!groups.isEmpty()) {
-        held += lines(pacman, QStringList{QStringLiteral("-Qgq")} + groups);
+    // One group at a time: pacman fails the lot for one unknown group.
+    for (const QString &group : lines(pacmanConf, {QStringLiteral("IgnoreGroup")})) {
+        held += lines(pacman, {QStringLiteral("-Qgq"), group});
     }
     return held;
 }

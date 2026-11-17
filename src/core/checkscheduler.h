@@ -27,6 +27,9 @@ public:
 
 public Q_SLOTS:
     void checkNow();
+    // The same, asked for by a person: the AUR is asked now too (not only
+    // every few hours).
+    void checkNowAsked();
 
 private:
     void useInternalTimer();

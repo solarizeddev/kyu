@@ -1,6 +1,10 @@
 #include "checkscheduler.h"
 
+#include "paths.h"
+
 #include <QCoreApplication>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
@@ -55,6 +59,17 @@ void CheckScheduler::checkNow()
     } else {
         runCheckBinary();
     }
+}
+
+void CheckScheduler::checkNowAsked()
+{
+    // kyu-check reads and removes it (the service cannot be given options).
+    QDir().mkpath(Kyu::Paths::stateDir());
+    QFile asked(Kyu::Paths::stateDir() + QStringLiteral("/aur-now"));
+    if (asked.open(QIODevice::WriteOnly)) {
+        asked.close();
+    }
+    checkNow();
 }
 
 void CheckScheduler::useInternalTimer()

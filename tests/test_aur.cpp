@@ -183,13 +183,13 @@ private Q_SLOTS:
         leaveOutFailedAur(in);
         QCOMPARE(in.state->aurPackages.size(), 1);
         QCOMPARE(in.aurFailed, QStringList{QStringLiteral("foo-bin")});
-        QVERIFY(trayView(in).tooltip.contains(QStringLiteral("AUR: foo-bin did not build")));
-        QVERIFY(cardView(in).detail.contains(QStringLiteral("1 AUR did not build")));
+        QVERIFY(trayView(in).tooltip.contains(QStringLiteral("AUR: foo-bin not updated last time")));
+        QVERIFY(cardView(in).detail.contains(QStringLiteral("1 AUR held back")));
         QCOMPARE(trayView(in).mark, TrayMark::Updates);
         // Only that one: up to date, with the line on the card.
         in.state->aurPackages.removeLast();
         QCOMPARE(trayView(in).mark, TrayMark::UpToDate);
-        QVERIFY(cardView(in).detail.startsWith(QStringLiteral("AUR: foo-bin did not build")));
+        QVERIFY(cardView(in).detail.startsWith(QStringLiteral("AUR: foo-bin not updated last time")));
         // A newer version: offered again.
         in.state = s;
         in.state->aurPackages.first().newVersion = QStringLiteral("2-2");

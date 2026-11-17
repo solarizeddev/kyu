@@ -207,7 +207,7 @@ void CardWindow::act()
         break;
     case Kyu::CardView::Action::Check:
         if (m_scheduler) {
-            m_scheduler->checkNow();
+            m_scheduler->checkNowAsked();
         }
         break;
     case Kyu::CardView::Action::Restart: {

@@ -1394,11 +1394,26 @@ int main(int argc, char **argv)
     // AUR) and settings files count.
     int aurExit = -1;
     Kyu::PacmanRun aurRun;
-    QJsonArray aurFailed; // {name, version}: not built, not offered again until a newer version
+    // {name, version}: not updated last time, not offered again until a
+    // newer version. Kept from earlier runs while still listed at that
+    // version; replaced when the helper runs.
+    QJsonArray aurFailed;
+    for (const QJsonValue &v : previous.value(QStringLiteral("aurFailed")).toArray()) {
+        const bool listed = state && std::any_of(state->aurPackages.cbegin(), state->aurPackages.cend(), [&v](const Kyu::PackageUpdate &p) {
+            return p.name == v[QStringLiteral("name")].toString() && p.newVersion == v[QStringLiteral("version")].toString();
+        });
+        if (listed) {
+            aurFailed.append(v);
+        }
+    }
     if ((skipPacman || pacmanExit == 0) && aurWanted) {
-        // The system's part is done: saved now, whatever happens while the
-        // helper waits at its questions (or the window is closed).
-        writeRecord(recordOf(after(), {}, -1, {}));
+        // The system's part is done: saved now, and checked again, whatever
+        // happens while the helper waits at its questions (or the window is
+        // closed).
+        writeRecord(recordOf(after(), {}, -1, aurFailed));
+        if (!parser.isSet(noCheck)) {
+            QProcess::startDetached(checkBinary(), {});
+        }
         out.blank();
         out.step(QStringLiteral("AUR"), aurHelper->command.join(QLatin1Char(' ')));
         out.note(QStringLiteral("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
@@ -1406,6 +1421,7 @@ int main(int argc, char **argv)
         const QStringList c = inhibited(aurHelper->command);
         aurExit = runInTerminal(c.first(), c.mid(1));
         aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
+        aurFailed = QJsonArray();
         if (aurExit > 0 && state) {
             for (const Kyu::PackageUpdate &p : state->aurPackages) {
                 if (!aurRun.upgraded.contains(p.name)) {

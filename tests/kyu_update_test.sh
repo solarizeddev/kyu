@@ -410,6 +410,9 @@ grep -q '"pacmanExit": 0' "$d/state/kyu/last-run.json" || fail "aurfail: the sys
 grep -q '"name": "foo-bin"' "$d/state/kyu/last-run.json" || fail "aurfail: the failed AUR package is not remembered"
 grep -q '"restartRequired": true' "$d/last-run-before-aur.json" 2>/dev/null || fail "aurfail: nothing saved before the AUR step"
 has "$d/out" 'paru asks its own questions, and may ask for the password again.' aurfail
+# The next update fails in pacman: the AUR package is still held back.
+KYU_FAKE_MODE=keyring runtty aurfail 'y\n|\n' --aur-helper "$here/update/paru"
+grep -q '"name": "foo-bin"' "$d/state/kyu/last-run.json" || fail "aurfail: the failed AUR package was forgotten by the next update"
 
 echo "only AUR pending, and it fails: no \"up to date\", no \"the rest is done\""
 prepare auronlyfail; state "$work/auronlyfail/state.json" 0 0 0 "" foo-bin

@@ -217,6 +217,12 @@ private Q_SLOTS:
         write(QStringLiteral("aur.json"), R"({"type":"multiinfo","results":[{"Name":"foo-bin","Version":"1.2-1"}]})");
         check({QStringLiteral("--aur-now")});
         QCOMPARE(UpdateState::load(state)->aurPackages.value(0).newVersion, QStringLiteral("1.2-1"));
+        // Asked by a person (the card's "Check for updates" leaves a mark).
+        write(QStringLiteral("aur.json"), R"({"type":"multiinfo","results":[{"Name":"foo-bin","Version":"1.3-1"}]})");
+        write(QStringLiteral("aur-now"), "");
+        check({});
+        QCOMPARE(UpdateState::load(state)->aurPackages.value(0).newVersion, QStringLiteral("1.3-1"));
+        QVERIFY(!QFile::exists(m_dir.filePath(QStringLiteral("aur-now"))));
         // No helper: the AUR is left alone.
         check({QStringLiteral("--aur-helper"), QStringLiteral("none")});
         QVERIFY(UpdateState::load(state)->aurPackages.isEmpty());

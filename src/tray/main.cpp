@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     StateWatcher watcher;
     CheckScheduler scheduler;
     TrayIcon tray(&watcher);
-    QObject::connect(&tray, &TrayIcon::checkRequested, &scheduler, &CheckScheduler::checkNow);
+    QObject::connect(&tray, &TrayIcon::checkRequested, &scheduler, &CheckScheduler::checkNowAsked);
     // Check again when packages changed outside Kyu (pamac, plain pacman),
     // after sleep, and when the network is back after a failed check.
     SystemWatcher system;

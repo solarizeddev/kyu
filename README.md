@@ -86,13 +86,21 @@ helpers do when they check. Packages pacman holds back (`IgnorePkg`,
 for new commits. A package whose build failed is not offered again until the
 AUR has a newer version.
 
-To leave the AUR alone, or to pick the helper, in `~/.config/kyu/kyu.conf`:
+To leave the AUR alone, in `~/.config/kyu/kyu.conf`:
 
 ```ini
 [AUR]
 check=false
+```
+
+Or, to pick the helper when more than one is installed:
+
+```ini
+[AUR]
 helper=yay
 ```
+
+"Check for updates" on the card asks the AUR right away.
 
 ## Install
 

@@ -11,6 +11,7 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QLockFile>
@@ -171,17 +172,21 @@ int main(int argc, char **argv)
             QString error;
             const auto installed = Kyu::foreignPackages(parser.value(pacman), &error);
             // The last list, without what is no longer at the listed version.
-            QList<Kyu::PackageUpdate> still;
-            for (const Kyu::PackageUpdate &p : std::as_const(state.aurPackages)) {
-                if (installed && installed->value(p.name) == p.oldVersion) {
-                    still.append(p);
-                }
+            QList<Kyu::PackageUpdate> still = state.aurPackages;
+            if (installed) {
+                still.removeIf([&installed](const Kyu::PackageUpdate &p) {
+                    return installed->value(p.name) != p.oldVersion;
+                });
+                state.aurPackages = still;
             }
-            state.aurPackages = still;
             const QDateTime now = QDateTime::currentDateTimeUtc();
             const bool recent = state.aur.ok && state.aur.lastSuccessAt.isValid() && state.aur.lastSuccessAt.secsTo(now) < 6 * 3600
                 && state.aur.lastSuccessAt <= now;
-            if (recent && installed && !parser.isSet(aurNow)) {
+            // Asked for by a person ("Check for updates"): the AUR now.
+            const QString askedFile = stateDir + QStringLiteral("/aur-now");
+            const bool asked = parser.isSet(aurNow) || QFile::exists(askedFile);
+            QFile::remove(askedFile);
+            if (recent && installed && !asked) {
                 aurResult.ok = true;
                 aurResult.cached = true;
                 aurResult.packages = still;

@@ -62,7 +62,7 @@ QString restartReason(const TrayInput &in)
 
 QString aurFailedLine(const QStringList &names)
 {
-    return QStringLiteral("AUR: %1 did not build; offered again with a newer version").arg(names.join(QStringLiteral(", ")));
+    return QStringLiteral("AUR: %1 not updated last time; offered again with a newer version").arg(names.join(QStringLiteral(", ")));
 }
 
 QString settingsLine(const QStringList &configs)
@@ -295,7 +295,7 @@ CardView cardView(const TrayInput &in)
             parts.append(QStringLiteral("restart after"));
         }
         if (!in.aurFailed.isEmpty()) {
-            parts.append(QStringLiteral("%1 AUR did not build").arg(in.aurFailed.size()));
+            parts.append(QStringLiteral("%1 AUR held back").arg(in.aurFailed.size()));
         }
         if (s.hasError() || !in.loadError.isEmpty()) {
             parts.append(QStringLiteral("a check failed"));
