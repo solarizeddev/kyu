@@ -1107,6 +1107,7 @@ int main(int argc, char **argv)
         quiet.start();
         QStringList last = activity();
         int freeFor = 0;
+        int goneFor = 0;
         Lock result = Lock::TimedOut;
         const bool tty = ::isatty(STDOUT_FILENO);
         while (waited.elapsed() < lockLimit) {
@@ -1124,10 +1125,17 @@ int main(int argc, char **argv)
             } else {
                 freeFor = 0;
                 const QList<Manager> all = packageManagers(procPath);
+                // Its holder gone: the lock goes a moment later (pacman
+                // removes it as it exits). Left over only after 3 s.
                 if (all.isEmpty()) {
-                    result = Lock::Stale;
-                    break;
+                    if (++goneFor >= 6) {
+                        result = Lock::Stale;
+                        break;
+                    }
+                    QThread::msleep(500);
+                    continue;
                 }
+                goneFor = 0;
                 const QList<Manager> holders = candidates();
                 const QHash<int, int> parents = parentMap(procPath);
                 const bool mayBeIdle = std::all_of(holders.cbegin(), holders.cend(), [&](const Manager &m) {
@@ -1572,7 +1580,12 @@ int main(int argc, char **argv)
                 last.prepend(l);
             }
         }
-        const bool declined = !last.isEmpty() && last.last().startsWith(QLatin1String("::"));
+        // Stopped on purpose, not failed: "n" at a question (pacman's last
+        // line is its "::" question), Ctrl+C before anything changed (pacman
+        // exits 130), or sudo (doas) not given the password: its own line,
+        // "sudo: …" in any language; pacman never ran then.
+        const bool refused = !last.isEmpty() && (last.last().startsWith(QLatin1String("sudo: ")) || last.last().startsWith(QLatin1String("doas: ")));
+        const bool declined = (!last.isEmpty() && last.last().startsWith(QLatin1String("::"))) || (pacmanExit == 130 && !lastStarted) || refused;
         // What an earlier run of this update (the keyrings) installed.
         const QString only = run.changed.isEmpty()
             ? QStringLiteral("No packages were upgraded.")
@@ -1581,6 +1594,9 @@ int main(int argc, char **argv)
             out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
         } else if (declined) {
             out.warn(QStringLiteral("Stopped. ") + only + skipped);
+            if (refused) {
+                out.note(last.last(), Tone::Dim);
+            }
         } else {
             out.bad((run.changed.isEmpty() ? QString() : QStringLiteral("pacman failed. ")) + only + skipped);
         }
@@ -1593,7 +1609,7 @@ int main(int argc, char **argv)
         static const QStringList afterSync{QStringLiteral("keyring"), QStringLiteral("mirror"), QStringLiteral("files"), QStringLiteral("disk"),
                                            QStringLiteral("dependencies")};
         const bool listsChanged = listsMark() != listsBefore;
-        const bool partial = (parser.isSet(synced) || listsChanged || keyringsDone || declined || afterSync.contains(kind)) && !lastStarted;
+        const bool partial = (parser.isSet(synced) || listsChanged || keyringsDone || (declined && !refused) || afterSync.contains(kind)) && !lastStarted;
         if (!failure.isEmpty()) {
             if (kind == QLatin1String("keyring")) {
                 failure.insert(QStringLiteral("keyrings"), QJsonArray::fromStringList(Kyu::installedKeyrings(localDb)));

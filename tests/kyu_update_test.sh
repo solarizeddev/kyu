@@ -119,7 +119,16 @@ has "$d/out" 'The package lists are newer than the system: update before install
 echo "Ctrl+C at Proceed: the lists changed, so the warning"
 KYU_FAKE_MODE=interrupt run ctrlc ''
 has "$work/ctrlc/out" 'The package lists are newer than the system' ctrlc
-hasnt "$work/ctrlc/out" 'Stopped.' ctrlc
+# A stop on purpose, as "n" is (seen with a real pacman: it exits 130).
+has "$work/ctrlc/out" 'Stopped. No packages were upgraded.' ctrlc
+hasnt "$work/ctrlc/out" "pacman's last lines" ctrlc
+
+echo "sudo refuses (three wrong passwords): stopped, sudo's line, no lists warning"
+KYU_FAKE_SUDO=refuse run sudono ''
+has "$work/sudono/out" 'Stopped. No packages were upgraded.' sudono
+has "$work/sudono/out" 'sudo: 3 incorrect password attempts' sudono
+hasnt "$work/sudono/out" "pacman's last lines" sudono
+hasnt "$work/sudono/out" 'newer than the system' sudono
 
 echo "stale lock: said, with the command; nothing runs"
 prepare lock; touch "$work/lock/db.lck"

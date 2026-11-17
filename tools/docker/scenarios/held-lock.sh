@@ -1,10 +1,10 @@
-# Another pacman holds the lock for 40 s: Kyu waits, then goes on.
+# Another pacman holds the lock for 30 s, then exits and removes it (as
+# pacman does): Kyu waits, then goes on.
 setup() {
     touch /var/lib/pacman/db.lck
-    cp /usr/bin/sleep /usr/local/bin/pacman-holder
-    ln -sf /usr/local/bin/pacman-holder /tmp/pacman
-    # A process named "pacman" with the lock open, gone after 40 s.
-    (exec 3</var/lib/pacman/db.lck; exec -a pacman /tmp/pacman 40; ) &
-    ( sleep 41; rm -f /var/lib/pacman/db.lck ) &
+    cp /usr/bin/bash /usr/local/bin/pacman-stand-in
+    ln -sf /usr/local/bin/pacman-stand-in /tmp/pacman
+    # A process named "pacman" with the lock open.
+    /tmp/pacman -c 'exec 3</var/lib/pacman/db.lck; sleep 30; rm -f /var/lib/pacman/db.lck' &
     sleep 1
 }
