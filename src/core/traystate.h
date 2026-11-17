@@ -54,14 +54,13 @@ struct DetailRow {
     QString oldVersion; // empty for a Flatpak
     QString newVersion; // a Flatpak's branch
     QString source; // the repo, "AUR" or "Flatpak"
-    bool restart = false; // the running kernel's package
 
     bool operator==(const DetailRow &) const = default;
 };
 
 // Details as pacman lists packages (its VerbosePkgLists table): monospace
-// lines, columns padded with spaces, "repo/name", the word "restart" on
-// the rows that need one; Flatpaks in a block of their own. A header line
+// lines, columns padded with spaces, "repo/name"; Flatpaks in a block of
+// their own. A header line
 // is drawn bold.
 struct DetailLine {
     QString text;

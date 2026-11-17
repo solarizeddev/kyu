@@ -299,10 +299,10 @@ void TestTrayState::cards()
 
 void TestTrayState::details()
 {
-    const QList<DetailRow> rows{{QStringLiteral("linux618"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), QStringLiteral("core"), true},
-                                {QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), QStringLiteral("1:26.2.3-1"), QStringLiteral("extra"), false},
-                                {QStringLiteral("visual-studio-code-bin"), QStringLiteral("1.106.0-1"), QStringLiteral("1.106.2-1"), QStringLiteral("AUR"), false},
-                                {QStringLiteral("org.kde.krita"), QString(), QStringLiteral("stable"), QStringLiteral("Flatpak"), false}};
+    const QList<DetailRow> rows{{QStringLiteral("linux618"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), QStringLiteral("core")},
+                                {QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), QStringLiteral("1:26.2.3-1"), QStringLiteral("extra")},
+                                {QStringLiteral("visual-studio-code-bin"), QStringLiteral("1.106.0-1"), QStringLiteral("1.106.2-1"), QStringLiteral("AUR")},
+                                {QStringLiteral("org.kde.krita"), QString(), QStringLiteral("stable"), QStringLiteral("Flatpak")}};
     const QList<DetailLine> lines = detailLines(rows);
     QStringList text;
     for (const DetailLine &l : lines) {
@@ -310,7 +310,7 @@ void TestTrayState::details()
     }
     QCOMPARE(text,
              QStringList({QStringLiteral("Package (3)                  Old Version   New Version"),
-                          QStringLiteral("core/linux618                6.18.20-1     6.18.22-1     restart"),
+                          QStringLiteral("core/linux618                6.18.20-1     6.18.22-1"),
                           QStringLiteral("extra/mesa                   1:26.2.1-1    1:26.2.3-1"),
                           QStringLiteral("aur/visual-studio-code-bin   1.106.0-1     1.106.2-1"),
                           QString(),

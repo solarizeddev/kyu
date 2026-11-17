@@ -258,17 +258,18 @@ QDateTime lastSuccess(const UpdateState &s)
 
 QList<DetailRow> detailRows(const UpdateState &s)
 {
-    QList<DetailRow> first, rest;
+    // In the check's order (pacman's), the AUR and Flatpaks after.
+    QList<DetailRow> rows;
     for (const PackageUpdate &p : s.packages) {
-        (p.restart ? first : rest).append({p.name, p.oldVersion, p.newVersion, p.repo, p.restart});
+        rows.append({p.name, p.oldVersion, p.newVersion, p.repo});
     }
     for (const PackageUpdate &p : s.aurPackages) {
-        rest.append({p.name, p.oldVersion, p.newVersion, QStringLiteral("AUR"), false});
+        rows.append({p.name, p.oldVersion, p.newVersion, QStringLiteral("AUR")});
     }
     for (const FlatpakUpdate &f : s.flatpaks) {
-        rest.append({f.name, QString(), f.branch, QStringLiteral("Flatpak"), false});
+        rows.append({f.name, QString(), f.branch, QStringLiteral("Flatpak")});
     }
-    return first + rest;
+    return rows;
 }
 
 }
@@ -305,12 +306,11 @@ QList<DetailLine> detailLines(const QList<DetailRow> &rows)
         if (row.source == QLatin1String("Flatpak")) {
             flatpaks.append({row.name, row.newVersion});
         } else {
-            packages.append({row.source.toLower() + QLatin1Char('/') + row.name, row.oldVersion, row.newVersion,
-                             row.restart ? QStringLiteral("restart") : QString()});
+            packages.append({row.source.toLower() + QLatin1Char('/') + row.name, row.oldVersion, row.newVersion});
         }
     }
     if (!packages.isEmpty()) {
-        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version"), QString()});
+        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version")});
     }
     if (!flatpaks.isEmpty()) {
         flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), QStringLiteral("Branch")});
