@@ -14,6 +14,7 @@ class TestSystemWatcher : public QObject
 private Q_SLOTS:
     void packagesSettle();
     void flatpakAppearsLater();
+    void flatpakOtherFilesIgnored();
     void networkComesBack();
 };
 
@@ -82,6 +83,24 @@ void TestSystemWatcher::flatpakAppearsLater()
     QSignalSpy spy(&watcher, &SystemWatcher::packagesChanged);
     touch(paths.flatpakChanged.constFirst());
     QVERIFY(spy.wait(2000));
+}
+
+void TestSystemWatcher::flatpakOtherFilesIgnored()
+{
+    // Something else written next to ".changed" (a check's own files) is not
+    // a change.
+    QTemporaryDir dir;
+    touch(dir.filePath(QStringLiteral(".changed")));
+    SystemWatcher::Paths paths;
+    paths.pacmanLocal = dir.filePath(QStringLiteral("none"));
+    paths.pacmanLock = dir.filePath(QStringLiteral("db.lck"));
+    paths.flatpakChanged = {dir.filePath(QStringLiteral(".changed"))};
+    SystemWatcher watcher(paths, 300);
+    QSignalSpy spy(&watcher, &SystemWatcher::packagesChanged);
+    touch(dir.filePath(QStringLiteral("repo-tmp")));
+    QVERIFY(QDir().mkpath(dir.filePath(QStringLiteral("appstream"))));
+    QTest::qWait(1000);
+    QCOMPARE(spy.count(), 0);
 }
 
 void TestSystemWatcher::networkComesBack()

@@ -27,9 +27,10 @@ SystemWatcher::SystemWatcher(const Paths &paths, int quietMs, QObject *parent)
     m_quiet.setSingleShot(true);
     m_quiet.setInterval(quietMs);
     connect(&m_quiet, &QTimer::timeout, this, &SystemWatcher::settle);
-    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &SystemWatcher::changed);
-    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, &SystemWatcher::changed);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &SystemWatcher::pathChanged);
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, &SystemWatcher::pathChanged);
     rewatch();
+    m_flatpakMarks = flatpakMarks();
 }
 
 void SystemWatcher::rewatch()
@@ -59,9 +60,28 @@ void SystemWatcher::rewatch()
     }
 }
 
-void SystemWatcher::changed()
+QHash<QString, QDateTime> SystemWatcher::flatpakMarks() const
+{
+    QHash<QString, QDateTime> marks;
+    for (const QString &file : m_paths.flatpakChanged) {
+        const QFileInfo info(file);
+        marks.insert(file, info.exists() ? info.lastModified() : QDateTime());
+    }
+    return marks;
+}
+
+void SystemWatcher::pathChanged(const QString &path)
 {
     rewatch();
+    // Flatpak: only its ".changed" mark counts, whatever else appears next
+    // to it (so nothing a check writes there can start a check again).
+    if (path != m_paths.pacmanLocal) {
+        const QHash<QString, QDateTime> marks = flatpakMarks();
+        if (marks == m_flatpakMarks) {
+            return;
+        }
+        m_flatpakMarks = marks;
+    }
     // A transaction changes many packages: wait until it has been quiet.
     m_quiet.start();
 }

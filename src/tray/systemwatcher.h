@@ -2,7 +2,9 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QDateTime>
 #include <QElapsedTimer>
+#include <QHash>
 #include <QTimer>
 
 class QFileSystemWatcher;
@@ -38,13 +40,16 @@ private Q_SLOTS:
     void networkStateChanged(uint state);
 
 private:
-    void changed();
+    void pathChanged(const QString &path);
     void settle();
     void rewatch();
+    // ".changed" files: when they were last seen (or that they were missing).
+    QHash<QString, QDateTime> flatpakMarks() const;
 
     Paths m_paths;
     QFileSystemWatcher *m_watcher;
     QTimer m_quiet;
     QElapsedTimer m_waitingForLock; // pacman's lock held since
     uint m_networkState = 0;
+    QHash<QString, QDateTime> m_flatpakMarks;
 };
