@@ -14,6 +14,7 @@ class QPlainTextEdit;
 class QPushButton;
 class QGridLayout;
 class QHBoxLayout;
+class QVBoxLayout;
 class QTimer;
 class StateWatcher;
 class CheckScheduler;
@@ -43,6 +44,9 @@ class Disclosure : public QAbstractButton
 public:
     explicit Disclosure(const QString &text, QWidget *parent = nullptr);
     void setOpen(bool open);
+    // The chevron centred in a column this wide (the icon's), the label
+    // after it at the text's edge (gap further on).
+    void setGutter(int width, int gap);
     QSize sizeHint() const override;
 
 protected:
@@ -50,7 +54,10 @@ protected:
 
 private:
     int chevron() const; // the chevron's size: the font's x-height
+    int labelX() const;
     bool m_open = false;
+    int m_gutter = 0;
+    int m_gap = 0;
 };
 
 // The card the tray opens: a small dialog with an icon, a heading, two
@@ -103,7 +110,8 @@ private:
     QPushButton *m_measure; // never shown: how tall a button with icon and text is
     QPushButton *m_secondary;
     QPushButton *m_action;
-    QWidget *m_detailsArea;
+    QWidget *m_detailsArea; // the band: edge to edge, under a hairline
+    QVBoxLayout *m_top = nullptr; // the text and the button row, in the style's margins
     QGridLayout *m_grid;
     QHBoxLayout *m_footer;
     QWidget *m_footerHeight; // the button row as tall without buttons (no width)

@@ -49,6 +49,8 @@
 
 namespace
 {
+// Breeze's monochrome status icons, as the tray shows them.
+constexpr int IconSize = 22;
 // A program next to this one (a build tree), else on PATH.
 QString sibling(const QString &name)
 {
@@ -164,11 +166,26 @@ void Disclosure::setOpen(bool open)
     update();
 }
 
+void Disclosure::setGutter(int width, int gap)
+{
+    m_gutter = width;
+    m_gap = gap;
+    updateGeometry();
+    update();
+}
+
+int Disclosure::labelX() const
+{
+    if (m_gutter > 0) {
+        return m_gutter + m_gap;
+    }
+    return chevron() + style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
+}
+
 QSize Disclosure::sizeHint() const
 {
     const QFontMetrics metrics(font());
-    const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
-    return {chevron() + gap + metrics.horizontalAdvance(text()) + 2, metrics.height() + 2};
+    return {labelX() + metrics.horizontalAdvance(text()) + 2, metrics.height() + 2};
 }
 
 int Disclosure::chevron() const
@@ -190,17 +207,18 @@ void Disclosure::paintEvent(QPaintEvent *)
     const qreal size = chevron();
     const qreal cy = height() / 2.0;
     const qreal half = size / 2.0;
+    // In the icon's column: centred under the icon.
+    const qreal left = m_gutter > 0 ? (m_gutter - size) / 2.0 : 0.0;
     if (m_open) {
-        painter.drawPolyline(QPolygonF{QPointF(0.6, cy - half / 2), QPointF(half, cy + half / 2), QPointF(size - 0.6, cy - half / 2)});
+        painter.drawPolyline(QPolygonF{QPointF(left + 0.6, cy - half / 2), QPointF(left + half, cy + half / 2), QPointF(left + size - 0.6, cy - half / 2)});
     } else {
-        painter.drawPolyline(QPolygonF{QPointF(half / 2, cy - half), QPointF(half / 2 + half, cy), QPointF(half / 2, cy + half)});
+        painter.drawPolyline(QPolygonF{QPointF(left + half / 2, cy - half), QPointF(left + half / 2 + half, cy), QPointF(left + half / 2, cy + half)});
     }
-    const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
     QFont label = font();
     label.setUnderline(underMouse());
     painter.setFont(label);
     painter.setPen(colour);
-    const int x = int(size) + gap;
+    const int x = labelX();
     painter.drawText(QRect(x, 0, width() - x, height()), Qt::AlignLeft | Qt::AlignVCenter, text());
     if (hasFocus()) {
         QStyleOptionFocusRect focus;
@@ -273,35 +291,30 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
     m_grid->addWidget(m_textColumn, 0, 1);
     m_grid->setColumnStretch(1, 1); // a wider window (Details open): the text gets the room
-    layout->addLayout(m_grid);
 
-    // Under the text, in its column (everything starts at the text's left
-    // edge, the icon alone in its own): one row with "▸ Details" on the left
-    // and the buttons on the right, then what Details opens, under its row.
-    auto *lower = new QVBoxLayout;
-    lower->setSpacing(0);
-    lower->setContentsMargins(0, 2 * down, 0, 0); // twice a line's spacing above the buttons
-    m_grid->addLayout(lower, 1, 1);
-    m_grid->setRowStretch(1, 1); // a taller window (Details open): the list gets the room
+    // Two parts. Above, in the style's margins: the text, then one row
+    // with "› Details" (its chevron in the icon's column, its word at the
+    // text's edge) on the left and the buttons on the right. Below, when
+    // Details is open: a band from window edge to window edge, under a
+    // hairline and down to the window's bottom (as Dolphin's terminal
+    // panel), its text at the text's edge again. One left edge for all text.
+    const int left = style()->pixelMetric(QStyle::PM_LayoutLeftMargin, nullptr, this);
+    const int top = style()->pixelMetric(QStyle::PM_LayoutTopMargin, nullptr, this);
+    const int right = style()->pixelMetric(QStyle::PM_LayoutRightMargin, nullptr, this);
+    const int bottom = style()->pixelMetric(QStyle::PM_LayoutBottomMargin, nullptr, this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    m_top = new QVBoxLayout;
+    m_top->setContentsMargins(left, top, right, bottom);
+    m_top->setSpacing(0);
+    m_top->addLayout(m_grid);
+    m_top->addSpacing(2 * down); // twice a line's spacing above the buttons
+    layout->addLayout(m_top);
+
     m_details = new Disclosure(QStringLiteral("Details"), this);
+    m_details->setGutter(IconSize, 2 * across);
     connect(m_details, &QAbstractButton::clicked, this, [this]() {
         showDetails(!m_detailsShown);
     });
-    // Details: what the update changes, as pacman lists it, or the failure
-    // in the program's words. One read-only text box in the fixed-width
-    // font, on the palette's own colours (not a terminal's: nothing to type).
-    m_detailsArea = new QWidget(this);
-    auto *details = new QVBoxLayout(m_detailsArea);
-    details->setContentsMargins(0, down, 0, 0);
-    details->setSpacing(0);
-    m_raw = new QPlainTextEdit(m_detailsArea);
-    m_raw->setReadOnly(true);
-    m_raw->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
-    m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    m_raw->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_raw->document()->setDocumentMargin(down);
-    details->addWidget(m_raw);
-    m_detailsArea->hide();
 
     // The buttons, on the right: what to do, the main one last.
     m_footer = new QHBoxLayout;
@@ -324,11 +337,37 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_footer->addWidget(m_footerHeight); // no width: keeps a button's height without buttons
     m_footer->addWidget(m_secondary);
     m_footer->addWidget(m_action);
-    lower->addLayout(m_footer);
-    lower->addWidget(m_detailsArea, 1);
+    m_top->addLayout(m_footer);
     setTabOrder(m_details, m_secondary);
     setTabOrder(m_secondary, m_action);
 
+    // The band: what the update changes, as pacman lists it, or the failure
+    // in the program's words, in the fixed-width font on the palette's Base
+    // (a view's colour; not a terminal's: nothing to type), with no frame
+    // of its own.
+    m_detailsArea = new QWidget(this);
+    m_detailsArea->setAutoFillBackground(true);
+    m_detailsArea->setBackgroundRole(QPalette::Base);
+    auto *band = new QVBoxLayout(m_detailsArea);
+    band->setContentsMargins(0, 0, 0, 0);
+    band->setSpacing(0);
+    auto *hairline = new QFrame(m_detailsArea);
+    hairline->setFrameShape(QFrame::HLine);
+    hairline->setFrameShadow(QFrame::Sunken); // as KSeparator: Breeze draws one line
+    band->addWidget(hairline);
+    auto *pad = new QVBoxLayout;
+    pad->setContentsMargins(left + IconSize + 2 * across, down, right, down);
+    m_raw = new QPlainTextEdit(m_detailsArea);
+    m_raw->setReadOnly(true);
+    m_raw->setFrameShape(QFrame::NoFrame);
+    m_raw->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_raw->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_raw->document()->setDocumentMargin(0); // the band's margins place the text
+    pad->addWidget(m_raw);
+    band->addLayout(pad, 1);
+    m_detailsArea->hide();
+    layout->addWidget(m_detailsArea, 1);
 
     applyFonts();
 
@@ -364,7 +403,7 @@ void CardWindow::applyFonts()
     m_textColumn->setFixedWidth(metrics.averageCharWidth() * 42);
     // The icon at the size Breeze draws its monochrome status icons (and the
     // tray shows them): 22 px, sharp; top-left, level with the heading.
-    m_icon->setFixedSize(22, 22);
+    m_icon->setFixedSize(IconSize, IconSize);
     keepFooterHeight();
     sizeDetails();
 }
@@ -591,6 +630,13 @@ void CardWindow::showDetails(bool shown)
 {
     m_detailsShown = shown;
     m_detailsArea->setVisible(shown);
+    // Open: the band follows the button row a line's spacing below, and
+    // runs to the window's bottom.
+    {
+        const QMargins m = m_top->contentsMargins();
+        const int down = style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, this);
+        m_top->setContentsMargins(m.left(), m.top(), m.right(), shown ? down : style()->pixelMetric(QStyle::PM_LayoutBottomMargin, nullptr, this));
+    }
     m_details->setOpen(shown);
     // Open: the window can grow, and the text with it; closed: its own width.
     const int column = QFontMetrics(font()).averageCharWidth() * 42;
