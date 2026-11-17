@@ -6,9 +6,11 @@ and checking each claim about Kyu against its code. Sources are at the end.
 Out of scope by the owner's decision: an unbootable system after a kernel
 update (boot files, initramfs, DKMS).
 
-**Read this first:** Kyu has never completed a real update. Until item 32
-passes, every "have" under "The update" and "After the update" is a claim
-backed by tests against a fake pacman, not a fact.
+**Read this first:** Kyu has completed one real update, on the owner's
+Manjaro (Plasma 6.7); real updates in throwaway Arch and Manjaro containers
+(`tools/docker/`) are being set up. Rows that need a real desktop or a rare
+failure (a broken keyring, a mirror out of date) are still backed only by
+tests against a fake pacman.
 
 ## In one sentence
 
@@ -86,7 +88,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have (never run on a real update) | 1 |
+| 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have: run on the owner's Manjaro | 1 |
 | 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | have: paru, yay, or pamac with `EnableAUR` and `CheckAURUpdates`; checked against the AUR's web API at most every 6 hours (foreign package names, pacman's version order, held-back ones left out), counted apart; `paru -Sua` / `yay -Sua` / `pamac update --aur` last, after Flatpaks (pamac never without pacman first: it would do the repos too); the system's result is saved before it; its failure is its own line, and a package that failed to build is not offered again until a newer version. `kyu.conf` turns it off or picks the helper. Runs before a restart, not after (Manjaro's "reboot, then AUR" is not followed) | 1 |
 | 21 | Then `flatpak update` | — | have | 1 |
 | 22 | The terminal you use: Konsole by default, one setting for another | terminal detection is Arch-Update's and Apdatifier's longest bug thread | part (Konsole / xdg-terminal-exec, no setting) | 2 |
@@ -114,7 +116,7 @@ there is a second user). Branch switching: unsupported; say so in the docs.
 
 | # | What | Status | Pri |
 |---|---|---|---|
-| 33 | One real update on the owner's Manjaro before anything else is built | missing | 1 |
+| 33 | One real update on the owner's Manjaro before anything else is built | have (2026-11-17) | 1 |
 | 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | have | 1 |
 | 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | have (README) | 1 |
 | 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |

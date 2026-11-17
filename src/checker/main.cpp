@@ -10,6 +10,7 @@
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QNetworkProxyFactory>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -35,6 +36,10 @@ int main(int argc, char **argv)
     // its own, shorter limit; together they stay under this.)
     ::alarm(900);
     QCoreApplication app(argc, argv);
+    // The news and the AUR through the system's proxy (http_proxy,
+    // https_proxy, no_proxy), as pacman and curl use it; Qt ignores it
+    // otherwise.
+    QNetworkProxyFactory::setUseSystemConfiguration(true);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-check"));
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
 

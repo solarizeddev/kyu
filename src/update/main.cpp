@@ -722,6 +722,19 @@ QString checkBinary()
     const QString sibling = QCoreApplication::applicationDirPath() + QStringLiteral("/kyu-check");
     return QFileInfo(sibling).isExecutable() ? sibling : QStringLiteral("kyu-check");
 }
+
+// The checker after an update, in the background and silent: its messages
+// would land in the terminal under Kyu's last line (the tray shows what it
+// finds).
+void checkInBackground()
+{
+    QProcess check;
+    check.setProgram(checkBinary());
+    check.setStandardInputFile(QProcess::nullDevice());
+    check.setStandardOutputFile(QProcess::nullDevice());
+    check.setStandardErrorFile(QProcess::nullDevice());
+    check.startDetached();
+}
 }
 
 int main(int argc, char **argv)
@@ -1499,7 +1512,7 @@ int main(int argc, char **argv)
         // closed).
         writeRecord(recordOf(after(), {}, -1, aurFailed));
         if (!parser.isSet(noCheck)) {
-            QProcess::startDetached(checkBinary(), {});
+            checkInBackground();
         }
         out.blank();
         out.step(QStringLiteral("AUR"), aurHelper->command.join(QLatin1Char(' ')));
@@ -1724,7 +1737,7 @@ int main(int argc, char **argv)
 
     // The list is stale now: check again (in the background).
     if (!parser.isSet(noCheck)) {
-        QProcess::startDetached(checkBinary(), {});
+        checkInBackground();
     }
 
     const int code = pacmanExit > 0 ? pacmanExit : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;

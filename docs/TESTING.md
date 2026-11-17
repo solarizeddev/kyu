@@ -148,6 +148,27 @@ install -Dm644 build/data/kyu.notifyrc ~/.local/share/knotifications6/kyu.notify
   name. With a language pacman has no translation for: pacman's own last
   lines.
 
+## 4. In a container (real pacman, nothing on your system)
+
+`tools/docker/kyu-docker.sh` runs real updates in throwaway Arch or Manjaro
+containers, driven like a person at a terminal: sudo's password, pacman's
+and Kyu's questions are answered by `tools/docker/drive.py`, which also
+records what Kyu noted for "The update is waiting for you" at each question.
+
+```bash
+tools/docker/kyu-docker.sh image manjaro
+```
+
+```bash
+tools/docker/kyu-docker.sh run kyu-manjaro:latest
+```
+
+`image arch 2026/10/06` makes an Arch system as it was on that day (from
+the Arch Linux Archive), so the run updates six weeks' worth of packages.
+`rebuild IMAGE` puts this checkout's Kyu into an image again. The results
+(transcript, answers, `kyu-check` before and after, last-run.json, the card
+afterwards, pacman's log) are written to `kyu-docker-<image>/`.
+
 ## What to send back
 
 - `~/kyu-test.zip`.
