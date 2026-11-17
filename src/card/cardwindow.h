@@ -84,7 +84,6 @@ private:
     QLabel *m_slot;
     QWidget *m_textColumn;
     QProgressBar *m_busy;
-    QWidget *m_busyGap;
     QPushButton *m_details;
     QPushButton *m_secondary;
     QPushButton *m_action;

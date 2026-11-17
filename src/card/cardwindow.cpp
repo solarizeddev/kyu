@@ -189,25 +189,23 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     text->addWidget(m_heading);
     text->addWidget(m_detail);
     text->addWidget(m_slot);
+    // While something runs: a progress bar under the text, as wide as it.
+    m_busy = new QProgressBar(m_textColumn);
+    m_busy->setRange(0, 0);
+    m_busy->setTextVisible(false);
+    m_busy->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    text->addSpacing(down / 2);
+    text->addWidget(m_busy);
     m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
     m_grid->addWidget(m_textColumn, 0, 1);
     m_grid->setColumnStretch(2, 1); // a wider window (Details open): the space goes here
     layout->addLayout(m_grid);
     layout->addSpacing(2 * down);
 
-    // While something runs: a progress bar across the card.
-    m_busy = new QProgressBar(this);
-    m_busy->setRange(0, 0);
-    m_busy->setTextVisible(false);
-    m_busy->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    layout->addWidget(m_busy);
-    m_busyGap = new QWidget(this);
-    m_busyGap->setFixedHeight(2 * down);
-    layout->addWidget(m_busyGap);
 
-    // The buttons: Details on the left (where KDE dialogs have it), what to
-    // do on the right, the main one last.
+    // The buttons, on the right: Details, then what to do, the main one last.
     m_footer = new QHBoxLayout;
+    m_footer->setSpacing(across); // the root's 0 is not for between buttons
     m_footerHeight = new QWidget(this);
     m_details = new QPushButton(QIcon::fromTheme(QStringLiteral("arrow-down")), QStringLiteral("Details"), this);
     m_details->setCheckable(true);
@@ -222,9 +220,9 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     connect(m_action, &QPushButton::clicked, this, [this]() {
         run(m_view.action);
     });
-    m_footer->addWidget(m_details);
     m_footer->addStretch(1);
     m_footer->addWidget(m_footerHeight); // no width: keeps a button's height without buttons
+    m_footer->addWidget(m_details);
     m_footer->addWidget(m_secondary);
     m_footer->addWidget(m_action);
     layout->addLayout(m_footer);
@@ -233,6 +231,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_detailsArea = new QWidget(this);
     auto *details = new QVBoxLayout(m_detailsArea);
     details->setContentsMargins(0, down, 0, 0);
+    details->setSpacing(0);
     m_list = new QTreeWidget(m_detailsArea);
     m_list->setHeaderLabels({QString(), QStringLiteral("Package"), QStringLiteral("Version"), QStringLiteral("Source")});
     m_list->headerItem()->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
@@ -305,8 +304,10 @@ void CardWindow::sizeDetails()
 {
     // The list as wide as its columns (no name cut), at most eight rows tall;
     // the failure's lines as tall as they are (3 to 12).
+    const int across = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this);
     for (int column = 1; column < m_list->columnCount(); ++column) {
         m_list->resizeColumnToContents(column);
+        m_list->setColumnWidth(column, m_list->columnWidth(column) + across); // room between columns
     }
     m_list->setColumnWidth(0, style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this) + 8);
     int width = 2 * m_list->frameWidth() + style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, this);
@@ -316,7 +317,14 @@ void CardWindow::sizeDetails()
     m_list->setMinimumWidth(width);
     const int rows = m_list->topLevelItemCount();
     const int row = rows > 0 ? m_list->sizeHintForRow(0) : fontMetrics().height() + 6;
-    m_list->setMinimumHeight(m_list->header()->sizeHint().height() + qBound(1, rows, 10) * row + 2 * m_list->frameWidth());
+    // As tall as its rows (up to 10; more scroll).
+    const int listHeight = m_list->header()->sizeHint().height() + qBound(1, rows, 10) * row + 2 * m_list->frameWidth();
+    if (rows <= 10) {
+        m_list->setFixedHeight(listHeight);
+    } else {
+        m_list->setMinimumHeight(listHeight);
+        m_list->setMaximumHeight(QWIDGETSIZE_MAX);
+    }
     // Lines as they wrap in the card's width.
     const QFontMetrics mono(m_raw->font());
     const int perLine = qMax(20, (m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing()) / qMax(1, mono.averageCharWidth()) - 2);
@@ -402,10 +410,9 @@ void CardWindow::present(const Kyu::CardView &view)
         setNote(view.note);
     }
 
-    // While something runs: a progress bar across the card, and one line
-    // of text kept instead of two (the card stays about as tall).
+    // While something runs: a progress bar under the text, and one line of
+    // text kept instead of two (the card stays about as tall).
     m_busy->setVisible(view.busy);
-    m_busyGap->setVisible(view.busy);
     m_detail->setMinimumHeight((view.busy ? 1 : 2) * QFontMetrics(font()).lineSpacing());
 
     // Details: the list of what changes, or the failure's own words.
@@ -444,6 +451,8 @@ void CardWindow::present(const Kyu::CardView &view)
     const bool hasAction = view.action != Kyu::CardView::Action::None && (view.action != Kyu::CardView::Action::ShowWindow || windowOpen);
     m_action->setVisible(hasAction);
     m_action->setEnabled(view.actionEnabled);
+    // No buttons at all (the first check): no empty button row.
+    m_footerHeight->setVisible(hasAction || hasDetails || view.secondary != Kyu::CardView::Action::None);
     m_action->setDefault(view.primary);
     m_action->setAutoDefault(view.primary);
     // Enter presses it, not the news link; only when what to do changed, so
