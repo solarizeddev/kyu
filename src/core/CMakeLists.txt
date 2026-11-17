@@ -13,6 +13,7 @@ add_library(kyucore STATIC
     failure.cpp
     keyrings.cpp
     aur.cpp
+    translations.cpp
     traystate.cpp
 )
 target_include_directories(kyucore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

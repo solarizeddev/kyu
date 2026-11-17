@@ -101,7 +101,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 26 | Restart needed: kernel (running vs installed), systemd, glibc, NVIDIA; remembered until you restart | Arch-Update false positives (EndeavourOS, kernel-modules-hook) | have (needs real-machine proof) | 1 |
 | 27 | Settings files (.pacnew): list them, merge with pacdiff | pamac only lists them in its log | have | 1 |
 | 28 | Failures: why, in one sentence; the fix printed, run only on an explicit key | others show raw errors | have | 1 |
-| 29 | Failure explanations in any language, or say plainly "English only" | the owner's machine may not be English, which silently turns off 28 | **fix**: English only, unstated | 1 |
+| 29 | Failure explanations in any language, or say plainly "English only" | the owner's machine may not be English, which silently turns off 28 | have: pacman stays in your language; its failures are recognised by turning its lines back into English with pacman's own translations (pacman.mo, libalpm.mo). Kyu's own sentences are English, and the README says so. Without a catalog for your language: pacman's last lines, as before | 1 |
 | 30 | Mirror failures name Manjaro's own fix (`pacman-mirrors --fasttrack`) | stale mirrors: quiet "up to date" or 404s | have (for the mirror failure); verify (the quiet case) | 2 |
 | 31 | Housekeeping as printed lines, never automatic: orphans, package cache, unused Flatpak runtimes | Arch-Update does these with prompts | missing | 3 |
 | 32 | A short log of each run | Omarchy keeps one | part (last-run.json) | 3 |
@@ -178,7 +178,7 @@ Kyu's column is what it does today, tested only against a fake pacman.
 | Settings files | list + pacdiff | pacdiff | listed in its log | ? | — |
 | Restart needed | kernel, systemd, glibc, NVIDIA; remembered | kernel reboot prompt + services | yes (prompt) | optional list | — |
 | Housekeeping | no | orphans, cache | yes | no | — |
-| Failure explained | yes, English only | no | raw error | ? | — |
+| Failure explained | yes, in any language pacman is translated to (Kyu's words English) | no | raw error | ? | — |
 | Tray on Plasma | theme icons, hidden when idle | PyQt6; some Plasma/Wayland issues | GTK tray | a real Plasma widget | yes |
 | Settings | none yet | config file | many | about 110 | few |
 | Tested on | stand-ins; screenshots on one Manjaro | many systems | many | many | ? |

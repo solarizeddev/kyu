@@ -26,6 +26,9 @@ tested less.
 Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.
 
+Kyu's own words are English. pacman keeps your language: Kyu recognises
+its failures with pacman's own translations.
+
 ## Build
 
 ```bash

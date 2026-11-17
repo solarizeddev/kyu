@@ -16,6 +16,7 @@
 #include "failuretext.h"
 #include "aur.h"
 #include "keyrings.h"
+#include "translations.h"
 #include "news.h"
 #include "paths.h"
 #include "updatestate.h"
@@ -702,8 +703,11 @@ int main(int argc, char **argv)
     synced.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption aurHelperOption(QStringLiteral("aur-helper"), QStringLiteral("AUR helper (paru, yay, pamac), or none."), QStringLiteral("program"));
     aurHelperOption.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption localeDir(QStringLiteral("locale-dir"), QStringLiteral("Where pacman's translations are (testing)."), QStringLiteral("path"),
+                                 QStringLiteral("/usr/share/locale"));
+    localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -1153,6 +1157,9 @@ int main(int argc, char **argv)
     QJsonObject failure;
     QStringList pacmanLines;
     const QString localDb = QFileInfo(lockPath).absolutePath() + QStringLiteral("/local");
+    // pacman speaks the person's language: its failures are recognised with
+    // its own translations, turned back into English (shown as printed).
+    const Kyu::PacmanTranslations translations = Kyu::PacmanTranslations::forEnvironment(parser.value(localeDir));
     const QString logPath = parser.value(pacmanLog);
     // When pacman's package lists last changed (pacman gives each the
     // mirror's time when it downloads it): a sync that brought anything new.
@@ -1255,7 +1262,7 @@ int main(int argc, char **argv)
                     }
                 }
             }
-            failure = pacmanExit != 0 ? Kyu::classifyFailure(pacmanLines) : QJsonObject();
+            failure = pacmanExit != 0 ? Kyu::classifyFailure(translations.toEnglish(pacmanLines)) : QJsonObject();
             const bool lockTaken = failure.value(QStringLiteral("kind")).toString() == QLatin1String("lock") && !lastStarted;
             if (attempt > 0 || !lockTaken) {
                 break;

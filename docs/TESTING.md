@@ -112,7 +112,10 @@ build/bin/kyu-tray &
   terminal `sudo ls -l /proc/$(pidof pacman)/fd | grep db.lck` should show the
   lock. Answer `n` afterwards.
 - **Another language** (`LANG=de_DE.UTF-8 build/bin/kyu-update` with the
-  network off): pacman's own last lines are shown.
+  network off, on a system with that locale): pacman speaks German, and Kyu
+  still says "No connection to the mirrors" (in English) with the mirror's
+  name. With a language pacman has no translation for: pacman's own last
+  lines.
 
 ## What to send back
 

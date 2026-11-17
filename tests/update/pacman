@@ -3,7 +3,7 @@
 # prints, asks "Proceed?" on the terminal, and appends what pacman would to
 # the fake pacman.log. KYU_FAKE_MODE: normal | keyring | slow | systemd
 # (upgrades systemd) | nothing | midfail (fails after one package) | german |
-# interrupt (Ctrl+C at "Proceed?").
+# interrupt (Ctrl+C at "Proceed?") | germankeyring.
 # The keyrings (first, or the keyring fix): up to date, or with
 # KYU_FAKE_KEYRING=new, upgraded after a "Proceed?" (once: then up to date),
 # or with KYU_FAKE_KEYRING=untrusted, refused for its signature.
@@ -60,6 +60,14 @@ if [ "${KYU_FAKE_MODE:-}" = lockedonce ] && [ ! -e "$KYU_FAKE_DIR/locked-once" ]
     touch "$KYU_FAKE_DIR/locked-once"
     echo "error: failed to init transaction (unable to lock database)" >&2
     echo "error: could not lock database: File exists" >&2
+    exit 1
+fi
+# germankeyring: the keyring failure as German pacman prints it (the test
+# catalogs in tests/update/locale turn it back).
+if [ "${KYU_FAKE_MODE:-}" = germankeyring ]; then
+    echo "Fehler: mesa: Signatur von \"Someone <s@example.org>\" hat unbekanntes Vertrauen" >&2
+    echo "Fehler: Konnte den Vorgang nicht durchführen (Ungültiges oder beschädigtes Paket (PGP-Signatur))" >&2
+    echo "Fehler aufgetreten, keine Pakete wurden aktualisiert." >&2
     exit 1
 fi
 if [ "${KYU_FAKE_MODE:-}" = german ]; then
