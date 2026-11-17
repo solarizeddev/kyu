@@ -303,6 +303,17 @@ fake_system "$d"
 [ ! -e "$d/state/kyu/waiting" ] || fail "waiting: still noted after the update"
 has "$d/out" '✓ Done' waiting
 
+echo "flatpak's own question answered n: a stop, not a failure (seen with a real flatpak)"
+KYU_FAKE_FLATPAK=ask runtty fpno 'y\n|n\n|\n'
+has "$work/fpno/out" 'Flatpaks: stopped. None were updated.' fpno
+hasnt "$work/fpno/out" 'Flatpaks failed' fpno
+hasnt "$work/fpno/out" ' · 1 Flatpak' fpno
+
+echo "flatpak finds nothing though the check listed one (a remote gone): not called done"
+KYU_FAKE_FLATPAK=nothing runtty fpnone 'y\n|\n'
+has "$work/fpnone/out" 'Flatpaks not updated: flatpak found nothing to update' fpnone
+hasnt "$work/fpnone/out" ' · 1 Flatpak' fpnone
+
 echo "keys: [f] removes a stale lock, then the update runs again"
 prepare lockfix; touch "$work/lockfix/db.lck"
 runtty lockfix 'f\n|y\n|\n'

@@ -683,7 +683,9 @@ QString recordingTemplate()
 // A command that may ask questions (flatpak, the AUR helper), run inside
 // util-linux `script` so its output can be watched for them; as it is
 // without `script`, or when nobody is at a terminal to answer.
-int runWatched(const QStringList &command, QProcessEnvironment env = QProcessEnvironment::systemEnvironment())
+// shown: if given, what the command showed last (its last lines, as the
+// screen had them; empty without `script`).
+int runWatched(const QStringList &command, QProcessEnvironment env = QProcessEnvironment::systemEnvironment(), QStringList *shown = nullptr)
 {
     const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
     QTemporaryDir recording(recordingTemplate());
@@ -696,7 +698,18 @@ int runWatched(const QStringList &command, QProcessEnvironment env = QProcessEnv
     const QString shell = env.value(QStringLiteral("SHELL"));
     env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
     const QString line = (shell.isEmpty() ? QStringLiteral("unset SHELL; exec ") : QStringLiteral("SHELL=%1 exec ").arg(shellJoin({shell}))) + shellJoin(command);
-    return runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), line, typescript}, env, typescript);
+    const int code = runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), line, typescript}, env, typescript);
+    if (shown) {
+        QFile recorded(typescript);
+        if (recorded.open(QIODevice::ReadOnly)) {
+            for (const QString &l : Kyu::terminalLines(recorded.readAll())) {
+                if (!l.trimmed().isEmpty() && !l.startsWith(QLatin1String("Script "))) {
+                    shown->append(l.trimmed());
+                }
+            }
+        }
+    }
+    return code;
 }
 
 QString shellJoin(const QStringList &args)
@@ -1489,10 +1502,21 @@ int main(int argc, char **argv)
 
     // --- flatpak -------------------------------------------------------------
     int flatpakExit = -1;
+    bool flatpakStopped = false;
+    bool flatpakNothing = false;
     if ((skipPacman || pacmanExit == 0) && flatpakWanted && !hungUp) {
         out.blank();
         out.step(QStringLiteral("Flatpaks"), QStringLiteral("flatpak update"));
-        flatpakExit = runWatched({flatpak, QStringLiteral("update")});
+        QStringList shown;
+        flatpakExit = runWatched({flatpak, QStringLiteral("update")}, QProcessEnvironment::systemEnvironment(), &shown);
+        // "n" at flatpak's own question: a stop, not a failure. "Nothing to
+        // update" though the check listed some: none were updated (a remote
+        // gone or unreachable: flatpak only warns, and exits 0).
+        static const QRegularExpression answeredNo(QStringLiteral("\\[[YJ]/n\\]:?\\s*[nN]\\s*$"));
+        flatpakStopped = flatpakExit > 0 && std::any_of(shown.cend() - qMin<qsizetype>(shown.size(), 3), shown.cend(), [](const QString &l) {
+            return answeredNo.match(l).hasMatch();
+        });
+        flatpakNothing = flatpakExit == 0 && shown.contains(QStringLiteral("Nothing to update."));
     }
 
     // What is left to do comes from this run and, in the same boot, from
@@ -1780,21 +1804,26 @@ int main(int argc, char **argv)
         if (aurDone > 0) {
             parts.append(QStringLiteral("%1 AUR").arg(aurDone));
         }
-        if (flatpakExit == 0 && state && !state->flatpaks.isEmpty()) {
+        if (flatpakExit == 0 && !flatpakNothing && state && !state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
         // How long it took, when that is worth saying.
         const QString done = (clock.elapsed() < 2000 ? QStringLiteral("Done") : QStringLiteral("Done in ") + duration(clock.elapsed()))
             + QStringLiteral(" · ") + parts.join(QStringLiteral(" · "));
-        if (flatpakExit > 0 || aurExit > 0) {
+        const bool flatpakShort = flatpakNothing && state && !state->flatpaks.isEmpty();
+        if (flatpakExit > 0 || aurExit > 0 || flatpakShort) {
             // What went through, then what did not.
             if (!parts.isEmpty()) {
                 out.good(done);
             } else if (pacmanExit == 0) {
                 out.good(QStringLiteral("The system is up to date."));
             }
-            if (flatpakExit > 0) {
+            if (flatpakStopped) {
+                out.warn(QStringLiteral("Flatpaks: stopped. None were updated."));
+            } else if (flatpakExit > 0) {
                 out.bad(QStringLiteral("Flatpaks failed (status %1), see above.").arg(flatpakExit));
+            } else if (flatpakShort) {
+                out.warn(QStringLiteral("Flatpaks not updated: flatpak found nothing to update (a remote it could not reach?), see above."));
             }
         } else {
             out.good(parts.isEmpty() ? QStringLiteral("Already up to date.") : done);
@@ -1855,6 +1884,6 @@ int main(int argc, char **argv)
         checkInBackground();
     }
 
-    const int code = pacmanExit > 0 ? pacmanExit : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
+    const int code = pacmanExit > 0 ? pacmanExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
     return finish(code, keys);
 }

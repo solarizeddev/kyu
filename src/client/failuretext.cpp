@@ -90,7 +90,8 @@ FailureText describeFailure(const QJsonObject &failure)
         const QStringList files = strings(failure.value(QStringLiteral("files")));
         t.title = QStringLiteral("A downloaded package is damaged");
         t.text = QStringLiteral("%1 in pacman's cache does not match its signature: the download was damaged or cut short, not the "
-                                "keyring. Removing it and updating again downloads it anew.")
+                                "keyring. If pacman deleted it (its question above), updating again downloads it anew; otherwise remove it "
+                                "from /var/cache/pacman/pkg first.")
                      .arg(packages.isEmpty() ? QStringLiteral("A package") : packages.join(QStringLiteral(", ")));
         t.items = files;
         if (!files.isEmpty()) {

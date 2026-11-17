@@ -110,6 +110,8 @@ while True:
             reply, what = password, "the password"
     elif line and re.search(r"(Proceed with installation|Installation fortsetzen)\? \[[YJ]/n\]|Proceed with download|Fortfahren", line):
         reply = choice("DRIVE_PROCEED", "y")
+        if reply == "y" and "[J/n]" in line:
+            reply = "j"  # German pacman's yes
     elif line and "Continue? [y/N]" in line:
         reply = choice("DRIVE_NEWS", "y")
     elif line and re.search(r"Proceed with these changes", line):

@@ -1,8 +1,20 @@
 #!/bin/sh
-# Stands in for flatpak in tests/kyu_update_test.sh.
+# Stands in for flatpak in tests/kyu_update_test.sh. KYU_FAKE_FLATPAK:
+# (unset) updates; ask: asks, as flatpak does, and stops on "n"; nothing:
+# finds nothing to update (a remote gone: a warning, exit 0).
 [ "$1" = update ] || { echo "fake flatpak: unexpected arguments: $*" >&2; exit 2; }
 touch "$KYU_FAKE_DIR/flatpak-ran"
 echo "Looking for updates…"
+if [ "${KYU_FAKE_FLATPAK:-}" = nothing ]; then
+    echo "F: Warning: Treating remote fetch error as non-fatal since app/org.mozilla.firefox/x86_64/stable is already installed"
+    echo "Nothing to update."
+    exit 0
+fi
+if [ "${KYU_FAKE_FLATPAK:-}" = ask ]; then
+    printf 'Proceed with these changes to the user installation? [Y/n]: '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+fi
 echo " 1. [✓] org.mozilla.firefox   stable  u  flathub  72.1 MB / 80.3 MB"
 echo "Updates complete."
 exit "${KYU_FAKE_FLATPAK_EXIT:-0}"
