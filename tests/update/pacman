@@ -21,6 +21,13 @@ if [ "${KYU_FAKE_MODE:-}" = nothing ]; then
     echo " there is nothing to do"
     exit 0
 fi
+# lockedonce: another package manager took the lock first, the first time.
+if [ "${KYU_FAKE_MODE:-}" = lockedonce ] && [ ! -e "$KYU_FAKE_DIR/locked-once" ]; then
+    touch "$KYU_FAKE_DIR/locked-once"
+    echo "error: failed to init transaction (unable to lock database)" >&2
+    echo "error: could not lock database: File exists" >&2
+    exit 1
+fi
 if [ "${KYU_FAKE_MODE:-}" = german ]; then
     echo "Fehler: Konnte Datei 'core.db' nicht von mirror.example.org übertragen" >&2
     echo "Fehler: Konnte nicht alle Datenbanken aktualisieren" >&2

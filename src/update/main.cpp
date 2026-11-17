@@ -274,12 +274,22 @@ int runInTerminal(const QString &program, const QStringList &args, const QProces
     return code;
 }
 
-// A process named like a package manager that holds or will take pacman's lock.
-QString runningPackageManager(const QString &procDir)
+// Processes named like a package manager that takes pacman's lock.
+struct Manager {
+    QString name;
+    int pid = 0;
+};
+
+QList<Manager> packageManagers(const QString &procDir)
 {
+    // Exact names: the pamac tray ("pamac-tray-plas…") always runs and
+    // takes no lock.
+    static const QStringList managers{QStringLiteral("pacman"), QStringLiteral("pamac-daemon"), QStringLiteral("pamac-manager"),
+                                      QStringLiteral("pamac-installer"), QStringLiteral("packagekitd")};
+    QList<Manager> found;
     for (const QString &entry : QDir(procDir).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         bool isPid = false;
-        entry.toInt(&isPid);
+        const int pid = entry.toInt(&isPid);
         if (!isPid) {
             continue;
         }
@@ -288,15 +298,74 @@ QString runningPackageManager(const QString &procDir)
             continue;
         }
         const QString name = QString::fromUtf8(comm.readAll()).trimmed();
-        // Exact names: the pamac tray ("pamac-tray-plas…") always runs and
-        // takes no lock.
-        static const QStringList managers{QStringLiteral("pacman"), QStringLiteral("pamac-daemon"), QStringLiteral("pamac-manager"),
-                                          QStringLiteral("pamac-installer"), QStringLiteral("packagekitd")};
         if (managers.contains(name)) {
-            return QStringLiteral("%1 (pid %2)").arg(name, entry);
+            found.append({name, pid});
         }
     }
-    return {};
+    return found;
+}
+
+QString describe(const Manager &m)
+{
+    return QStringLiteral("%1 (pid %2)").arg(m.name).arg(m.pid);
+}
+
+// From /proc/<pid>/stat: the fields after "(comm)", 0-based from field 3.
+QStringList statFields(const QString &procDir, int pid)
+{
+    QFile file(QStringLiteral("%1/%2/stat").arg(procDir).arg(pid));
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QByteArray line = file.readAll();
+    return QString::fromLatin1(line.mid(line.lastIndexOf(')') + 2)).split(QLatin1Char(' '));
+}
+
+// When a process started (seconds since the epoch); 0 when unknown.
+qint64 processStart(const QString &procDir, int pid)
+{
+    const QStringList f = statFields(procDir, pid);
+    QFile stat(procDir + QStringLiteral("/stat"));
+    if (f.size() < 20 || !stat.open(QIODevice::ReadOnly)) {
+        return 0;
+    }
+    qint64 boot = 0;
+    for (const QByteArray &line : stat.readAll().split('\n')) {
+        if (line.startsWith("btime ")) {
+            boot = line.mid(6).trimmed().toLongLong();
+        }
+    }
+    const long ticks = ::sysconf(_SC_CLK_TCK);
+    return boot > 0 && ticks > 0 ? boot + f.at(19).toLongLong() / ticks : 0;
+}
+
+// CPU time used so far (clock ticks); -1 when unknown.
+qint64 cpuTicks(const QString &procDir, int pid)
+{
+    const QStringList f = statFields(procDir, pid);
+    return f.size() > 12 ? f.at(11).toLongLong() + f.at(12).toLongLong() : -1;
+}
+
+// The package managers that can hold the lock: those started before it was
+// taken (libalpm creates it anew each time, so its time is when).
+QList<Manager> lockHolders(const QString &procDir, const QString &lockPath)
+{
+    const qint64 taken = QFileInfo(lockPath).lastModified().toSecsSinceEpoch();
+    QList<Manager> holders;
+    for (const Manager &m : packageManagers(procDir)) {
+        const qint64 start = processStart(procDir, m.pid);
+        if (start == 0 || start <= taken) {
+            holders.append(m);
+        }
+    }
+    return holders;
+}
+
+// Set by Ctrl+C while waiting for the lock.
+volatile std::sig_atomic_t interrupted = 0;
+void onInterrupt(int)
+{
+    interrupted = 1;
 }
 
 QByteArray readFrom(const QString &path, qint64 offset)
@@ -506,12 +575,15 @@ int main(int argc, char **argv)
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
     lockWait.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption idleAfter(QStringLiteral("idle-after"), QStringLiteral("When a waited-for package manager counts as idle, in seconds."),
+                                 QStringLiteral("seconds"), QStringLiteral("30"));
+    idleAfter.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption newsRead(QStringLiteral("news-read"), QStringLiteral("Do not show the news (they were read in this window)."));
     newsRead.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption synced(QStringLiteral("synced"), QStringLiteral("The package lists were just synced by a fix."));
     synced.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -776,44 +848,134 @@ int main(int argc, char **argv)
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
 
-    // pacman's lock (not needed for Flatpaks only): another package manager
-    // working (pamac often is, in the background) is waited for; one left
-    // over from a run that was stopped is said, with the fix.
+    // pacman's lock (not needed for Flatpaks only). Another package manager
+    // working (pamac often is, in the background) is waited for; a lock
+    // nobody holds, or one whose holder has been idle a while, is left over
+    // from a run that was stopped.
     const QString lockPath = parser.value(dbLock), procPath = parser.value(procDir);
-    if (!flatpakOnly && QFileInfo::exists(lockPath)) {
-        out.blank();
-        if (const QString holder = runningPackageManager(procPath); !holder.isEmpty()) {
-            out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(holder));
-            const qint64 limit = parser.value(lockWait).toLongLong() * 1000;
-            QElapsedTimer waited;
-            waited.start();
-            while (QFileInfo::exists(lockPath) && !runningPackageManager(procPath).isEmpty() && waited.elapsed() < limit) {
-                QThread::msleep(500);
-            }
-            if (!QFileInfo::exists(lockPath)) {
-                out.note(QStringLiteral("It has finished."), Tone::Dim);
-            } else if (!runningPackageManager(procPath).isEmpty()) {
-                out.warn(QStringLiteral("Still busy after %1. Update when it is done.").arg(duration(limit)));
-                return finish(1);
-            }
+    enum class Lock { Free, Stale, Idle, Stopped, TimedOut };
+    const qint64 lockLimit = parser.value(lockWait).toLongLong() * 1000;
+    const qint64 idleLimit = parser.value(idleAfter).toLongLong() * 1000;
+    QString idleHolder;
+    auto waitForLock = [&]() -> Lock {
+        if (!QFileInfo::exists(lockPath)) {
+            return Lock::Free;
         }
-        if (QFileInfo::exists(lockPath)) {
+        QList<Manager> holders = lockHolders(procPath, lockPath);
+        if (holders.isEmpty()) {
+            return Lock::Stale;
+        }
+        out.warn(QStringLiteral("Waiting for %1 to finish. Ctrl+C stops.").arg(describe(holders.constFirst())));
+        // What changes while a package manager works: its CPU time, pacman's
+        // log, the lock itself.
+        auto activity = [&]() {
+            QStringList marks;
+            for (const Manager &m : packageManagers(procPath)) {
+                marks.append(QString::number(cpuTicks(procPath, m.pid)));
+            }
+            marks.append(QString::number(QFileInfo(parser.value(pacmanLog)).size()));
+            marks.append(QString::number(QFileInfo(lockPath).lastModified().toMSecsSinceEpoch()));
+            return marks;
+        };
+        struct sigaction flag {}, old {};
+        flag.sa_handler = onInterrupt;
+        interrupted = 0;
+        ::sigaction(SIGINT, &flag, &old);
+        QElapsedTimer waited, quiet;
+        waited.start();
+        quiet.start();
+        QStringList last = activity();
+        int freeFor = 0;
+        Lock result = Lock::TimedOut;
+        const bool tty = ::isatty(STDOUT_FILENO);
+        while (waited.elapsed() < lockLimit) {
+            if (interrupted) {
+                result = Lock::Stopped;
+                break;
+            }
+            // Free for a moment (three looks): pamac often refreshes, lets
+            // go, and takes the lock again at once to upgrade.
+            if (!QFileInfo::exists(lockPath)) {
+                if (++freeFor >= 3) {
+                    result = Lock::Free;
+                    break;
+                }
+            } else {
+                freeFor = 0;
+                holders = lockHolders(procPath, lockPath);
+                if (holders.isEmpty()) {
+                    result = Lock::Stale;
+                    break;
+                }
+                if (const QStringList now = activity(); now != last) {
+                    last = now;
+                    quiet.restart();
+                } else if (quiet.elapsed() >= idleLimit) {
+                    idleHolder = holders.constFirst().name;
+                    result = Lock::Idle;
+                    break;
+                }
+            }
+            if (tty) {
+                const qint64 s = waited.elapsed() / 1000;
+                std::printf("\r  waited %lld:%02lld ", s / 60, s % 60);
+                std::fflush(stdout);
+            }
+            QThread::msleep(500);
+        }
+        ::sigaction(SIGINT, &old, nullptr);
+        if (tty) {
+            std::printf("\r\x1b[K");
+            std::fflush(stdout);
+        }
+        // Keys pressed while waiting are not answers to pacman.
+        discardTypedAhead();
+        return result;
+    };
+    // The lock is left over: say so, with the fix.
+    auto staleLock = [&](Lock why) {
+        if (why == Lock::Idle) {
+            out.warn(QStringLiteral("pacman's lock looks left over: %1 is running but idle.").arg(idleHolder));
+        } else {
             out.warn(QStringLiteral("pacman's lock is left over from a stopped run; nothing is using it."));
-            Keys keys;
-            if (!elevate.isEmpty()) {
-                keys.fix = shellJoin({elevate, QStringLiteral("rm"), lockPath});
-                out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
-                // Minutes may pass before [f]: a package manager may have started.
-                keys.fixAllowed = [&out, lockPath, procPath]() {
-                    const QString now = runningPackageManager(procPath);
-                    if (!now.isEmpty() && QFileInfo::exists(lockPath)) {
-                        out.warn(QStringLiteral("%1 is running now and may be using the lock: wait until it is done.").arg(now));
+        }
+        Keys keys;
+        if (!elevate.isEmpty()) {
+            keys.fix = shellJoin({elevate, QStringLiteral("rm"), lockPath});
+            out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+            // Minutes may pass before [f]: a package manager may have started working.
+            keys.fixAllowed = [&out, lockPath, procPath]() {
+                const QList<Manager> holders = lockHolders(procPath, lockPath);
+                QList<qint64> before;
+                for (const Manager &m : holders) {
+                    before.append(cpuTicks(procPath, m.pid));
+                }
+                QThread::msleep(1000);
+                for (qsizetype i = 0; i < holders.size(); ++i) {
+                    if (QFileInfo::exists(lockPath) && cpuTicks(procPath, holders.at(i).pid) != before.at(i)) {
+                        out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(holders.at(i))));
                         return false;
                     }
-                    return true;
-                };
-            }
-            return finish(1, keys);
+                }
+                return true;
+            };
+        }
+        return finish(1, keys);
+    };
+    if (!flatpakOnly && QFileInfo::exists(lockPath)) {
+        out.blank();
+        switch (const Lock lock = waitForLock()) {
+        case Lock::Free:
+            break;
+        case Lock::Stopped:
+            out.warn(QStringLiteral("Stopped. Nothing was installed."));
+            return finish(4);
+        case Lock::TimedOut:
+            out.warn(QStringLiteral("Still busy after %1. Update when it is done.").arg(duration(lockLimit)));
+            return finish(1);
+        case Lock::Stale:
+        case Lock::Idle:
+            return staleLock(lock);
         }
     }
 
@@ -840,35 +1002,49 @@ int main(int argc, char **argv)
         const QStringList command{elevate, QStringLiteral("pacman"), syu};
         out.blank();
         out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')));
-        const qint64 logOffset = QFileInfo(parser.value(pacmanLog)).size();
-        // util-linux `script` keeps pacman fully interactive (a terminal of
-        // its own) and records what it prints, for the explanation of a
-        // failure. The password is never echoed, so never recorded. It runs
-        // the command with $SHELL: /bin/sh, whatever the login shell is.
-        QTemporaryDir recording;
-        const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
-        const QString typescript = recording.filePath(QStringLiteral("pacman.typescript"));
-        if (!script.isEmpty() && recording.isValid()) {
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-            env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
-            pacmanExit = runInTerminal(script,
-                                       {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shellJoin(inhibited(command)), typescript},
-                                       env);
-            QFile ts(typescript);
-            if (ts.open(QIODevice::ReadOnly)) {
-                pacmanLines = Kyu::terminalLines(ts.readAll());
-                // script's own first line ("Script started on …").
-                if (!pacmanLines.isEmpty() && pacmanLines.first().startsWith(QLatin1String("Script started"))) {
-                    pacmanLines.removeFirst();
+        // pacman, once more if it found the lock taken again (pamac's
+        // refresh, then its upgrade) before changing anything.
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            const qint64 logOffset = QFileInfo(parser.value(pacmanLog)).size();
+            // util-linux `script` keeps pacman fully interactive (a terminal of
+            // its own) and records what it prints, for the explanation of a
+            // failure. The password is never echoed, so never recorded. It runs
+            // the command with $SHELL: /bin/sh, whatever the login shell is.
+            QTemporaryDir recording;
+            const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
+            const QString typescript = recording.filePath(QStringLiteral("pacman.typescript"));
+            pacmanLines.clear();
+            if (!script.isEmpty() && recording.isValid()) {
+                QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+                env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
+                pacmanExit = runInTerminal(
+                    script,
+                    {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shellJoin(inhibited(command)), typescript},
+                    env);
+                QFile ts(typescript);
+                if (ts.open(QIODevice::ReadOnly)) {
+                    pacmanLines = Kyu::terminalLines(ts.readAll());
+                    // script's own first line ("Script started on …").
+                    if (!pacmanLines.isEmpty() && pacmanLines.first().startsWith(QLatin1String("Script started"))) {
+                        pacmanLines.removeFirst();
+                    }
                 }
+            } else {
+                const QStringList c = inhibited(command);
+                pacmanExit = runInTerminal(c.first(), c.mid(1));
             }
-        } else {
-            const QStringList c = inhibited(command);
-            pacmanExit = runInTerminal(c.first(), c.mid(1));
-        }
-        run = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(parser.value(pacmanLog), logOffset)));
-        if (pacmanExit != 0) {
-            failure = Kyu::classifyFailure(pacmanLines);
+            run = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(parser.value(pacmanLog), logOffset)));
+            failure = pacmanExit != 0 ? Kyu::classifyFailure(pacmanLines) : QJsonObject();
+            const bool lockTaken = failure.value(QStringLiteral("kind")).toString() == QLatin1String("lock") && !run.transactionStarted;
+            if (attempt > 0 || !lockTaken) {
+                break;
+            }
+            out.blank();
+            const Lock lock = waitForLock();
+            if (lock != Lock::Free) {
+                break; // the verdict says why pacman stopped
+            }
+            out.step(QStringLiteral("Packages"), command.join(QLatin1Char(' ')) + QStringLiteral(" (again)"));
         }
     }
 

@@ -121,18 +121,34 @@ has "$d/out" "pacman's lock is left over" lock
 echo "lock held by a running pacman: waited for, then given up"
 prepare busy; touch "$work/busy/db.lck"; mkdir -p "$work/busy/proc/4242"; echo pacman >"$work/busy/proc/4242/comm"
 run busy '' --lock-wait 2
+[ "$(cat "$work/busy/code")" = 1 ] || fail "busy: exit $(cat "$work/busy/code")"
 has "$work/busy/out" 'Waiting for pacman (pid 4242) to finish. Ctrl+C stops.' busy
 has "$work/busy/out" 'Still busy after 2 s. Update when it is done.' busy
 [ ! -e "$work/busy/pacman-ran" ] || fail "busy: pacman ran"
 
 echo "lock held by pamac: waited for, then the update goes on"
 prepare busywait; touch "$work/busywait/db.lck"; mkdir -p "$work/busywait/proc/4243"; echo pamac-daemon >"$work/busywait/proc/4243/comm"
-(sleep 1.5; rm -f "$work/busywait/db.lck") &
-run busywait 'y\n' --lock-wait 30
+: >"$work/busywait/out"
+(for i in $(seq 200); do grep -q 'Waiting for' "$work/busywait/out" 2>/dev/null && break; sleep 0.1; done; rm -f "$work/busywait/db.lck") &
+run busywait 'y\n' --lock-wait 20
 wait
 has "$work/busywait/out" 'Waiting for pamac-daemon (pid 4243) to finish.' busywait
-has "$work/busywait/out" 'It has finished.' busywait
 has "$work/busywait/out" 'Done in ' busywait
+[ -e "$work/busywait/pacman-ran" ] || fail "busywait: pacman did not run"
+
+echo "a holder that does nothing for a while: the lock looks left over"
+prepare idle; touch "$work/idle/db.lck"; mkdir -p "$work/idle/proc/4245"; echo pamac-daemon >"$work/idle/proc/4245/comm"
+run idle '' --lock-wait 20 --idle-after 1
+has "$work/idle/out" "pacman's lock looks left over: pamac-daemon is running but idle." idle
+[ ! -e "$work/idle/pacman-ran" ] || fail "idle: pacman ran"
+
+echo "a package manager started after the lock was taken cannot hold it"
+prepare young; touch "$work/young/db.lck"; mkdir -p "$work/young/proc/4246"; echo pacman >"$work/young/proc/4246/comm"
+echo "btime $(( $(date +%s) + 3600 ))" >"$work/young/proc/stat"
+echo "4246 (pacman) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 0" >"$work/young/proc/4246/stat"
+run young '' --lock-wait 20
+has "$work/young/out" "pacman's lock is left over from a stopped run; nothing is using it." young
+hasnt "$work/young/out" 'Waiting for' young
 
 echo "Flatpaks only: pacman's lock does not matter"
 prepare fplock; state "$work/fplock/state.json" 0 2 0; touch "$work/fplock/db.lck"
@@ -236,6 +252,11 @@ has "$work/ascii/out" '> Packages   sudo pacman -Syu' ascii
 echo "--refresh: pacman -Syyu"
 run refresh 'y\n' --refresh
 [ "$(cat "$work/refresh/pacman-args")" = -Syyu ] || fail "refresh: pacman ran with $(cat "$work/refresh/pacman-args")"
+
+echo "pacman found the lock taken again: waited, then once more"
+KYU_FAKE_MODE=lockedonce runtty relocked 'y\n|\n'
+has "$work/relocked/out" 'Packages   sudo pacman -Syu (again)' relocked
+has "$work/relocked/out" 'Done in ' relocked
 
 echo "keys: [r] asks, then restarts (here: a fake systemctl)"
 runtty reboot 'y\n|r\n|y\n'
