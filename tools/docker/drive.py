@@ -21,6 +21,8 @@ How to answer, from the environment (defaults in brackets):
   DRIVE_HANGUP         close the terminal (as closing its window) once the
                        output shows this text
   DRIVE_FLATPAK        flatpak's "Proceed with these changes?": y or n [y]
+  DRIVE_TYPE_HANGUP    "PATTERN|TEXT": at a question matching PATTERN, type
+                       TEXT without Enter, then close the terminal
   DRIVE_OTHER          any other question: this answer [Enter]
 
 Usage: drive.py OUTDIR -- COMMAND...
@@ -36,6 +38,7 @@ wrong = int(env("DRIVE_WRONG", "0"))
 keys = env("DRIVE_KEYS", "").split(",") if env("DRIVE_KEYS") else []
 kill_on = env("DRIVE_KILL", "")
 hangup_on = env("DRIVE_HANGUP", "")
+type_hangup = env("DRIVE_TYPE_HANGUP", "")
 waiting_file = os.path.join(env("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "kyu", "waiting")
 
 pid, fd = pty.fork()
@@ -97,6 +100,13 @@ while True:
     if time.time() - last_change < 2.5 or time.time() - answered_at < 1:
         continue
     line = last_line()
+    if type_hangup and line and re.search(type_hangup.split("|")[0], line):
+        os.write(fd, type_hangup.split("|", 1)[1].encode())
+        time.sleep(0.5)
+        log.write(f"typed {type_hangup.split('|', 1)[1]!r} at {line!r}, then closed the terminal\n"); log.flush()
+        os.close(fd)
+        hangup_on = hangup_on or "(typed)"
+        break
     reply = None
     what = None
     recent = clean(tail[-600:])
