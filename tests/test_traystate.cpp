@@ -283,6 +283,11 @@ void TestTrayState::cards()
     in.updating = false;
     in.activity.clear();
 
+    // A stop on purpose ("n" at Proceed) is not a failed update.
+    in.state = withUpdates(2, false);
+    in.lastRun = QJsonObject{{QStringLiteral("pacmanExit"), 1}, {QStringLiteral("stopped"), true}, {QStringLiteral("time"), QStringLiteral("2026-11-16T14:30:00Z")}};
+    QCOMPARE(cardView(in).kind, CardView::Kind::Updates);
+    QVERIFY(!trayView(in).lastFailed);
     // A failed update: update again; stamped "tried", with what happened.
     in.state = withUpdates(2, false);
     in.lastRun = QJsonObject{{QStringLiteral("pacmanExit"), 1}, {QStringLiteral("failure"), QStringLiteral("keyring")},

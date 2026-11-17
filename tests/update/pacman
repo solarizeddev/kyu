@@ -71,6 +71,11 @@ if [ "${KYU_FAKE_MODE:-}" = germankeyring ]; then
     echo "Fehler sind aufgetreten, keine Pakete wurden aktualisiert." >&2
     exit 1
 fi
+if [ "${KYU_FAKE_MODE:-}" = deps ]; then
+    echo "error: failed to prepare transaction (could not satisfy dependencies)" >&2
+    echo ":: installing zlib (1:1.4-1) breaks dependency 'zlib=1:1.3.2-3' required by foo" >&2
+    exit 1
+fi
 if [ "${KYU_FAKE_MODE:-}" = german ]; then
     echo "Fehler: Konnte Datei 'core.db' nicht von mirror.example.org übertragen" >&2
     echo "Fehler: Konnte nicht alle Datenbanken aktualisieren" >&2

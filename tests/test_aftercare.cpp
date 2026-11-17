@@ -160,7 +160,17 @@ private Q_SLOTS:
         QTest::newRow("files") << QStringList{QStringLiteral("error: failed to commit transaction (conflicting files)"),
                                               QStringLiteral("foo: /usr/bin/foo exists in filesystem")}
                                << QStringLiteral("files");
+        // Seen with a real pacman: a 404 on the lists themselves (a wrong
+        // mirror address), and a download that could not be written.
+        QTest::newRow("mirror lists") << QStringList{QStringLiteral("error: failed retrieving file 'extra.db' from geo.mirror.pkgbuild.com : The requested URL returned error: 404"),
+                                                     QStringLiteral("error: failed retrieving file 'core.db' from geo.mirror.pkgbuild.com : The requested URL returned error: 404"),
+                                                     QStringLiteral("error: failed to synchronize all databases (failed to retrieve some files)")}
+                                      << QStringLiteral("mirrorlists");
         QTest::newRow("disk") << QStringList{QStringLiteral("error: Partition / too full: 61234 blocks needed, 1024 blocks free")} << QStringLiteral("disk");
+        QTest::newRow("cache full") << QStringList{QStringLiteral("error: failed retrieving file 'nano-9.3-1-x86_64.pkg.tar.zst' from geo.mirror.pkgbuild.com : Failure writing output to destination, passed 8192 returned 0"),
+                                                   QStringLiteral("warning: failed to retrieve some files"),
+                                                   QStringLiteral("error: failed to commit transaction (failed to retrieve some files)")}
+                                    << QStringLiteral("disk");
         QTest::newRow("deps") << QStringList{QStringLiteral("error: failed to prepare transaction (could not satisfy dependencies)"),
                                              QStringLiteral(":: installing foo (2-1) breaks dependency 'foo=1' required by bar")}
                               << QStringLiteral("dependencies");

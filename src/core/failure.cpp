@@ -166,7 +166,12 @@ QJsonObject classifyFailure(const QStringList &allLines)
                 hosts.append(host(l));
             }
         }
-        f = {{QStringLiteral("kind"), QStringLiteral("mirror")}, {QStringLiteral("lines"), first(retrieving)},
+        // The package lists themselves missing (core.db): a wrong or dead
+        // mirror address, not a mirror behind on packages.
+        const bool lists = std::all_of(files.cbegin(), files.cend(), [](const QString &f) {
+            return f.endsWith(QLatin1String(".db")) || f.endsWith(QLatin1String(".files")) || f.endsWith(QLatin1String(".db.sig"));
+        });
+        f = {{QStringLiteral("kind"), lists ? QStringLiteral("mirrorlists") : QStringLiteral("mirror")}, {QStringLiteral("lines"), first(retrieving)},
              {QStringLiteral("files"), unique(files)}, {QStringLiteral("hosts"), unique(hosts)}};
     } else if (has("unknown trust") || has("marginal trust") || has("(PGP signature)") || has("required key missing from keyring")
                || has("could not be looked up remotely") || (has("signature from") && has("is invalid"))) {
@@ -196,9 +201,14 @@ QJsonObject classifyFailure(const QStringList &allLines)
                   return l.contains(QLatin1String("conflicting files")) || l.startsWith(QLatin1String("Errors occurred"));
               })},
              {QStringLiteral("files"), files}, {QStringLiteral("fileCount"), count}};
-    } else if (has("too full") || has("not enough free disk space")) {
+    } else if (has("too full") || has("not enough free disk space") || has("Failure writing output to destination") || has("No space left on device")) {
+        // pacman's own check, or a download that could not be written
+        // (curl's words: the cache full).
         f = {{QStringLiteral("kind"), QStringLiteral("disk")},
-             {QStringLiteral("lines"), matching([](const QString &l) { return l.contains(QLatin1String("too full")) || l.contains(QLatin1String("disk space")); })}};
+             {QStringLiteral("lines"), matching([](const QString &l) {
+                  return l.contains(QLatin1String("too full")) || l.contains(QLatin1String("disk space")) || l.contains(QLatin1String("writing output"))
+                      || l.contains(QLatin1String("No space left"));
+              })}};
     } else if (has("could not satisfy dependencies")) {
         f = {{QStringLiteral("kind"), QStringLiteral("dependencies")},
              {QStringLiteral("lines"), matching([](const QString &l) { return l.contains(QLatin1String("dependenc")) || l.startsWith(QLatin1String("error:")); })}};

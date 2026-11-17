@@ -42,6 +42,17 @@ FailureText describeFailure(const QJsonObject &failure)
         t.text = QStringLiteral("pacman could not reach %1. Check the network connection, then update again.")
                      .arg(hosts.isEmpty() ? QStringLiteral("the mirrors") : hosts.join(QStringLiteral(", ")));
         t.items = hosts;
+    } else if (kind == QLatin1String("mirrorlists")) {
+        t.title = QStringLiteral("The mirror does not have the package lists");
+        t.text = QStringLiteral("%1 answered \"404 Not Found\" for the package lists themselves: the mirror's address is wrong, or "
+                                "the mirror is gone. Mirrors are listed in /etc/pacman.d/mirrorlist.")
+                     .arg(hosts.isEmpty() ? QStringLiteral("The mirror") : hosts.join(QStringLiteral(", ")));
+        t.items = strings(failure.value(QStringLiteral("files")));
+        if (distroId() == QLatin1String("manjaro")) {
+            t.command = QStringLiteral("sudo pacman-mirrors --fasttrack && sudo pacman -Syyu");
+            t.fix = QStringLiteral("sudo pacman-mirrors --fasttrack");
+            t.text.replace(QStringLiteral(" Mirrors are listed in /etc/pacman.d/mirrorlist."), QStringLiteral(" A new mirror list fixes it."));
+        }
     } else if (kind == QLatin1String("mirror")) {
         const QStringList files = strings(failure.value(QStringLiteral("files")));
         t.title = QStringLiteral("A mirror is out of date");

@@ -46,7 +46,8 @@ QDateTime lastRunTime(const QJsonObject &last)
 bool lastRunFailed(const TrayInput &in)
 {
     const QDateTime lastTime = lastRunTime(in.lastRun);
-    return in.lastRun.value(QStringLiteral("pacmanExit")).toInt(0) > 0
+    // A stop on purpose ("n", Ctrl+C, no password) is not a failure.
+    return in.lastRun.value(QStringLiteral("pacmanExit")).toInt(0) > 0 && !in.lastRun.value(QStringLiteral("stopped")).toBool()
         && !(in.state && in.state->checkedAt.isValid() && lastTime.isValid() && in.state->checkedAt > lastTime && in.state->total() == 0);
 }
 

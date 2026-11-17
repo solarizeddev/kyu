@@ -723,9 +723,22 @@ bool runPacdiff(Out &out, const QString &elevate)
         return false;
     }
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()
-        && !QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
-        env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
+    // pacdiff stops at once without its viewer (vim -d): another one, so
+    // it works on a Plasma desktop without vim (seen in a real run).
+    if (!env.contains(QStringLiteral("DIFFPROG")) && QStandardPaths::findExecutable(QStringLiteral("vim")).isEmpty()) {
+        if (!QStandardPaths::findExecutable(QStringLiteral("nvim")).isEmpty()) {
+            env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("nvim -d"));
+        } else if (!QStandardPaths::findExecutable(QStringLiteral("kompare")).isEmpty()) {
+            env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("kompare"));
+        } else if (!QStandardPaths::findExecutable(QStringLiteral("meld")).isEmpty()) {
+            env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("meld"));
+        } else if (!QStandardPaths::findExecutable(QStringLiteral("kdiff3")).isEmpty()) {
+            env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("kdiff3"));
+        } else {
+            env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("diff -u --color=always"));
+        }
+        out.note(QStringLiteral("Differences are shown with %1 (set DIFFPROG to change).").arg(env.value(QStringLiteral("DIFFPROG")).section(QLatin1Char(' '), 0, 0)),
+                 Tone::Dim);
     }
     out.note(QStringLiteral("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
                             "o use the new version, s skip."),
@@ -767,6 +780,14 @@ int main(int argc, char **argv)
     // The terminal's character set, from the environment: asked before Qt
     // starts, which switches a non-UTF-8 locale to C.UTF-8 for itself.
     std::setlocale(LC_ALL, "");
+    // Qt's four lines about a locale that is not UTF-8 (one not generated):
+    // Kyu copes (ASCII marks); they would open its screen.
+    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &, const QString &message) {
+        if (message.startsWith(QLatin1String("Detected locale"))) {
+            return;
+        }
+        std::fprintf(stderr, "%s%s\n", type == QtWarningMsg ? "warning: " : "", qPrintable(message));
+    });
     const bool utf8 = QByteArray(::nl_langinfo(CODESET)) == "UTF-8";
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-update"));
@@ -957,7 +978,7 @@ int main(int argc, char **argv)
         qint64 pid = 0;
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
-        out.warn(QStringLiteral("An update is already running (pid %1).").arg(pid));
+        out.warn(pid > 0 ? QStringLiteral("An update is already running (pid %1).").arg(pid) : QStringLiteral("An update is already running."));
         if (parser.isSet(noWait) || !stdinIsTerminal()) {
             return 3;
         }
@@ -1627,6 +1648,8 @@ int main(int argc, char **argv)
     Keys keys;
     const QString packages = plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages"));
     out.blank();
+    // Stopped on purpose ("n", Ctrl+C, no password): not a failed update.
+    bool stoppedOnPurpose = false;
     if (pacmanExit > 0) {
         const QString skipped = flatpakWanted && aurWanted ? QStringLiteral(" Flatpaks and AUR packages were skipped.")
             : flatpakWanted                                 ? QStringLiteral(" Flatpaks were skipped.")
@@ -1646,7 +1669,12 @@ int main(int argc, char **argv)
         // exits 130), or sudo (doas) not given the password: its own line,
         // "sudo: …" in any language; pacman never ran then.
         const bool refused = !last.isEmpty() && (last.last().startsWith(QLatin1String("sudo: ")) || last.last().startsWith(QLatin1String("doas: ")));
-        const bool declined = (!last.isEmpty() && last.last().startsWith(QLatin1String("::"))) || (pacmanExit == 130 && !lastStarted) || refused;
+        // A question answered: "… [Y/n] n" ("[J/n]" in German); a "::" line
+        // without one (a dependency pacman cannot satisfy) is not a stop.
+        static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));
+        const bool declined = (!last.isEmpty() && last.last().startsWith(QLatin1String("::")) && answered.match(last.last()).hasMatch())
+            || (pacmanExit == 130 && !lastStarted) || refused;
+        stoppedOnPurpose = declined && !lastStarted;
         // What an earlier run of this update (the keyrings) installed.
         const QString only = run.changed.isEmpty()
             ? QStringLiteral("No packages were upgraded.")
@@ -1696,7 +1724,7 @@ int main(int argc, char **argv)
             }
             out.note(text.title + QLatin1Char('.'));
             // Files and package files are not in the sentence: list them.
-            if (kind == QLatin1String("files") || kind == QLatin1String("mirror")) {
+            if (kind == QLatin1String("files") || kind == QLatin1String("mirror") || kind == QLatin1String("mirrorlists")) {
                 for (const QString &item : text.items.mid(0, 3)) {
                     out.note(QStringLiteral("· ") + item, Tone::Dim);
                 }
@@ -1714,7 +1742,7 @@ int main(int argc, char **argv)
             }
             if (!fix.isEmpty()) {
                 keys.fix = fix;
-                if (kind == QLatin1String("mirror")) {
+                if (kind == QLatin1String("mirror") || kind == QLatin1String("mirrorlists")) {
                     keys.again.append(QStringLiteral("--refresh"));
                 } else if (kind == QLatin1String("keyring")) {
                     keys.again.append(QStringLiteral("--synced"));
@@ -1808,6 +1836,10 @@ int main(int argc, char **argv)
     }
 
     QJsonObject record = recordOf(now, programs, aurExit, aurFailed);
+    // The card and the tray do not call a stop a failure.
+    if (stoppedOnPurpose) {
+        record.insert(QStringLiteral("stopped"), true);
+    }
     auto save = [&record, writeRecord]() {
         writeRecord(record);
     };

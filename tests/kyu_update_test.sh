@@ -123,6 +123,15 @@ has "$work/ctrlc/out" 'The package lists are newer than the system' ctrlc
 has "$work/ctrlc/out" 'Stopped. No packages were upgraded.' ctrlc
 hasnt "$work/ctrlc/out" "pacman's last lines" ctrlc
 
+echo "a dependency pacman cannot satisfy: a failure, not a stop (its last line starts with ::)"
+KYU_FAKE_MODE=deps run deps ''
+has "$work/deps/out" 'Dependencies cannot be satisfied.' deps
+hasnt "$work/deps/out" 'Stopped.' deps
+grep -q '"stopped"' "$work/deps/state/kyu/last-run.json" && fail "deps: recorded as stopped"
+
+echo "a stop is recorded as one (the card does not call it a failed update)"
+grep -q '"stopped": true' "$work/ctrlc/state/kyu/last-run.json" || fail "ctrlc: not recorded as stopped"
+
 echo "sudo refuses (three wrong passwords): stopped, sudo's line, no lists warning"
 KYU_FAKE_SUDO=refuse run sudono ''
 has "$work/sudono/out" 'Stopped. No packages were upgraded.' sudono

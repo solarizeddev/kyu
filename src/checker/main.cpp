@@ -109,7 +109,11 @@ int main(int argc, char **argv)
         qint64 pid = 0;
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
-        err << "kyu-check: a check is already running (pid " << pid << ")" << Qt::endl;
+        if (pid > 0) {
+            err << "kyu-check: a check is already running (pid " << pid << ")" << Qt::endl;
+        } else {
+            err << "kyu-check: a check is already running" << Qt::endl;
+        }
         return Ok;
     }
 
