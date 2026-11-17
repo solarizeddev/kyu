@@ -1134,6 +1134,18 @@ int main(int argc, char **argv)
     QStringList pacmanLines;
     const QString localDb = QFileInfo(lockPath).absolutePath() + QStringLiteral("/local");
     const QString logPath = parser.value(pacmanLog);
+    // When pacman's package lists last changed (pacman gives each the
+    // mirror's time when it downloads it): a sync that brought anything new.
+    const QString syncDir = QFileInfo(lockPath).absolutePath() + QStringLiteral("/sync");
+    const auto listsMark = [&syncDir]() {
+        QStringList marks;
+        const QDir dir(syncDir);
+        for (const QFileInfo &db : dir.entryInfoList({QStringLiteral("*.db")}, QDir::Files, QDir::Name)) {
+            marks.append(db.fileName() + QLatin1Char(' ') + QString::number(db.lastModified().toMSecsSinceEpoch()));
+        }
+        return marks;
+    };
+    const QStringList listsBefore = listsMark();
     struct PacmanStep {
         QString title;
         QStringList command;
@@ -1158,7 +1170,7 @@ int main(int argc, char **argv)
             QString shell = shellJoin(inhibited(steps.first().command));
             if (steps.size() > 1) {
                 const QString log = shellJoin({logPath}), at = shellJoin({mark});
-                shell += QStringLiteral(" && { wc -c <%1 >%2 2>/dev/null || : >%2; %3; } && %4")
+                shell += QStringLiteral(" && { wc -c 2>/dev/null <%1 >%2 || : >%2; %3; } && %4")
                              .arg(log, at, shellJoin({QStringLiteral("printf"), QStringLiteral("%s"), out.stepText(steps.at(1).title, steps.at(1).command.join(QLatin1Char(' ')))}),
                                   shellJoin(inhibited(steps.at(1).command)));
             }
@@ -1187,6 +1199,8 @@ int main(int argc, char **argv)
                 QFile m(mark);
                 bool known = false;
                 const qint64 at = m.open(QIODevice::ReadOnly) ? m.readAll().trimmed().toLongLong(&known) - logOffset : -1;
+                // Unknown (the log unreadable): all of it counts as the second
+                // command's, which may then call the keyrings' transaction its.
                 const qint64 split = known && at >= 0 && at <= appended.size() ? at : 0;
                 firstLog = appended.left(split);
                 secondLog = appended.mid(split);
@@ -1209,6 +1223,17 @@ int main(int argc, char **argv)
             if (steps.size() > 1) {
                 keyringsDone = second;
                 keyringsFailed = !second && pacmanExit != 0;
+            }
+            // The failing command's own lines: after Kyu's step line when the
+            // second ran (the keyrings' run prints gpg's chatter).
+            if (second) {
+                const QString title = steps.at(1).title + QLatin1Char(' ');
+                for (qsizetype n = pacmanLines.size() - 1; n >= 0; --n) {
+                    if (pacmanLines.at(n).contains(title + steps.at(1).command.join(QLatin1Char(' ')))) {
+                        pacmanLines = pacmanLines.mid(n + 1);
+                        break;
+                    }
+                }
             }
             failure = pacmanExit != 0 ? Kyu::classifyFailure(pacmanLines) : QJsonObject();
             const bool lockTaken = failure.value(QStringLiteral("kind")).toString() == QLatin1String("lock") && !lastStarted;
@@ -1352,13 +1377,15 @@ int main(int argc, char **argv)
             out.bad((run.changed.isEmpty() ? QString() : QStringLiteral("pacman failed. ")) + only + skipped);
         }
         // The package lists were synced and the upgrade did not begin:
-        // installing anything now would be a partial upgrade. Synced: by the
-        // keyring fix or the keyrings first, or pacman got to a question or
-        // to a failure that comes after its sync.
+        // installing anything now would be a partial upgrade. Synced: the
+        // lists changed on disk, or by the keyring fix or the keyrings first,
+        // or pacman got to a question or to a failure that comes after its
+        // sync.
         const QString kind = failure.value(QStringLiteral("kind")).toString();
         static const QStringList afterSync{QStringLiteral("keyring"), QStringLiteral("mirror"), QStringLiteral("files"), QStringLiteral("disk"),
                                            QStringLiteral("dependencies")};
-        if ((parser.isSet(synced) || keyringsDone || declined || afterSync.contains(kind)) && !lastStarted) {
+        const bool listsChanged = listsMark() != listsBefore;
+        if ((parser.isSet(synced) || listsChanged || keyringsDone || declined || afterSync.contains(kind)) && !lastStarted) {
             out.warn(QStringLiteral("The package lists are newer than the system: update before installing anything."));
         }
         if (!failure.isEmpty()) {

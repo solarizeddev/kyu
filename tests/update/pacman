@@ -2,17 +2,20 @@
 # Stands in for pacman in tests/kyu_update_test.sh. Prints what pacman -Syu
 # prints, asks "Proceed?" on the terminal, and appends what pacman would to
 # the fake pacman.log. KYU_FAKE_MODE: normal | keyring | slow | systemd
-# (upgrades systemd) | nothing | midfail (fails after one package) | german.
+# (upgrades systemd) | nothing | midfail (fails after one package) | german |
+# interrupt (Ctrl+C at "Proceed?").
 # The keyrings (first, or the keyring fix): up to date, or with
 # KYU_FAKE_KEYRING=new, upgraded after a "Proceed?" (once: then up to date),
 # or with KYU_FAKE_KEYRING=untrusted, refused for its signature.
 log=$KYU_FAKE_DIR/pacman.log
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
+# The sync: new package lists (KYU_FAKE_SYNC=same: nothing new).
+synced() { [ "${KYU_FAKE_SYNC:-}" = same ] || { mkdir -p "$KYU_FAKE_DIR/sync" && touch -d "@$(($(date +%s) + 7))" "$KYU_FAKE_DIR/sync/core.db"; }; }
 case "$*" in
 "-Sy --needed "* | "-Syy --needed "*)
     echo "$*" >"$KYU_FAKE_DIR/keyring-args"
     touch "$KYU_FAKE_DIR/keyring-fixed"
-    echo ":: Synchronizing package databases..."
+    echo ":: Synchronizing package databases..."; synced
     shift 2
     if [ "${KYU_FAKE_KEYRING:-}" = untrusted ]; then
         echo "error: archlinux-keyring: signature from \"Someone New <n@example.org>\" is unknown trust" >&2
@@ -45,7 +48,7 @@ case "$*" in
 esac
 touch "$KYU_FAKE_DIR/pacman-ran"
 echo "[$(now)] [PACMAN] Running 'pacman $1'" >>"$log"
-[ "$1" = -Su ] || echo ":: Synchronizing package databases..."
+[ "$1" = -Su ] || { echo ":: Synchronizing package databases..."; synced; }
 echo ":: Starting full system upgrade..."
 echo "[$(now)] [PACMAN] starting full system upgrade" >>"$log"
 if [ "${KYU_FAKE_MODE:-}" = nothing ]; then
@@ -70,6 +73,9 @@ echo ""
 echo "Packages (2) linux618-6.18.22-1  mesa-1:26.2.3-1"
 echo ""
 printf ':: Proceed with installation? [Y/n] '
+if [ "${KYU_FAKE_MODE:-}" = interrupt ]; then
+    echo; echo "interrupt signal received" >&2; exit 130
+fi
 read -r answer || exit 1 # no answer: as if interrupted
 case "$answer" in n|N) exit 1 ;; esac
 echo ":: Retrieving packages..."

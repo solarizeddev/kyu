@@ -111,6 +111,11 @@ d=$work/decline
 has "$d/out" 'Stopped. Nothing was installed.' decline
 has "$d/out" 'The package lists are newer than the system: update before installing anything.' decline
 
+echo "Ctrl+C at Proceed: the lists changed, so the warning"
+KYU_FAKE_MODE=interrupt run ctrlc ''
+has "$work/ctrlc/out" 'The package lists are newer than the system' ctrlc
+hasnt "$work/ctrlc/out" 'Stopped.' ctrlc
+
 echo "stale lock: said, with the command; nothing runs"
 prepare lock; touch "$work/lock/db.lck"
 run lock ''
