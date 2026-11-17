@@ -266,16 +266,41 @@ void discardTypedAhead()
     }
 }
 
+volatile std::sig_atomic_t answerInterrupted = 0;
+void onAnswerInterrupt(int)
+{
+    answerInterrupted = 1;
+}
+
 // One line from stdin, byte by byte: a buffered reader would also take the
-// lines meant for pacman's own questions.
+// lines meant for pacman's own questions. Ctrl+C at Kyu's own question is
+// "no" (or "close"), not Kyu killed with its marks left behind.
 QString readAnswer()
 {
+    struct sigaction stop {}, old {};
+    stop.sa_handler = onAnswerInterrupt; // no SA_RESTART: the read returns
+    answerInterrupted = 0;
+    ::sigaction(SIGINT, &stop, &old);
     QByteArray line;
     char c = 0;
     while (::read(STDIN_FILENO, &c, 1) == 1 && c != '\n') {
         line.append(c);
     }
+    ::sigaction(SIGINT, &old, nullptr);
+    if (answerInterrupted) {
+        std::fputs("\n", stdout);
+        std::fflush(stdout);
+        return QString();
+    }
     return QString::fromLocal8Bit(line).trimmed().toLower();
+}
+
+// The terminal closed (its window): Kyu stays to record what happened;
+// nothing more is run, shown or asked.
+volatile std::sig_atomic_t hungUp = 0;
+void onHangup(int)
+{
+    hungUp = 1;
 }
 
 // Run a command with the terminal: its output and questions are the user's.
@@ -745,6 +770,11 @@ int main(int argc, char **argv)
     const bool utf8 = QByteArray(::nl_langinfo(CODESET)) == "UTF-8";
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("kyu-update"));
+    {
+        struct sigaction hup {};
+        hup.sa_handler = onHangup;
+        ::sigaction(SIGHUP, &hup, nullptr);
+    }
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
 
     QCommandLineParser parser;
@@ -850,9 +880,14 @@ int main(int argc, char **argv)
             }
             if (answer == QLatin1String("r") && k.restart) {
                 // Plasma's own dialog first: programs can save, and it asks.
-                const int prompted = QProcess::execute(QStringLiteral("busctl"),
-                                                       {QStringLiteral("--user"), QStringLiteral("call"), QStringLiteral("org.kde.LogoutPrompt"),
-                                                        QStringLiteral("/LogoutPrompt"), QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot")});
+                // Quietly: without a Plasma session its error is noise.
+                QProcess busctl;
+                busctl.setStandardOutputFile(QProcess::nullDevice());
+                busctl.setStandardErrorFile(QProcess::nullDevice());
+                busctl.start(QStringLiteral("busctl"),
+                             {QStringLiteral("--user"), QStringLiteral("call"), QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("/LogoutPrompt"),
+                              QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot")});
+                const int prompted = busctl.waitForFinished(10000) && busctl.exitStatus() == QProcess::NormalExit ? busctl.exitCode() : 1;
                 if (prompted == 0) {
                     out.note(QStringLiteral("Plasma asks whether to restart now."), Tone::Dim);
                     continue;
@@ -887,7 +922,7 @@ int main(int argc, char **argv)
                 if (k.fixAllowed && !k.fixAllowed()) {
                     continue;
                 }
-                const int rc = runInTerminal(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), k.fix});
+                const int rc = runWatched({QStringLiteral("/bin/sh"), QStringLiteral("-c"), k.fix});
                 if (rc != 0) {
                     out.bad(QStringLiteral("The fix failed (status %1); its messages are above.").arg(rc));
                     continue;
@@ -977,21 +1012,42 @@ int main(int argc, char **argv)
     // --- Before pacman ----------------------------------------------------
     const QString statePath = parser.isSet(stateFile) ? parser.value(stateFile) : Kyu::Paths::stateFile();
     const std::optional<Kyu::UpdateState> state = Kyu::UpdateState::load(statePath);
-    if (!state || !state->checkedAt.isValid() || state->total() == 0) {
+    // AUR packages whose build failed last time, at the version still
+    // listed: held back until the AUR has a newer one (as the card says),
+    // not built again and again.
+    QList<Kyu::PackageUpdate> aurPending = state ? state->aurPackages : QList<Kyu::PackageUpdate>();
+    QStringList aurHeldBack;
+    for (const QJsonValue &v : readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json")).value(QStringLiteral("aurFailed")).toArray()) {
+        const QString name = v[QStringLiteral("name")].toString(), version = v[QStringLiteral("version")].toString();
+        const auto it = std::find_if(aurPending.begin(), aurPending.end(), [&](const Kyu::PackageUpdate &p) {
+            return p.name == name && p.newVersion == version;
+        });
+        if (it != aurPending.end()) {
+            aurPending.erase(it);
+            aurHeldBack.append(name);
+        }
+    }
+    const int pendingTotal = state ? int(state->total() - aurHeldBack.size()) : 0;
+    if (!state || !state->checkedAt.isValid() || pendingTotal == 0) {
         out.header(QStringLiteral("Kyu · updating"));
     } else {
         QStringList parts;
         if (!state->packages.isEmpty()) {
             parts.append(plural(state->packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
         }
-        if (!state->aurPackages.isEmpty()) {
-            parts.append(QStringLiteral("%1 AUR").arg(state->aurPackages.size()));
+        if (!aurPending.isEmpty()) {
+            parts.append(QStringLiteral("%1 AUR").arg(aurPending.size()));
         }
         if (!state->flatpaks.isEmpty()) {
             parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
         }
-        out.header(QStringLiteral("Kyu · %1: %2").arg(plural(state->total(), QStringLiteral("update"), QStringLiteral("updates")),
+        out.header(QStringLiteral("Kyu · %1: %2").arg(plural(pendingTotal, QStringLiteral("update"), QStringLiteral("updates")),
                                                      parts.join(QStringLiteral(", "))));
+    }
+    if (!aurHeldBack.isEmpty()) {
+        out.note(QStringLiteral("AUR, held back: %1 (not built last time; tried again when the AUR has a newer version).")
+                     .arg(aurHeldBack.join(QStringLiteral(", "))),
+                 Tone::Dim);
     }
     // Kyu's own window asks before it closes during an update.
     if (qEnvironmentVariableIsEmpty("KYU_WINDOW")) {
@@ -1056,12 +1112,12 @@ int main(int argc, char **argv)
     const std::optional<Kyu::AurHelper> aurHelper = parser.isSet(aurHelperOption)
         ? (aurHelperName == QLatin1String("none") ? std::nullopt : Kyu::aurHelperFor(aurHelperName))
         : Kyu::configuredAurHelper(Kyu::Paths::configFile());
-    const bool aurWanted = aurHelper && (!state || !state->aur.checked || !state->aur.ok || !state->aurPackages.isEmpty());
+    const bool aurWanted = aurHelper && (!state || !state->aur.checked || !state->aur.ok || !aurPending.isEmpty());
     // Only Flatpaks or AUR packages pending (by the last check): no pacman.
     // Not with pamac: its AUR update upgrades the repo packages too, which
     // pacman does here first (news, keyrings, explained failures).
     const bool skipPacman = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty()
-        && (!state->flatpaks.isEmpty() || !state->aurPackages.isEmpty()) && !(aurWanted && aurHelper->name == QLatin1String("pamac"));
+        && (!state->flatpaks.isEmpty() || !aurPending.isEmpty()) && !(aurWanted && aurHelper->name == QLatin1String("pamac"));
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
 
@@ -1412,7 +1468,7 @@ int main(int argc, char **argv)
 
     // --- flatpak -------------------------------------------------------------
     int flatpakExit = -1;
-    if ((skipPacman || pacmanExit == 0) && flatpakWanted) {
+    if ((skipPacman || pacmanExit == 0) && flatpakWanted && !hungUp) {
         out.blank();
         out.step(QStringLiteral("Flatpaks"), QStringLiteral("flatpak update"));
         flatpakExit = runWatched({flatpak, QStringLiteral("update")});
@@ -1514,7 +1570,7 @@ int main(int argc, char **argv)
             aurFailed.append(v);
         }
     }
-    if ((skipPacman || pacmanExit == 0) && aurWanted) {
+    if ((skipPacman || pacmanExit == 0) && aurWanted && !hungUp) {
         // The system's part is done: saved now, and checked again, whatever
         // happens while the helper waits at its questions (or the window is
         // closed).
@@ -1522,11 +1578,16 @@ int main(int argc, char **argv)
         if (!parser.isSet(noCheck)) {
             checkInBackground();
         }
+        // The held-back ones left alone, as the helper's own "--ignore".
+        QStringList command = aurHelper->command;
+        if (!aurHeldBack.isEmpty()) {
+            command << QStringLiteral("--ignore") << aurHeldBack.join(QLatin1Char(','));
+        }
         out.blank();
-        out.step(QStringLiteral("AUR"), aurHelper->command.join(QLatin1Char(' ')));
+        out.step(QStringLiteral("AUR"), command.join(QLatin1Char(' ')));
         out.note(QStringLiteral("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
         const qint64 logOffset = QFileInfo(logPath).size();
-        const QStringList c = inhibited(aurHelper->command);
+        const QStringList c = inhibited(command);
         aurExit = runWatched(c);
         aurRun = Kyu::parsePacmanLog(QString::fromUtf8(readFrom(logPath, logOffset)));
         aurFailed = QJsonArray();
@@ -1590,7 +1651,13 @@ int main(int argc, char **argv)
         const QString only = run.changed.isEmpty()
             ? QStringLiteral("No packages were upgraded.")
             : QStringLiteral("Only %1 %2 upgraded.").arg(run.changed.join(QStringLiteral(", ")), run.changed.size() == 1 ? QStringLiteral("was") : QStringLiteral("were"));
-        if (lastStarted) {
+        if (lastStarted && pacmanExit > 128) {
+            // Stopped by a signal (killed, the window closed) mid-transaction.
+            out.bad((run.changed.isEmpty() ? QStringLiteral("The update was interrupted while pacman was changing packages.")
+                                           : QStringLiteral("The update was interrupted after %1 had changed.").arg(packages))
+                    + skipped);
+            out.note(QStringLiteral("Run the update again: pacman completes it."), Tone::Dim);
+        } else if (lastStarted) {
             out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
         } else if (declined) {
             out.warn(QStringLiteral("Stopped. ") + only + skipped);

@@ -462,6 +462,14 @@ d=$work/auronlyfail
 has "$d/out" 'AUR packages not updated: paru stopped (status 1), see above.' auronlyfail
 hasnt "$d/out" 'up to date' auronlyfail
 hasnt "$d/out" 'The rest is done' auronlyfail
+# Next time, the same version still listed: held back, not built again
+# (seen in a real run with yay: it was offered again and again).
+rm -f "$d/aur-args"
+runtty auronlyfail '\n' --aur-helper "$here/update/paru"
+has "$d/out" 'AUR, held back: foo-bin (not built last time; tried again when the AUR has a newer version).' auronlyfail-2
+hasnt "$d/out" '1 AUR' auronlyfail-2
+[ ! -e "$d/aur-args" ] || fail "auronlyfail-2: paru ran again for the package that failed"
+grep -q '"name": "foo-bin"' "$d/state/kyu/last-run.json" || fail "auronlyfail-2: the held-back package was forgotten"
 
 echo "Flatpaks and AUR both failed: neither is called done"
 prepare bothfail; state "$work/bothfail/state.json" 2 1 0 "" foo-bin
