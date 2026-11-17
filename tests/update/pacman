@@ -4,7 +4,8 @@
 # the fake pacman.log. KYU_FAKE_MODE: normal | keyring | slow | systemd
 # (upgrades systemd) | nothing | midfail (fails after one package) | german.
 # The keyrings (first, or the keyring fix): up to date, or with
-# KYU_FAKE_KEYRING=new, upgraded after a "Proceed?".
+# KYU_FAKE_KEYRING=new, upgraded after a "Proceed?" (once: then up to date),
+# or with KYU_FAKE_KEYRING=untrusted, refused for its signature.
 log=$KYU_FAKE_DIR/pacman.log
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
 case "$*" in
@@ -13,7 +14,13 @@ case "$*" in
     touch "$KYU_FAKE_DIR/keyring-fixed"
     echo ":: Synchronizing package databases..."
     shift 2
-    if [ "${KYU_FAKE_KEYRING:-}" != new ]; then
+    if [ "${KYU_FAKE_KEYRING:-}" = untrusted ]; then
+        echo "error: archlinux-keyring: signature from \"Someone New <n@example.org>\" is unknown trust" >&2
+        echo "error: failed to commit transaction (invalid or corrupted package (PGP signature))" >&2
+        echo "Errors occurred, no packages were upgraded." >&2
+        exit 1
+    fi
+    if [ "${KYU_FAKE_KEYRING:-}" != new ] || [ -e "$KYU_FAKE_DIR/keyring-upgraded" ]; then
         for k in "$@"; do echo "warning: $k-1-1 is up to date -- skipping"; done
         echo " there is nothing to do"
         exit 0
@@ -31,6 +38,7 @@ case "$*" in
         echo "[$(now)] [ALPM] upgraded $k (1-1 -> 2-1)" >>"$log"
     done
     echo "[$(now)] [ALPM] transaction completed" >>"$log"
+    touch "$KYU_FAKE_DIR/keyring-upgraded"
     exit 0 ;;
 -Syu | -Syyu | -Su) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
 *) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;

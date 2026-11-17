@@ -185,7 +185,10 @@ private Q_SLOTS:
             write(d + QStringLiteral("/files"), "%FILES%\n" + files + "\n");
         };
         package(QStringLiteral("manjaro-keyring"), QStringLiteral("20261001-1"), "usr/\nusr/share/pacman/keyrings/\nusr/share/pacman/keyrings/manjaro.gpg\n");
-        package(QStringLiteral("archlinux-keyring"), QStringLiteral("20261101-1"), "usr/share/pacman/keyrings/archlinux.gpg\n");
+        package(QStringLiteral("archlinux-keyring"), QStringLiteral("20261101-1"), "usr/share/pacman/keyrings/archlinux.gpg\n\n%BACKUP%\netc/x\tabc\n");
+        package(QStringLiteral("archlinux-keyring"), QStringLiteral("20261001-1"), "usr/share/pacman/keyrings/archlinux.gpg\n"); // a stray old directory
+        // A keyring path after %FILES% (in %BACKUP%) does not count.
+        package(QStringLiteral("backup-keyring"), QStringLiteral("1-1"), "usr/bin/x\n\n%BACKUP%\nusr/share/pacman/keyrings/b.gpg\tabc\n");
         package(QStringLiteral("gnome-keyring"), QStringLiteral("1:48.0-1"), "usr/bin/gnome-keyring\n");
         // Only the directory: not a keyring.
         package(QStringLiteral("odd-keyring"), QStringLiteral("1-1"), "usr/share/pacman/keyrings/\n");

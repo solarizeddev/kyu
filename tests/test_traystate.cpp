@@ -220,9 +220,9 @@ void TestTrayState::cards()
     QVERIFY(c.transactionStarted);
     QCOMPARE(c.changed, 0);
     QVERIFY(c.stamp.startsWith(QStringLiteral("tried ")));
+    QCOMPARE(c.actionText, QStringLiteral("Update again"));
     in.lastRun.insert(QStringLiteral("changed"), 1); // the keyrings went in first
     QCOMPARE(cardView(in).changed, 1);
-    QCOMPARE(c.actionText, QStringLiteral("Update again"));
 
     // Never checked: the check button.
     in = TrayInput{};
