@@ -36,6 +36,7 @@
 #include <QPushButton>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTextLayout>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -403,15 +404,25 @@ void CardWindow::sizeDetails()
         m_list->setMinimumHeight(listHeight);
         m_list->setMaximumHeight(QWIDGETSIZE_MAX);
     }
-    // Lines as they wrap in the card's width.
+    // Lines as the box wraps them (at word boundaries, in the card's width
+    // less the frame and margins): all of them shown, up to 12.
     const QFontMetrics mono(m_raw->font());
-    const int perLine = qMax(20, (m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing()) / qMax(1, mono.averageCharWidth()) - 2);
+    const int margin = int(m_raw->document()->documentMargin());
+    const qreal wrapWidth = m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing() - 2 * m_raw->frameWidth() - 2 * margin;
+    QTextOption option;
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
     int lines = 0;
     for (const QString &line : m_raw->toPlainText().split(QLatin1Char('\n'))) {
-        lines += qMax(1, int((line.size() + perLine - 1) / perLine));
+        QTextLayout layout(line, m_raw->font());
+        layout.setTextOption(option);
+        layout.beginLayout();
+        for (QTextLine l = layout.createLine(); l.isValid(); l = layout.createLine()) {
+            l.setLineWidth(wrapWidth);
+            ++lines;
+        }
+        layout.endLayout();
     }
-    m_raw->setFixedHeight(qBound(3, lines + 1, 12) * mono.lineSpacing() + 2 * m_raw->frameWidth()
-                          + 2 * int(m_raw->document()->documentMargin()));
+    m_raw->setFixedHeight(qBound(3, lines, 12) * mono.lineSpacing() + 2 * m_raw->frameWidth() + 2 * margin + mono.descent());
 }
 
 void CardWindow::changeEvent(QEvent *event)
