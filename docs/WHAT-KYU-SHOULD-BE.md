@@ -7,8 +7,10 @@ Out of scope by the owner's decision: an unbootable system after a kernel
 update (boot files, initramfs, DKMS).
 
 **Read this first:** Kyu has completed one real update, on the owner's
-Manjaro (Plasma 6.7); real updates in throwaway Arch and Manjaro containers
-(`tools/docker/`) are being set up. Rows that need a real desktop or a rare
+Manjaro (Plasma 6.7), and real updates in throwaway containers
+(`tools/docker/`, 2026-11-17): Manjaro stable, 130 packages behind (news
+asked, keyrings first, a systemd restart, three `.pacnew` files), and Arch
+from 2026-10-06, 68 behind. Rows that need a real desktop or a rare
 failure (a broken keyring, a mirror out of date) are still backed only by
 tests against a fake pacman.
 
@@ -80,7 +82,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 13 | Manjaro's announcement for your branch; Arch news on Arch | Arch-Update/informant: wrong feed on Manjaro | have | 1 |
 | 14 | News asked about once per new announcement (remember the last one seen), afterwards one line with the link | every Manjaro update has an announcement; asking every time trains a reflex "y". "Only when it needs doing" can't be read reliably from Manjaro's free text | have: asked once per announcement; opening it from the card counts as read; read ones get one quiet line. On Manjaro each stable update brings a new announcement, so it is still asked once per update; the saving is on repeated runs and when read from the card first | 1 |
 | 15 | Wait for pamac or another package manager to finish, then go on | pamac's own background refresh takes the lock routinely | have: waits (up to 10 minutes, Ctrl+C stops), then goes on; a Flatpak-only update ignores pacman's lock | 1 |
-| 16 | Keyrings first when they are among the updates: `pacman -Sy --needed archlinux-keyring manjaro-keyring` then `pacman -Su` at once, in the same run | Manjaro advice; the top real failure after long gaps | have: when the last check lists a keyring package (one with files in `/usr/share/pacman/keyrings/`), all installed keyrings go first in their own `pacman -Sy --needed`, then `pacman -Su`, in one shell (sudo asks once); if the new keyring itself is not trusted, or signatures still fail, Kyu says to check the clock and refresh the keys instead of offering the keyring fix again | 1 |
+| 16 | Keyrings first when they are among the updates: `pacman -Sy --needed archlinux-keyring manjaro-keyring` then `pacman -Su` at once, in the same run | Manjaro advice; the top real failure after long gaps | have: when the last check lists a keyring package (one with files in `/usr/share/pacman/keyrings/`), all installed keyrings go first in their own `pacman -Sy --needed`, then `pacman -Su`, in one shell (sudo asks once); if the new keyring itself is not trusted, or signatures still fail, Kyu says to check the clock and refresh the keys instead of offering the keyring fix again; seen working in a real Manjaro update (container) | 1 |
 | 17 | Long gap warning: last full upgrade more than a few weeks ago → "read the announcements in between; keyrings first" | — | missing | 2 |
 | 18 | Flatpak-only update without a password | — | have | 2 |
 
@@ -88,7 +90,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 
 | # | What | Why | Status | Pri |
 |---|---|---|---|---|
-| 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have: run on the owner's Manjaro | 1 |
+| 19 | The real `sudo pacman -Syu` in a real terminal, with its own questions | pamac's daemon/GUI crashes | have: run on the owner's Manjaro and in Arch and Manjaro containers | 1 |
 | 20 | Then the AUR helper (yay, paru or `pamac update --aur`) as its own step, if one is installed; counted in the tray too. An AUR failure is reported on its own and never marks the system update as failed | Manjaro's advice: pacman first, AUR after; AUR build failures are pamac's top complaint; Octopi misses AUR updates | have: paru, yay, or pamac with `EnableAUR` and `CheckAURUpdates`; checked against the AUR's web API at most every 6 hours (foreign package names, pacman's version order, held-back ones left out), counted apart; `paru -Sua` / `yay -Sua` / `pamac update --aur` last, after Flatpaks (pamac never without pacman first: it would do the repos too); the system's result is saved before it; its failure is its own line, and a package that failed to build is not offered again until a newer version. `kyu.conf` turns it off or picks the helper. Runs before a restart, not after (Manjaro's "reboot, then AUR" is not followed) | 1 |
 | 21 | Then `flatpak update` | — | have | 1 |
 | 22 | The terminal you use: Konsole by default, one setting for another | terminal detection is Arch-Update's and Apdatifier's longest bug thread | part (Konsole / xdg-terminal-exec, no setting) | 2 |
@@ -116,7 +118,7 @@ there is a second user). Branch switching: unsupported; say so in the docs.
 
 | # | What | Status | Pri |
 |---|---|---|---|
-| 33 | One real update on the owner's Manjaro before anything else is built | have (2026-11-17) | 1 |
+| 33 | One real update on the owner's Manjaro before anything else is built | have (2026-11-17); also real updates in Arch and Manjaro containers | 1 |
 | 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | have | 1 |
 | 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | have (README) | 1 |
 | 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |

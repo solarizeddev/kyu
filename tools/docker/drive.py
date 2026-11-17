@@ -10,7 +10,7 @@ Exit status: the command's.
 
 Usage: drive.py OUTDIR PASSWORD -- COMMAND...
 """
-import os, pty, re, select, sys, time
+import fcntl, os, pty, re, select, struct, sys, termios, time
 
 out, password = sys.argv[1], sys.argv[2]
 cmd = sys.argv[sys.argv.index("--") + 1:]
@@ -19,8 +19,9 @@ waiting_file = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser(
 
 pid, fd = pty.fork()
 if pid == 0:
-    os.environ["COLUMNS"] = "120"
     os.execvp(cmd[0], cmd)
+# A terminal of 120 × 40, as a window has (pacman lays out its tables by it).
+fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
 
 raw = open(os.path.join(out, "transcript.txt"), "wb")
 log = open(os.path.join(out, "answers.txt"), "w")

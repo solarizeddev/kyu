@@ -9,8 +9,9 @@ What Kyu should be, what it should solve and what is still missing:
 [`docs/WHAT-KYU-SHOULD-BE.md`](docs/WHAT-KYU-SHOULD-BE.md). Why the update
 runs in a terminal: [`docs/TERMINAL-FIRST.md`](docs/TERMINAL-FIRST.md).
 
-**Status:** one real update on the owner's Manjaro; everything else
-against a fake pacman. Manjaro first; Arch is tested less.
+**Status:** one real update on the owner's Manjaro, and real updates in
+throwaway Manjaro and Arch containers (`tools/docker/`); failures against a
+fake pacman. Manjaro first; Arch is tested less.
 
 ## Components
 
