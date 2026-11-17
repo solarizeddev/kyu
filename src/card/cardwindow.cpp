@@ -5,7 +5,6 @@
 #include "news.h"
 #include "statewatcher.h"
 
-#include <QFile>
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -18,6 +17,7 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -258,9 +258,10 @@ bool CardWindow::event(QEvent *event)
     if (event->type() == QEvent::ActivationChange) {
         const QString path = qEnvironmentVariable("KYU_CARD_ACTIVE_FILE");
         if (!path.isEmpty()) {
-            QFile file(path);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            QSaveFile file(path);
+            if (file.open(QIODevice::WriteOnly)) {
                 file.write(isActiveWindow() ? "1" : "0");
+                file.commit();
             }
         }
     }

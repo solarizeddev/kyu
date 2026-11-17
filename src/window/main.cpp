@@ -12,8 +12,10 @@
 // For the screenshot test kit only: KYU_WINDOW_ANSWERS names a pipe whose
 // text is typed into the terminal, KYU_WINDOW_ACTIVE_FILE a file that says
 // whether the window is the active one ("1" or "0"), KYU_WINDOW_SETTINGS
-// changes the profile for this window only (as `konsole -p`, "ColorScheme=
-// Linux;..."), and KYU_WINDOW_COLUMNS sets its width in characters.
+// changes the profile for this window only (konsoleprofile's "ColorScheme=
+// Linux;..."), KYU_WINDOW_COLUMNS and KYU_WINDOW_ROWS set its size in
+// characters, and KYU_WINDOW_NO_FALLBACK=1 makes it fail (status 3) rather
+// than open Konsole when Konsole's part is missing.
 
 #include "paths.h"
 
@@ -28,7 +30,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
-#include <QFontMetricsF>
+#include <QFontMetrics>
 #include <QLockFile>
 #include <QMessageBox>
 #include <QPointer>
@@ -40,7 +42,6 @@
 #include <QStyle>
 #include <QVBoxLayout>
 #include <QWidget>
-#include <QtMath>
 
 #include <cerrno>
 #include <csignal>
@@ -189,30 +190,30 @@ int main(int argc, char **argv)
     TerminalInterface *terminal = part ? qobject_cast<TerminalInterface *>(part.data()) : nullptr;
     if (!terminal || !part->widget()) {
         delete window;
+        if (qEnvironmentVariableIntValue("KYU_WINDOW_NO_FALLBACK") == 1) {
+            qWarning("kyu-window: Konsole's terminal part did not load");
+            return 3;
+        }
         return runInTerminal(program, args);
     }
     layout->addWidget(part->widget());
     window->setFocusProxy(part->widget());
 
-
-    // Test kit: another colour scheme, for this window only (Konsole's
-    // part takes "key=value;..." as konsole's -p does).
-    if (const QString settings = qEnvironmentVariable("KYU_WINDOW_SETTINGS"); !settings.isEmpty()) {
-        if (!QMetaObject::invokeMethod(part.data(), "changeSessionSettings", Q_ARG(QString, settings))) {
-            qWarning("kyu-window: this Konsole part cannot change its settings (KYU_WINDOW_SETTINGS)");
-        }
-    }
-
-    // About 100 × 34 characters in the profile's font.
-    bool columnsSet = false;
-    const int columns = qEnvironmentVariableIntValue("KYU_WINDOW_COLUMNS", &columnsSet);
-    const int width = columnsSet && columns >= 20 ? columns : 100;
-    QSize size(width * 9, 620);
+    // About 100 × 34 characters in the profile's font, measured as Konsole
+    // measures its cells (whole pixels). The test kit sets other sizes.
+    const auto envInt = [](const char *name, int fallback, int least) {
+        bool set = false;
+        const int value = qEnvironmentVariableIntValue(name, &set);
+        return set && value >= least ? value : fallback;
+    };
+    const int columns = envInt("KYU_WINDOW_COLUMNS", 100, 20);
+    const int rows = envInt("KYU_WINDOW_ROWS", 34, 10);
+    QSize size(columns * 9, rows * 18);
     const QVariant font = terminal->profileProperty(QStringLiteral("Font"));
     if (font.typeId() == QMetaType::QFont) {
-        const QFontMetricsF metrics(font.value<QFont>());
+        const QFontMetrics metrics(font.value<QFont>());
         const int scrollBar = window->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
-        size = QSize(qCeil(metrics.horizontalAdvance(QLatin1Char('M')) * width) + scrollBar + 8, qCeil(metrics.height() * 34) + 8);
+        size = QSize(metrics.horizontalAdvance(QLatin1Char('M')) * columns + scrollBar + 8, metrics.height() * rows + 8);
     }
     window->resize(size);
     window->show();
@@ -249,7 +250,20 @@ int main(int argc, char **argv)
     qputenv("KYU_WINDOW", "1");
     // Konsole drops the first element of the list (argv[0]) and, with an
     // empty list, starts a shell instead: the program is named twice.
-    terminal->startProgram(program, QStringList{program} + args);
+    // Test kit: another colour scheme for this window only. The settings go
+    // to Konsole from inside the session, as konsoleprofile sends them
+    // (OSC 50); a moment for Konsole to apply them before kyu-update asks
+    // for the background colour; exec keeps the process (the update lock
+    // names it).
+    if (const QString settings = qEnvironmentVariable("KYU_WINDOW_SETTINGS"); !settings.isEmpty()) {
+        const QString shell = QStringLiteral("/bin/sh");
+        terminal->startProgram(shell,
+                               QStringList{shell, QStringLiteral("-c"), QStringLiteral("printf '\\033]50;%s\\a' \"$1\"; shift; sleep 0.3; exec \"$@\""),
+                                           QStringLiteral("sh"), settings, program}
+                                   + args);
+    } else {
+        terminal->startProgram(program, QStringList{program} + args);
+    }
     // The part deletes itself when the program ends normally (after
     // kyu-update's last key): the window goes with it.
     window->watch(part.data(), terminal->terminalProcessId());

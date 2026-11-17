@@ -165,7 +165,7 @@ else
 fi
 if [ $? -eq 0 ]; then
     echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
-    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Kyu window; and kyu-test/cards/."
+    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Kyu window (Konsole in the fallback); and kyu-test/cards/."
 else
     # Keep the results rather than lose ten minutes of work.
     trap - EXIT

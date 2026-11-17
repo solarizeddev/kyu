@@ -40,13 +40,16 @@ It takes about 6 minutes:
    outcome, in your Konsole profile, Konsole's colour schemes, and 60 and 160
    columns wide (`screens/`). Leave the desktop alone meanwhile: a shot is
    taken only while that window is the active one, and the run stops
-   otherwise. Plain Konsole windows (with Konsole's toolbar) are used only if
-   Kyu's window was not built, or with `KONSOLE=1`.
+   otherwise. Plain Konsole windows are used only if Kyu's window was not
+   built, or with `KONSOLE=1`; if that Konsole cannot report the active
+   window, the run stops at the first shot, and `UNCHECKED=1` takes them
+   anyway.
 5. It notes the versions of the relevant packages and what `kyu-update`
    reads about your system (the kernel's module folder, the boot image name,
    whether pamac runs, your shell).
 6. It writes `~/kyu-test.zip`. Unzip it and look through `kyu-test/screens/`
-   (every picture should be a Kyu window) and `kyu-test/cards/`,
+   (every picture should be a Kyu window, or a Konsole one in the fallback)
+   and `kyu-test/cards/`,
    then send it back.
 
 In the text files your home directory, user name and the checkout's path are

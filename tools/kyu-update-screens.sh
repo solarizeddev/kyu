@@ -6,13 +6,13 @@
 # Each window runs the real kyu-update against a fake system (fake sudo,
 # pacman and flatpak first on PATH, fake pacman.log, /proc and lock file in a
 # temporary directory): nothing on your machine changes, no root, no network.
-# In each window kyu-update runs under util-linux `script` (a terminal of its
-# own) and gets its answers through a pipe; Konsole's D-Bus tells the text on
-# screen and whether the window is active.
+# kyu-update gets its answers through a pipe (Kyu's window types them in; in
+# the Konsole fallback, util-linux `script` reads them); Konsole's D-Bus tells
+# the text on screen.
 #
 #   tools/kyu-update-screens.sh OUTDIR
 #
-# Needs konsole, spectacle and busctl. Takes about 5 minutes; windows open
+# Needs konsole, spectacle and busctl (and `script` for the Konsole fallback). Takes about 5 minutes; windows open
 # and close by themselves. Leave the desktop alone: the screenshot is of the
 # active window, and a shot is skipped if the window is not the active one.
 # Turn on Do Not Disturb first: each window can post Konsole notifications.
@@ -34,7 +34,9 @@ fakes=$src/tests/update
 # Kyu's own window, unless it was not built or KONSOLE=1 asks for Konsole.
 WINDOW=
 [ -x "$build/bin/kyu-window" ] && [ -z "${KONSOLE:-}" ] && WINDOW=1
-for tool in konsole spectacle busctl script; do
+tools="konsole spectacle busctl"
+[ -n "$WINDOW" ] || tools="$tools script"
+for tool in $tools; do
     command -v $tool >/dev/null || { echo "kyu-update-screens: $tool is not installed" >&2; exit 2; }
 done
 [ -x "$build/bin/kyu-update" ] || { echo "kyu-update-screens: $build/bin/kyu-update is missing; build first" >&2; exit 2; }
@@ -153,7 +155,7 @@ shot() {
         # shellcheck disable=SC2046 # fake_args is a word list without spaces
         env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
             XDG_STATE_HOME="$d/state" KYU_WINDOW_ANSWERS="$d/answers" KYU_WINDOW_ACTIVE_FILE="$d/active" \
-            KYU_WINDOW_SETTINGS="$settings" KYU_WINDOW_COLUMNS="$columns" \
+            KYU_WINDOW_SETTINGS="$settings" KYU_WINDOW_COLUMNS="$columns" KYU_WINDOW_ROWS=40 KYU_WINDOW_NO_FALLBACK=1 \
             "$work/bin/kyu-window" $(fake_args "$d") >>"$work/konsole.log" 2>&1 &
         pid=$!
         # The terminal's session is on the window's own bus connection.
@@ -161,12 +163,19 @@ shot() {
         for i in $(seq 75); do
             service=$(busctl --user list --no-legend 2>/dev/null | awk -v p="$pid" '$2 == p && $1 ~ /^:/ { print $1; exit }')
             [ -n "$service" ] && busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1 && break
+            kill -0 "$pid" 2>/dev/null || break
             sleep 0.2
         done
+        if ! kill -0 "$pid" 2>/dev/null; then
+            log "FAILED $name: Kyu's window did not start (see konsole.log); stopping"
+            failed=$((failed + 1))
+            cp "$work/konsole.log" "$out/konsole.log" 2>/dev/null
+            exit 1
+        fi
     else
         env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
             XDG_STATE_HOME="$d/state" \
-            konsole --separate --hide-menubar --hide-tabbar --workdir "$d" "${profile[@]}" \
+            konsole --separate --hide-menubar --hide-tabbar $hide_toolbars --workdir "$d" "${profile[@]}" \
             -e sh -c 'exec script -q -e -c "$0" /dev/null <"$1"' "$work/bin/kyu-update $(fake_args "$d")" "$d/answers" \
             >>"$work/konsole.log" 2>&1 &
         pid=$!
@@ -283,6 +292,10 @@ close() {
 }
 
 NEW=6.18.22-1-MANJARO # the installed kernel in the fake system
+
+# The Konsole fallback without Konsole's toolbar, where this Konsole can.
+hide_toolbars=
+konsole --help 2>/dev/null | grep -q -- --hide-toolbars && hide_toolbars=--hide-toolbars
 
 if [ -n "$WINDOW" ]; then
     log "== in Kyu's own window (kyu-window), your Konsole profile"
