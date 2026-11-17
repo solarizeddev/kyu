@@ -116,7 +116,7 @@ void TrayIcon::refresh()
 
     const Kyu::TrayInput in = Kyu::currentTrayInput(state, checking, m_watcher->loadError());
     const Kyu::TrayView view = Kyu::trayView(in);
-    notifyNews(view.newsKey, view.newsTitle, view.newsLink, view.newsSource);
+    notifyNews(view.newsKey, view.newsTitle, view.newsLink);
 
 #ifdef KYU_HAVE_KSNI
     // Icons by name, so Plasma colours them for the panel (which may be dark
@@ -183,7 +183,7 @@ void TrayIcon::spin()
 // stays until dismissed (it may need action before the next update), and
 // goes when the announcement is read (in kyu-update, the card, or here).
 // Switchable in System Settings → Notifications (kyu.notifyrc, "news").
-void TrayIcon::notifyNews(const QString &key, const QString &title, const QString &link, const QString &source)
+void TrayIcon::notifyNews(const QString &key, const QString &title, const QString &link)
 {
 #ifdef KYU_HAVE_KNOTIFICATIONS
     if (m_news && key != m_newsKey) {
@@ -208,7 +208,8 @@ void TrayIcon::notifyNews(const QString &key, const QString &title, const QStrin
     auto *notification = new KNotification(QStringLiteral("news"), KNotification::Persistent);
     notification->setComponentName(QStringLiteral("kyu"));
     notification->setIconName(QStringLiteral("update-medium"));
-    notification->setTitle(source.isEmpty() ? QStringLiteral("News to read before updating") : source);
+    // As the card's "Read first: …": what to do, then which announcement.
+    notification->setTitle(QStringLiteral("Read before updating"));
     notification->setText(title.toHtmlEscaped());
     if (!link.isEmpty()) {
         connect(notification->addAction(QStringLiteral("Read")), &KNotificationAction::activated, this, [key, link]() {
@@ -226,6 +227,5 @@ void TrayIcon::notifyNews(const QString &key, const QString &title, const QStrin
 #else
     Q_UNUSED(title)
     Q_UNUSED(link)
-    Q_UNUSED(source)
 #endif
 }

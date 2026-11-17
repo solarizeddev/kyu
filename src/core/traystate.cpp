@@ -162,7 +162,6 @@ TrayView trayView(const TrayInput &in)
         v.newsTitle = unread->title;
         v.newsLink = unread->link;
         v.newsKey = newsKey(*unread);
-        v.newsSource = in.state->news.source;
     }
     const QStringList status = statusLines(in.state, in.checking, in.loadError, in.now);
 
@@ -267,7 +266,7 @@ QList<DetailRow> detailRows(const UpdateState &s)
     // In the check's order (pacman's), the AUR and Flatpaks after.
     QList<DetailRow> rows;
     for (const PackageUpdate &p : s.packages) {
-        rows.append({p.name, p.oldVersion, p.newVersion, p.repo});
+        rows.append({p.name, p.oldVersion, p.newVersion, p.repo, p.size});
     }
     for (const PackageUpdate &p : s.aurPackages) {
         rows.append({p.name, p.oldVersion, p.newVersion, QStringLiteral("AUR")});
@@ -282,13 +281,35 @@ QList<DetailRow> detailRows(const UpdateState &s)
 
 QList<DetailLine> detailLines(const QList<DetailRow> &rows)
 {
-    // One block of columns: each as wide as its longest cell (the names as
-    // wide as in the other block, so both line up), three spaces apart, no
-    // trailing spaces.
-    qsizetype nameWidth = 0;
-    const auto block = [&nameWidth](const QList<QStringList> &table, QList<DetailLine> &out) {
-        QList<qsizetype> widths{nameWidth};
-        for (const QStringList &cells : table) {
+    QList<QStringList> packages, aur, flatpaks;
+    bool sized = false;
+    for (const DetailRow &row : rows) {
+        if (row.source == QLatin1String("Flatpak")) {
+            flatpaks.append({row.name, row.newVersion});
+        } else if (row.source == QLatin1String("AUR")) {
+            aur.append({row.name, row.oldVersion, row.newVersion});
+        } else {
+            sized = sized || row.size >= 0;
+            packages.append({row.source + QLatin1Char('/') + row.name, row.oldVersion, row.newVersion,
+                             row.size >= 0 ? QLocale().formattedDataSize(row.size, 1) : QString()});
+        }
+    }
+    const QString size = QStringLiteral("Download Size");
+    if (!packages.isEmpty()) {
+        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version"), size});
+    }
+    if (!aur.isEmpty()) {
+        aur.prepend({QStringLiteral("AUR (%1)").arg(aur.size())});
+    }
+    if (!flatpaks.isEmpty()) {
+        flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), QStringLiteral("Branch")});
+    }
+    // Every block in the same columns, each as wide as its longest cell;
+    // three spaces apart; sizes right-aligned under their title (pacman's
+    // way); no trailing spaces. No size known: no size column.
+    QList<qsizetype> widths;
+    for (const QList<QStringList> *block : {&packages, &aur, &flatpaks}) {
+        for (const QStringList &cells : *block) {
             for (qsizetype i = 0; i < cells.size(); ++i) {
                 if (widths.size() <= i) {
                     widths.append(0);
@@ -296,43 +317,32 @@ QList<DetailLine> detailLines(const QList<DetailRow> &rows)
                 widths[i] = qMax(widths[i], cells[i].size());
             }
         }
-        for (qsizetype r = 0; r < table.size(); ++r) {
+    }
+    QList<DetailLine> out;
+    for (const QList<QStringList> *block : {&packages, &aur, &flatpaks}) {
+        if (block->isEmpty()) {
+            continue;
+        }
+        if (!out.isEmpty()) {
+            out.append(DetailLine{});
+        }
+        for (qsizetype r = 0; r < block->size(); ++r) {
+            const QStringList &cells = block->at(r);
             QString line;
-            for (qsizetype i = 0; i < table[r].size(); ++i) {
-                line += i + 1 < table[r].size() ? table[r][i].leftJustified(widths[i] + 3) : table[r][i];
+            for (qsizetype i = 0; i < cells.size(); ++i) {
+                if (i == 3) {
+                    if (sized) {
+                        line += QStringLiteral("   ") + cells[i].rightJustified(widths[i]);
+                    }
+                } else {
+                    line += (i > 0 ? QStringLiteral("   ") : QString()) + cells[i].leftJustified(widths[i]);
+                }
             }
             while (line.endsWith(QLatin1Char(' '))) {
                 line.chop(1);
             }
             out.append({line, r == 0});
         }
-    };
-    QList<QStringList> packages, flatpaks;
-    for (const DetailRow &row : rows) {
-        if (row.source == QLatin1String("Flatpak")) {
-            flatpaks.append({row.name, row.newVersion});
-        } else {
-            packages.append({row.source.toLower() + QLatin1Char('/') + row.name, row.oldVersion, row.newVersion});
-        }
-    }
-    if (!packages.isEmpty()) {
-        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version")});
-    }
-    if (!flatpaks.isEmpty()) {
-        flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), QStringLiteral("Branch")});
-    }
-    for (const QStringList &cells : packages + flatpaks) {
-        nameWidth = qMax(nameWidth, cells.constFirst().size());
-    }
-    QList<DetailLine> out;
-    if (!packages.isEmpty()) {
-        block(packages, out);
-    }
-    if (!flatpaks.isEmpty()) {
-        if (!out.isEmpty()) {
-            out.append(DetailLine{});
-        }
-        block(flatpaks, out);
     }
     return out;
 }
@@ -484,8 +494,13 @@ CardView cardView(const TrayInput &in)
             c.muted = ok.isValid() ? QStringLiteral("Could not check for updates · list from %1").arg(shortWhen(ok, in.now))
                                    : QStringLiteral("Could not check for updates · the last list");
             c.raw = checkErrors(s);
+            // Checking again, next to Update (greyed out while it runs).
+            c.secondary = CardView::Action::Check;
+            c.secondaryText = in.checking ? QStringLiteral("Checking…") : QStringLiteral("Try Again");
+            c.secondaryEnabled = !in.checking;
         } else if (s.restartNeeded()) {
-            c.muted = QStringLiteral("Requires a restart");
+            // Why, before the update (the running kernel's package).
+            c.muted = QStringLiteral("Updates the running kernel · requires a restart");
         }
         // The news: "Read first" until read (confirmed in kyu-update, or
         // opened from here); afterwards just the link.

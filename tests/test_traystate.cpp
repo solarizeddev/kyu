@@ -150,6 +150,17 @@ void TestTrayState::cards()
     QCOMPARE(c.muted, QStringLiteral("Could not check for updates · list from yesterday 20:02"));
     QCOMPARE(c.raw, QStringLiteral("Flatpak: Unable to connect to dl.flathub.org"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
+    // Try Again next to Update; greyed out while it checks.
+    QCOMPARE(c.secondary, CardView::Action::Check);
+    QCOMPARE(c.secondaryText, QStringLiteral("Try Again"));
+    QVERIFY(c.secondaryEnabled);
+    QCOMPARE(c.action, CardView::Action::Update);
+    in.checking = true;
+    c = cardView(in);
+    QCOMPARE(c.secondaryText, QStringLiteral("Checking…"));
+    QVERIFY(!c.secondaryEnabled);
+    QVERIFY(c.actionEnabled);
+    in.checking = false;
     // ...with none listed it is "Could not check", with the reason.
     UpdateState none = withUpdates(0, false);
     none.pacman.ok = false;
@@ -304,26 +315,39 @@ void TestTrayState::cards()
 
 void TestTrayState::details()
 {
-    const QList<DetailRow> rows{{QStringLiteral("linux618"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), QStringLiteral("core")},
-                                {QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), QStringLiteral("1:26.2.3-1"), QStringLiteral("extra")},
-                                {QStringLiteral("visual-studio-code-bin"), QStringLiteral("1.106.0-1"), QStringLiteral("1.106.2-1"), QStringLiteral("AUR")},
-                                {QStringLiteral("org.kde.krita"), QString(), QStringLiteral("stable"), QStringLiteral("Flatpak")}};
+    QList<DetailRow> rows{{QStringLiteral("linux618"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), QStringLiteral("core")},
+                          {QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), QStringLiteral("1:26.2.3-1"), QStringLiteral("extra")},
+                          {QStringLiteral("visual-studio-code-bin"), QStringLiteral("1.106.0-1"), QStringLiteral("1.106.2-1"), QStringLiteral("AUR")},
+                          {QStringLiteral("org.kde.krita"), QString(), QStringLiteral("stable"), QStringLiteral("Flatpak")}};
+    const auto text = [](const QList<DetailLine> &lines) {
+        QStringList out;
+        for (const DetailLine &l : lines) {
+            out.append(l.text);
+        }
+        return out;
+    };
+    // A block per source, as the card's line counts them; no sizes known:
+    // no size column.
     const QList<DetailLine> lines = detailLines(rows);
-    QStringList text;
-    for (const DetailLine &l : lines) {
-        text.append(l.text);
-    }
-    QCOMPARE(text,
-             QStringList({QStringLiteral("Package (3)                  Old Version   New Version"),
-                          QStringLiteral("core/linux618                6.18.20-1     6.18.22-1"),
-                          QStringLiteral("extra/mesa                   1:26.2.1-1    1:26.2.3-1"),
-                          QStringLiteral("aur/visual-studio-code-bin   1.106.0-1     1.106.2-1"),
+    QCOMPARE(text(lines), QStringList({QStringLiteral("Package (2)              Old Version   New Version"),
+                          QStringLiteral("core/linux618            6.18.20-1     6.18.22-1"),
+                          QStringLiteral("extra/mesa               1:26.2.1-1    1:26.2.3-1"),
                           QString(),
-                          QStringLiteral("Flatpak (1)                  Branch"),
-                          QStringLiteral("org.kde.krita                stable")}));
+                          QStringLiteral("AUR (1)"),
+                          QStringLiteral("visual-studio-code-bin   1.106.0-1     1.106.2-1"),
+                          QString(),
+                          QStringLiteral("Flatpak (1)              Branch"),
+                          QStringLiteral("org.kde.krita            stable")}));
     QVERIFY(lines.at(0).header);
     QVERIFY(!lines.at(1).header);
-    QVERIFY(lines.at(5).header);
+    QVERIFY(lines.at(4).header); // AUR (1)
+    QVERIFY(lines.at(7).header); // Flatpak (1)
+    // Sizes: pacman's Download Size column, right-aligned; unknown ones blank.
+    rows[0].size = 158 * 1024 * 1024 + 629146; // 158.6 MiB
+    const QStringList sized = text(detailLines(rows));
+    QCOMPARE(sized.at(0), QStringLiteral("Package (2)              Old Version   New Version   Download Size"));
+    QCOMPARE(sized.at(1), QStringLiteral("core/linux618            6.18.20-1     6.18.22-1         158.6 MiB"));
+    QCOMPARE(sized.at(2), QStringLiteral("extra/mesa               1:26.2.1-1    1:26.2.3-1"));
     // Flatpaks alone: their block only.
     QCOMPARE(detailLines({rows.at(3)}).size(), 2);
     QVERIFY(detailLines({}).isEmpty());

@@ -49,7 +49,6 @@ struct TrayView {
     QString newsTitle;
     QString newsLink;
     QString newsKey;
-    QString newsSource; // "Manjaro announcements"
 };
 
 TrayView trayView(const TrayInput &in);
@@ -60,13 +59,15 @@ struct DetailRow {
     QString oldVersion; // empty for a Flatpak
     QString newVersion; // a Flatpak's branch
     QString source; // the repo, "AUR" or "Flatpak"
+    qint64 size = -1; // the package's download size in bytes; -1 unknown (the AUR, Flatpaks)
 
     bool operator==(const DetailRow &) const = default;
 };
 
 // Details as pacman lists packages (its VerbosePkgLists table): monospace
-// lines, columns padded with spaces, "repo/name"; Flatpaks in a block of
-// their own. A header line
+// lines, columns padded with spaces; a block per source, as the card's
+// line counts them: "Package (6)" (repo/name, Old Version, New Version,
+// Download Size when known), "AUR (1)", "Flatpak (2)" (Branch). A header line
 // is drawn bold.
 struct DetailLine {
     QString text;
@@ -99,6 +100,7 @@ struct CardView {
     QString actionText;
     bool primary = false; // the main thing to do (the default button) or just available
     bool actionEnabled = true; // false: shown greyed out ("Checking…")
+    bool secondaryEnabled = true;
     Action secondary = Action::None; // a second button, left of the first
     QString secondaryText;
     QList<DetailRow> rows; // Details: what the update changes

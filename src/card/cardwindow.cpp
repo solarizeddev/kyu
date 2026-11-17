@@ -271,7 +271,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     busyRow->addWidget(m_busy);
     text->addWidget(m_busyRow);
     // "▸ Details" under the text, as in KDE's message boxes: a disclosure,
-    // not a button beside the actions; what it shows opens below the buttons.
+    // not a button beside the actions; what it shows opens above them.
     m_detailsRow = new QWidget(m_textColumn);
     auto *row = new QHBoxLayout(m_detailsRow);
     row->setContentsMargins(0, down / 2, 0, 0); // with the column's spacing: a line's spacing
@@ -286,6 +286,24 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_grid->addWidget(m_textColumn, 0, 1);
     m_grid->setColumnStretch(1, 1); // a wider window (Details open): the text gets the room
     layout->addLayout(m_grid);
+    // Details, opened under the text and above the buttons (as KDE's
+    // message box does: the buttons stay the card's last row): what the
+    // update changes, as pacman lists it, or the failure in the program's
+    // words. One read-only text box in the fixed-width
+    // font, on the palette's own colours (not a terminal's: nothing to type).
+    m_detailsArea = new QWidget(this);
+    auto *details = new QVBoxLayout(m_detailsArea);
+    details->setContentsMargins(0, down, 0, 0);
+    details->setSpacing(0);
+    m_raw = new QPlainTextEdit(m_detailsArea);
+    m_raw->setReadOnly(true);
+    m_raw->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_raw->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_raw->document()->setDocumentMargin(down);
+    details->addWidget(m_raw);
+    m_detailsArea->hide();
+    layout->addWidget(m_detailsArea, 1);
     layout->addSpacing(2 * down);
 
 
@@ -310,22 +328,6 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_footer->addWidget(m_action);
     layout->addLayout(m_footer);
 
-    // Details: what the update changes, as pacman lists it, or the failure
-    // in the program's words. One read-only text box in the fixed-width
-    // font, on the palette's own colours (not a terminal's: nothing to type).
-    m_detailsArea = new QWidget(this);
-    auto *details = new QVBoxLayout(m_detailsArea);
-    details->setContentsMargins(0, down, 0, 0);
-    details->setSpacing(0);
-    m_raw = new QPlainTextEdit(m_detailsArea);
-    m_raw->setReadOnly(true);
-    m_raw->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
-    m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    m_raw->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_raw->document()->setDocumentMargin(down);
-    details->addWidget(m_raw);
-    m_detailsArea->hide();
-    layout->addWidget(m_detailsArea, 1);
 
     applyFonts();
 
@@ -375,7 +377,9 @@ void CardWindow::keepFooterHeight()
 
 void CardWindow::sizeDetails()
 {
-    // The box as tall as its lines (3 to 12; more scroll). The package list
+    constexpr int MaxLines = 16;
+    // The box as tall as its lines (3 to 16; more scroll: three blocks of
+    // a usual update fit). The package list
     // is not wrapped: the box is as wide as its longest line (up to 80
     // characters; more scroll sideways). The failure's lines wrap in the
     // card's width.
@@ -398,7 +402,9 @@ void CardWindow::sizeDetails()
             widest = qMax(widest, qMax(regular.horizontalAdvance(line), bold.horizontalAdvance(line)));
         }
         sideways = widest > most;
-        m_raw->setMinimumWidth(qCeil(qMin(widest, most)) + frame + 2);
+        // Room for the scroll bar a longer list gets, so it covers no column.
+        const int bar = text.size() > MaxLines ? style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, m_raw) : 0;
+        m_raw->setMinimumWidth(qCeil(qMin(widest, most)) + frame + 2 + bar);
         lines = int(text.size());
     } else {
         m_raw->setLineWrapMode(QPlainTextEdit::WidgetWidth);
@@ -421,7 +427,7 @@ void CardWindow::sizeDetails()
     }
     // Scroll bars only when there is more than fits (a scroll bar would
     // narrow the box and change the wrapping just measured).
-    m_raw->setVerticalScrollBarPolicy(lines > 12 ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+    m_raw->setVerticalScrollBarPolicy(lines > MaxLines ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     m_raw->setHorizontalScrollBarPolicy(sideways ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     const int bar = sideways ? style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, m_raw) : 0;
     // A line's real height is not a whole number of pixels (Hack's is
@@ -430,8 +436,8 @@ void CardWindow::sizeDetails()
     QFont boldLine = m_raw->font();
     boldLine.setBold(true);
     const qreal line = qMax(QFontMetricsF(m_raw->font()).lineSpacing(), QFontMetricsF(boldLine).lineSpacing());
-    int height = qCeil(qBound(3, lines, 12) * line) + mono.descent();
-    if (!m_view.rows.isEmpty() && lines <= 12) {
+    int height = qCeil(qBound(3, lines, MaxLines) * line) + mono.descent();
+    if (!m_view.rows.isEmpty() && lines <= MaxLines) {
         // Not wrapped: the lines' heights as the box lays them out.
         qreal laid = 0;
         for (QTextBlock block = m_raw->document()->begin(); block.isValid(); block = block.next()) {
@@ -555,10 +561,16 @@ void CardWindow::present(const Kyu::CardView &view)
     sizeDetails();
 
     // The buttons: a second one when there is one, the main one last.
-    m_secondary->setText(view.secondaryText);
+    // Each button with its first letter as its Alt key (Breeze underlines
+    // it while Alt is held); no two buttons on one card share a letter.
+    const auto withKey = [](QString text) {
+        return QLatin1Char('&') + text.replace(QLatin1Char('&'), QStringLiteral("&&"));
+    };
+    m_secondary->setText(withKey(view.secondaryText));
     m_secondary->setIcon(actionIcon(view.secondary));
     m_secondary->setVisible(view.secondary != Kyu::CardView::Action::None);
-    m_action->setText(view.actionText);
+    m_secondary->setEnabled(view.secondaryEnabled);
+    m_action->setText(withKey(view.actionText));
     m_action->setIcon(actionIcon(view.action));
     const bool hasAction = view.action != Kyu::CardView::Action::None && (view.action != Kyu::CardView::Action::ShowWindow || windowOpen);
     m_action->setVisible(hasAction);
@@ -693,6 +705,11 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Escape) {
         close();
+        return;
+    }
+    // F5: check for updates, as Refresh in any KDE application.
+    if (event->matches(QKeySequence::Refresh)) {
+        run(Kyu::CardView::Action::Check);
         return;
     }
     // Enter: the focused button (a card is not a QDialog, which would do

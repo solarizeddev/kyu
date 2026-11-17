@@ -34,7 +34,7 @@ protected:
 private:
     void refresh();
     void spin();
-    void notifyNews(const QString &key, const QString &title, const QString &link, const QString &source);
+    void notifyNews(const QString &key, const QString &title, const QString &link);
 
     StateWatcher *m_watcher;
     QMenu *m_menu;

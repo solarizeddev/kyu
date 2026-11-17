@@ -98,6 +98,8 @@ build/bin/kyu-tray &
 - the icon matches the state (none, updates, news, restart, failed; spinning
   while `kyu-update` runs) on a light and a dark panel;
 - a click opens the card; its button does the right thing;
+- on the card, holding Alt underlines each button's letter (Alt+U updates);
+  F5 checks again; with Details open the buttons stay the last row;
 - the tooltip says the same as the card.
 
 Notifications, from the build tree: Plasma shows Kyu's notifications only
