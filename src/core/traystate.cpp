@@ -244,7 +244,7 @@ QString checkFailure(const UpdateState &s)
             }
         }
         if (e.contains(QLatin1String("timed out")) || e.contains(QLatin1String("timeout"))) {
-            return QStringLiteral("The mirrors did not answer.");
+            return name == QLatin1String("Flatpak") ? QStringLiteral("Flatpak's server did not answer.") : QStringLiteral("The mirrors did not answer.");
         }
         return QStringLiteral("%1 reported an error.").arg(name);
     }
@@ -350,6 +350,7 @@ CardView cardView(const TrayInput &in)
             if (!in.configs.isEmpty()) {
                 c.note = toMerge(in.configs, QStringLiteral(" after the update"));
             }
+            c.canRefresh = !in.checking;
             c.action = CardView::Action::Update;
             c.actionText = QStringLiteral("Update again");
             c.primary = true;
@@ -382,13 +383,19 @@ CardView cardView(const TrayInput &in)
             c.stamp = stamped(QStringLiteral("Updated"), lastTime, in.now);
         }
         c.heading = QStringLiteral("Restart to finish");
-        // "new kernel 6.18.22-1-MANJARO", "systemd was updated".
+        // "new kernel 6.18.22-1-MANJARO", "the running kernel 6.18.20-1 was
+        // removed", "systemd was updated" (a package name keeps its case).
         QString reason = restartReason(in);
         reason.remove(QStringLiteral(" (from an earlier update)"));
+        static const QRegularExpression updatedPackage(QStringLiteral("^(\\S+) was updated$"));
         if (reason.startsWith(QLatin1String("new kernel "))) {
             c.detail = QStringLiteral("Kernel %1 is installed.\nThe old one runs until you restart.").arg(reason.mid(11));
-        } else {
+        } else if (reason.startsWith(QLatin1String("the running kernel"))) {
             reason[0] = reason[0].toUpper();
+            c.detail = reason + QStringLiteral(".\nRestart to use the installed one.");
+        } else if (const auto m = updatedPackage.match(reason); m.hasMatch()) {
+            c.detail = QStringLiteral("An update of %1 is installed.\nThe old version runs until you restart.").arg(m.captured(1));
+        } else {
             c.detail = reason + QStringLiteral(".\nThe old version runs until you restart.");
         }
         if (!in.configs.isEmpty()) {
@@ -432,9 +439,10 @@ CardView cardView(const TrayInput &in)
             if (s.restartNeeded()) {
                 first += QStringLiteral(" · restart");
             }
+            // When it failed is in the corner ("Tried 14:02").
             const QDateTime ok = lastSuccess(s);
-            second = QStringLiteral("Check failed at %1; this list is from %2.")
-                         .arg(shortWhen(s.checkedAt, in.now), ok.isValid() ? shortWhen(ok, in.now) : QStringLiteral("before"));
+            second = ok.isValid() ? QStringLiteral("Check failed; this list is from %1.").arg(shortWhen(ok, in.now))
+                                  : QStringLiteral("Check failed; this is the last list.");
             c.raw = checkErrors(s);
             c.stamp = corner(stamped(QStringLiteral("Tried"), s.checkedAt, in.now));
         } else {

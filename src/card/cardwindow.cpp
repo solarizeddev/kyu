@@ -38,6 +38,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <memory>
+
 namespace
 {
 // A program next to this one (a build tree), else on PATH.
@@ -74,8 +76,8 @@ bool updateWindowOpen()
 // A theme icon, with a fallback for themes without it.
 QIcon themeIcon(const QString &name)
 {
-    if (name == QLatin1String("system-reboot-update")) {
-        return QIcon::fromTheme(name, QIcon::fromTheme(QStringLiteral("system-reboot")));
+    if (name == QLatin1String("system-reboot-update") && !QIcon::hasThemeIcon(name)) {
+        return QIcon::fromTheme(QStringLiteral("system-reboot"));
     }
     return QIcon::fromTheme(name);
 }
@@ -181,7 +183,8 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     text->addWidget(m_heading);
     text->addWidget(m_detail);
     text->addWidget(m_slot);
-    header->addWidget(m_textColumn, 1);
+    header->addWidget(m_textColumn);
+    header->addStretch(1); // a wider window (Details open): the space goes here
     layout->addLayout(header);
 
     // When, and what can be done.
@@ -224,14 +227,16 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     // Details: what the update changes, or the failure in the program's words.
     m_detailsArea = new QStackedWidget(this);
     m_list = new QTreeWidget(m_detailsArea);
-    m_list->setHeaderLabels({QStringLiteral("Package"), QStringLiteral("Version"), QStringLiteral("Source")});
+    m_list->setHeaderLabels({QString(), QStringLiteral("Package"), QStringLiteral("Version"), QStringLiteral("Source")});
+    m_list->headerItem()->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
     m_list->setRootIsDecorated(false);
     m_list->setSelectionMode(QAbstractItemView::NoSelection);
     m_list->setUniformRowHeights(true);
     m_list->header()->setStretchLastSection(false);
-    m_list->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_list->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_list->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_list->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_list->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_list->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     m_raw = new QPlainTextEdit(m_detailsArea);
     m_raw->setReadOnly(true);
     m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -320,10 +325,14 @@ void CardWindow::refresh()
 
 void CardWindow::present(const Kyu::CardView &view)
 {
+    // "Show window" only while Kyu's window is there to show (an update in a
+    // plain terminal has none).
+    const bool windowOpen = view.action == Kyu::CardView::Action::ShowWindow && (m_fixed || updateWindowOpen());
     // Unchanged (most polls): leave the window as it is, selection included.
-    if (m_shown && view == m_view) {
+    if (m_shown && view == m_view && windowOpen == m_windowOpen) {
         return;
     }
+    m_windowOpen = windowOpen;
     const bool newThing = !m_shown || view.kind != m_view.kind || view.action != m_view.action;
     m_shown = true;
     m_view = view;
@@ -361,10 +370,11 @@ void CardWindow::present(const Kyu::CardView &view)
     }
     m_list->clear();
     for (const Kyu::DetailRow &row : view.rows) {
-        auto *item = new QTreeWidgetItem(m_list, {row.name, row.version, row.source});
+        auto *item = new QTreeWidgetItem(m_list, {QString(), row.name, row.version, row.source});
         if (row.restart) {
             item->setIcon(0, QIcon::fromTheme(QStringLiteral("system-reboot")));
             item->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
+            item->setToolTip(1, QStringLiteral("Needs a restart afterwards"));
         }
     }
     m_raw->setPlainText(view.raw);
@@ -376,10 +386,7 @@ void CardWindow::present(const Kyu::CardView &view)
     m_secondary->setVisible(view.secondary != Kyu::CardView::Action::None);
     m_action->setText(view.actionText);
     m_action->setIcon(actionIcon(view.action));
-    // "Show window" only while Kyu's window is there to show (an update in
-    // a plain terminal has none).
-    const bool hasAction = view.action != Kyu::CardView::Action::None
-        && (view.action != Kyu::CardView::Action::ShowWindow || m_fixed || updateWindowOpen());
+    const bool hasAction = view.action != Kyu::CardView::Action::None && (view.action != Kyu::CardView::Action::ShowWindow || windowOpen);
     m_action->setVisible(hasAction);
     m_action->setDefault(view.primary);
     m_action->setAutoDefault(view.primary);
@@ -461,17 +468,29 @@ void CardWindow::showUpdateWindow()
 #ifdef KYU_HAVE_KWINDOWSYSTEM
     if (KWindowSystem::isPlatformWayland() && windowHandle()) {
         const quint32 serial = KWaylandExtras::lastInputSerial(windowHandle());
-        auto *connection = new QMetaObject::Connection;
+        // Once: with the token, or without it after a second (no answer).
+        auto done = std::make_shared<bool>(false);
+        auto finish = [this, send, done](const QString &token) {
+            if (*done) {
+                return;
+            }
+            *done = true;
+            send(token);
+            close();
+        };
+        auto connection = std::make_shared<QMetaObject::Connection>();
         *connection = connect(KWaylandExtras::self(), &KWaylandExtras::xdgActivationTokenArrived, this,
-                              [this, serial, connection, send](int arrived, const QString &token) {
+                              [serial, connection, finish](int arrived, const QString &token) {
                                   if (quint32(arrived) != serial) {
                                       return;
                                   }
-                                  disconnect(*connection);
-                                  delete connection;
-                                  send(token);
-                                  close();
+                                  QObject::disconnect(*connection);
+                                  finish(token);
                               });
+        QTimer::singleShot(1000, this, [connection, finish]() {
+            QObject::disconnect(*connection);
+            finish(QString());
+        });
         KWaylandExtras::requestXdgActivationToken(windowHandle(), serial, QStringLiteral(KYU_APP_ID));
         return;
     }
@@ -486,10 +505,17 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
         close();
         return;
     }
-    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && m_action->isVisible()
-        && !qobject_cast<QPushButton *>(focusWidget())) {
-        m_action->click();
-        return;
+    // Enter: the focused button (a card is not a QDialog, which would do
+    // this), else the main one.
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        if (auto *button = qobject_cast<QAbstractButton *>(focusWidget()); button && button->isVisible()) {
+            button->click();
+            return;
+        }
+        if (m_action->isVisible()) {
+            m_action->click();
+            return;
+        }
     }
     QWidget::keyPressEvent(event);
 }

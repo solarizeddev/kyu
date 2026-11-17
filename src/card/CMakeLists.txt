@@ -14,7 +14,7 @@ endif()
 
 # Optional: KDE's icon engine everywhere (Breeze's monochrome icons follow the
 # colour scheme even outside a Plasma session).
-find_package(KF6IconThemes QUIET)
+find_package(KF6IconThemes 6.3 QUIET) # KIconTheme::initTheme()
 if(KF6IconThemes_FOUND)
     target_link_libraries(kyu PRIVATE KF6::IconThemes)
     target_compile_definitions(kyu PRIVATE KYU_HAVE_KICONTHEMES)

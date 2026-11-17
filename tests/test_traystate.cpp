@@ -150,7 +150,7 @@ void TestTrayState::cards()
     in.state = partly;
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::Updates);
-    QCOMPARE(c.detail.section(QLatin1Char('\n'), 1), QStringLiteral("Check failed at 14:02; this list is from yesterday 20:02."));
+    QCOMPARE(c.detail.section(QLatin1Char('\n'), 1), QStringLiteral("Check failed; this list is from yesterday 20:02."));
     QCOMPARE(c.stamp, QStringLiteral("Tried 14:02"));
     QCOMPARE(c.raw, QStringLiteral("Flatpak: Unable to connect to dl.flathub.org"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
@@ -240,7 +240,7 @@ void TestTrayState::cards()
     QCOMPARE(c.action, CardView::Action::Restart);
     in.configs.clear();
     in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("systemd was updated"));
-    QCOMPARE(cardView(in).detail, QStringLiteral("Systemd was updated.\nThe old version runs until you restart."));
+    QCOMPARE(cardView(in).detail, QStringLiteral("An update of systemd is installed.\nThe old version runs until you restart."));
     in.lastRun.insert(QStringLiteral("restartReason"), QStringLiteral("new kernel 6.18.22-1-MANJARO"));
     in.sameBoot = false;
     in.lastRun = {};

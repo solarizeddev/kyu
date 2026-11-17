@@ -87,4 +87,5 @@ private:
     QTreeWidget *m_list;
     QPlainTextEdit *m_raw;
     bool m_shown = false;
+    bool m_windowOpen = false; // Kyu's update window was there when last shown
 };

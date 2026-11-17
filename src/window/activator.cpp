@@ -28,7 +28,9 @@ void Activator::Activate(const QString &token)
     if (!m_window) {
         return;
     }
-    m_window->showNormal();
+    // Out of the taskbar if minimized; maximized stays maximized.
+    m_window->setWindowState(m_window->windowState() & ~Qt::WindowMinimized);
+    m_window->show();
     m_window->raise();
 #ifdef KYU_HAVE_KWINDOWSYSTEM
     if (!token.isEmpty()) {
