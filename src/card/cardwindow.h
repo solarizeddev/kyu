@@ -9,7 +9,8 @@ class QLabel;
 class QProgressBar;
 class QPlainTextEdit;
 class QPushButton;
-class QStackedWidget;
+class QGridLayout;
+class QHBoxLayout;
 class QTimer;
 class QToolButton;
 class QTreeWidget;
@@ -65,6 +66,7 @@ private:
     void showUpdateWindow();
     void applyFonts();
     void setNote(const QString &text);
+    void sizeDetails();
 
     StateWatcher *m_watcher;
     CheckScheduler *m_scheduler;
@@ -83,7 +85,10 @@ private:
     QPushButton *m_details;
     QPushButton *m_secondary;
     QPushButton *m_action;
-    QStackedWidget *m_detailsArea;
+    QWidget *m_detailsArea;
+    QGridLayout *m_grid;
+    QHBoxLayout *m_footer;
+    QWidget *m_footerIndent;
     QTreeWidget *m_list;
     QPlainTextEdit *m_raw;
     bool m_shown = false;

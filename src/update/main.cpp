@@ -51,6 +51,7 @@
 #include <optional>
 #include <langinfo.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -59,8 +60,11 @@ namespace
 enum class Tone { Plain, Dim, Info, Good, Warn, Bad };
 
 // Kyu's lines. Basic ANSI colours only, so the terminal's own colour scheme
-// draws them; faint (not "bright black", which some schemes make the
-// background colour) for the quiet ones.
+// draws them, and only on the marks (▸ ✓ ! ✗): bold coloured text turns
+// pale or grey in many schemes (Solarized, light ones), so text is bold in
+// the scheme's own text colour. Faint (not "bright black", which some
+// schemes make the background colour) for the quiet lines. Long lines wrap
+// at the terminal's width, under their own text.
 class Out
 {
 public:
@@ -76,12 +80,6 @@ public:
             std::fputs("\x1b]0;Kyu\x07", stdout);
         }
     }
-    // On a light background yellow and green text is hard to read (bold
-    // makes it the scheme's pale "intense" colour): only the marks get colour.
-    void setLightBackground(bool light)
-    {
-        m_light = light;
-    }
     // "Kyu · 8 updates: …", once at the top.
     void header(const QString &text)
     {
@@ -90,7 +88,8 @@ public:
     // A heading for what follows ("Arch Linux news since your last update").
     void heading(const QString &text, Tone tone)
     {
-        print(text, readable(tone), true);
+        Q_UNUSED(tone)
+        print(text, Tone::Plain, true);
     }
     // "▸ Packages   sudo pacman -Syu": what runs next.
     void step(const QString &name, const QString &detail)
@@ -118,7 +117,16 @@ public:
     // An indented line under one of the above.
     void note(const QString &text, Tone tone = Tone::Plain)
     {
-        print(QStringLiteral("  ") + text, tone, false);
+        print(QStringLiteral("  ") + text, tone, false, 2);
+    }
+    // "  Fix: sudo pacman -Sy …": the command bold in the text colour, the
+    // one line to read (or copy) whole: never wrapped.
+    void fix(const QString &command)
+    {
+        write(QStringLiteral("  Fix: "), Tone::Plain, false);
+        write(command, Tone::Plain, true);
+        put(QStringLiteral("\n"));
+        flush();
     }
     void blank()
     {
@@ -126,7 +134,8 @@ public:
     }
     void prompt(const QString &text, Tone tone)
     {
-        write(text, readable(tone), true);
+        Q_UNUSED(tone)
+        write(text, Tone::Plain, true);
         std::fflush(stdout);
     }
     // A blank line and step(), as text for a shell to print later (between
@@ -142,32 +151,73 @@ public:
     }
 
 private:
-    Tone readable(Tone tone) const
-    {
-        return m_light && (tone == Tone::Good || tone == Tone::Warn) ? Tone::Plain : tone;
-    }
-    // "✓ text": all in the tone's colour, or on a light background the mark
-    // in colour and the text in the normal text colour, bold.
+    // "✓ text": the mark in its colour, the text bold in the text colour.
     void marked(const QString &mark, const QString &text, Tone tone)
     {
-        if (readable(tone) == tone) {
-            print(mark + QLatin1Char(' ') + text, tone, true);
-            return;
-        }
         write(mark, tone, false);
-        print(QLatin1Char(' ') + text, Tone::Plain, true);
+        print(QLatin1Char(' ') + text, Tone::Plain, true, int(mark.size()) + 1);
     }
     QString sym(const char *utf8, const char *ascii) const
     {
         return QString::fromUtf8(m_utf8 ? utf8 : ascii);
     }
-    void print(const QString &text, Tone tone, bool bold)
+    // indent: where wrapped lines start (under the text, after a mark),
+    // counted from the line's start; the text itself starts at column
+    // `indent` when it has a mark before it (marked()).
+    void print(const QString &text, Tone tone, bool bold, int indent = 0)
     {
-        write(text, tone, bold);
-        put(QStringLiteral("\n"));
+        const QStringList lines = wrapped(text, indent);
+        for (qsizetype i = 0; i < lines.size(); ++i) {
+            if (i > 0) {
+                put(QString(indent, QLatin1Char(' ')));
+            }
+            write(lines.at(i), tone, bold);
+            put(QStringLiteral("\n"));
+        }
+        flush();
+    }
+    void flush()
+    {
         if (!m_capture) {
             std::fflush(stdout);
         }
+    }
+    // The terminal's width, 0 when unknown (not a terminal).
+    static int columns()
+    {
+        winsize size{};
+        return ::isatty(STDOUT_FILENO) && ::ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0 ? size.ws_col : 0;
+    }
+    // Words to lines that fit the terminal. The first line keeps its own
+    // leading spaces; after a mark it starts at column `indent`. The others
+    // start at column `indent`.
+    QStringList wrapped(const QString &text, int indent) const
+    {
+        const int width = m_capture ? 0 : columns();
+        qsizetype lead = 0;
+        while (lead < text.size() && text.at(lead) == QLatin1Char(' ')) {
+            ++lead;
+        }
+        const int start = lead > 0 ? 0 : qMax(0, indent - 1); // after "▸ " the text is at `indent`
+        if (width <= indent + 20 || start + text.size() <= width) {
+            return {text};
+        }
+        QStringList lines;
+        QString line = text.left(lead);
+        int room = width - start;
+        bool empty = true;
+        for (const QString &word : text.mid(lead).split(QLatin1Char(' '), Qt::SkipEmptyParts)) {
+            if (!empty && line.size() + 1 + word.size() > room) {
+                lines.append(line);
+                line.clear();
+                room = width - indent;
+                empty = true;
+            }
+            line += (empty ? QString() : QStringLiteral(" ")) + word;
+            empty = false;
+        }
+        lines.append(line);
+        return lines;
     }
     void put(const QString &text)
     {
@@ -187,70 +237,24 @@ private:
             put(t);
             return;
         }
+        // Bold: in the scheme's text colour, never coloured.
+        if (bold && tone != Tone::Dim) {
+            put(QStringLiteral("\x1b[1m%1\x1b[0m").arg(t));
+            return;
+        }
         const char *colour = tone == Tone::Info ? "34"
             : tone == Tone::Good                ? "32"
             : tone == Tone::Warn                ? "33"
             : tone == Tone::Bad                 ? "31"
             : tone == Tone::Dim                 ? "2"
                                                 : "39";
-        put(QStringLiteral("\x1b[%1%2m%3\x1b[0m").arg(QLatin1String(bold && tone != Tone::Dim ? "1;" : ""), QLatin1String(colour), t));
+        put(QStringLiteral("\x1b[%1m%2\x1b[0m").arg(QLatin1String(colour), t));
     }
     bool m_color;
     bool m_utf8;
-    bool m_light = false;
     std::optional<QString> m_capture;
 };
 
-// Asks the terminal for its background colour (OSC 11, answered by Konsole,
-// xterm, VTE, kitty, foot and others): true for a light one. A "device
-// attributes" query (DA1) follows it: nearly every terminal answers that one,
-// in order, so once its answer is in nothing else can arrive late and be
-// read as a typed answer. Whatever is queued is dropped on the way out.
-bool lightBackground()
-{
-    if (!::isatty(STDIN_FILENO) || !::isatty(STDOUT_FILENO)) {
-        return false;
-    }
-    termios old{};
-    if (::tcgetattr(STDIN_FILENO, &old) != 0) {
-        return false;
-    }
-    termios raw = old;
-    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 0;
-    ::tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-    std::fputs("\x1b]11;?\x1b\\\x1b[c", stdout);
-    std::fflush(stdout);
-    QByteArray reply;
-    static const QRegularExpression da1(QStringLiteral("\\x1b\\[\\?[0-9;]*c"));
-    QElapsedTimer waited;
-    waited.start();
-    while (waited.elapsed() < 1000 && reply.size() < 256 && !da1.match(QString::fromLatin1(reply)).hasMatch()) {
-        pollfd in{STDIN_FILENO, POLLIN, 0};
-        if (::poll(&in, 1, int(1000 - waited.elapsed())) <= 0) {
-            continue;
-        }
-        char buffer[64];
-        const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof buffer);
-        if (n > 0) {
-            reply.append(buffer, int(n));
-        } else if (n == 0 || (errno != EINTR && errno != EAGAIN)) {
-            break; // the terminal is gone
-        }
-    }
-    ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &old);
-    static const QRegularExpression rgb(QStringLiteral("rgb:([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})"));
-    const QRegularExpressionMatch m = rgb.match(QString::fromLatin1(reply));
-    if (!m.hasMatch()) {
-        return false;
-    }
-    auto channel = [&m](int i) {
-        const QString hex = m.captured(i);
-        return hex.toInt(nullptr, 16) / double((1 << (4 * hex.size())) - 1);
-    };
-    return 0.2126 * channel(1) + 0.7152 * channel(2) + 0.0722 * channel(3) > 0.5;
-}
 
 bool stdinIsTerminal()
 {
@@ -711,7 +715,6 @@ int main(int argc, char **argv)
     parser.process(app);
 
     Out out(utf8);
-    out.setLightBackground(qEnvironmentVariableIsEmpty("NO_COLOR") && lightBackground());
     out.windowTitle();
     QDir().mkpath(Kyu::Paths::stateDir());
     QLockFile lock(Kyu::Paths::stateDir() + QStringLiteral("/update.lock"));
@@ -959,6 +962,7 @@ int main(int argc, char **argv)
                 out.blank(); // a typed answer ends the line itself
             }
             if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
+                out.blank();
                 out.warn(QStringLiteral("Stopped. Nothing was installed."));
                 return finish(4);
             }
@@ -1093,7 +1097,7 @@ int main(int argc, char **argv)
         if (!elevate.isEmpty()) {
             keys.fix = unlockCommand(elevate, lockPath);
             keys.fixShown = QStringLiteral("%1 rm %2, if no program has it open").arg(elevate, lockPath);
-            out.note(QStringLiteral("Fix: ") + keys.fixShown, Tone::Info);
+            out.fix(keys.fixShown);
             // Minutes may pass before [f]: a package manager may have started working.
             keys.fixAllowed = [&out, lockPath, procPath]() {
                 if (!QFileInfo::exists(lockPath)) {
@@ -1559,7 +1563,7 @@ int main(int argc, char **argv)
                 } else if (kind == QLatin1String("keyring")) {
                     keys.again.append(QStringLiteral("--synced"));
                 }
-                out.note(QStringLiteral("Fix: ") + keys.fix, Tone::Info);
+                out.fix(keys.fix);
             } else {
                 // No key for it: what to do, in words.
                 for (const QString &line : wrap(text.text, 72)) {

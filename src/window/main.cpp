@@ -31,6 +31,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
+#include <QFontDatabase>
 #include <QFontMetrics>
 #include <QIcon>
 #include <QLockFile>
@@ -213,13 +214,24 @@ int main(int argc, char **argv)
     };
     const int columns = envInt("KYU_WINDOW_COLUMNS", 100, 20);
     const int rows = envInt("KYU_WINDOW_ROWS", 34, 10);
-    QSize size(columns * 9, rows * 18);
-    const QVariant font = terminal->profileProperty(QStringLiteral("Font"));
-    if (font.typeId() == QMetaType::QFont) {
-        const QFontMetrics metrics(font.value<QFont>());
-        const int scrollBar = window->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
-        size = QSize(metrics.horizontalAdvance(QLatin1Char('M')) * columns + scrollBar + 8, metrics.height() * rows + 8);
+    // The profile's font as the part reports it (a QFont, or its string
+    // form); else the system's fixed-width font.
+    const QVariant property = terminal->profileProperty(QStringLiteral("Font"));
+    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    if (property.typeId() == QMetaType::QFont) {
+        font = property.value<QFont>();
+    } else if (property.typeId() == QMetaType::QString) {
+        QFont parsed;
+        if (parsed.fromString(property.toString())) {
+            font = parsed;
+        }
     }
+    const QFontMetrics metrics(font);
+    const int scrollBar = window->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
+    const QSize size(metrics.horizontalAdvance(QLatin1Char('M')) * columns + scrollBar + 8, metrics.height() * rows + 8);
+    // The terminal at its size before the window shows: no resize after it
+    // appears, so no "Size: …" note from Konsole over the first lines.
+    part->widget()->resize(size);
     window->resize(size);
     window->show();
     // The card's "Show window" finds it here (the first Kyu window only).

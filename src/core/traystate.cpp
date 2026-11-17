@@ -440,7 +440,7 @@ CardView cardView(const TrayInput &in)
         QString second;
         if (stale) {
             if (s.restartNeeded()) {
-                first += QStringLiteral(" · restart");
+                first += QStringLiteral(" · needs a restart");
             }
             // When it failed is in the corner ("Tried 14:02").
             const QDateTime ok = lastSuccess(s);

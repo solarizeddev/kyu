@@ -17,7 +17,7 @@
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QProgressBar>
-#include <QStackedWidget>
+#include <QGridLayout>
 #include <QStyle>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -133,8 +133,13 @@ QSize IconView::sizeHint() const
 
 void IconView::paintEvent(QPaintEvent *)
 {
+    // Breeze's monochrome icons are drawn for 22 px: asked for at 22 and
+    // rendered for this box's size (32 at 100 %), so they fill it, sharp,
+    // instead of sitting small in its middle.
+    constexpr int design = 22;
     QPainter painter(this);
-    m_icon.paint(&painter, rect(), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    const QPixmap pixmap = m_icon.pixmap(QSize(design, design), devicePixelRatioF() * width() / qreal(design), isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    painter.drawPixmap(rect(), pixmap);
 }
 
 void IconView::changeEvent(QEvent *event)
@@ -153,27 +158,37 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     , m_scheduler(scheduler)
 {
     setWindowTitle(QStringLiteral("Kyu"));
-    // A dialog: a title and a close button; no minimize or maximize.
+    // A dialog with a title and a close button. Its fixed size takes
+    // maximize away; Wayland has no way to ask for no minimize (minimizing
+    // closes it, see changeEvent).
     setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
 
     // Margins and spacing are the style's (none set here).
     auto *layout = new QVBoxLayout(this);
     layout->setSizeConstraint(QLayout::SetFixedSize);
+    const int gap = 2 * style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this);
 
-    // Icon, then the text: heading, two lines, one more line.
-    auto *header = new QHBoxLayout;
-    header->setSpacing(2 * style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this));
+    // Icon, then the text (heading, two lines); below the text one more line
+    // (a link or a note), or, while something runs, a progress bar across
+    // the whole width in its place.
+    m_grid = new QGridLayout;
+    m_grid->setHorizontalSpacing(gap);
+    m_grid->setVerticalSpacing(style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, this) / 2);
     m_icon = new IconView(this);
-    header->addWidget(m_icon, 0, Qt::AlignTop);
     m_textColumn = new QWidget(this);
     auto *text = new QVBoxLayout(m_textColumn);
     text->setContentsMargins(0, 0, 0, 0);
-    text->setSpacing(style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, this) / 2);
+    text->setSpacing(m_grid->verticalSpacing());
     m_heading = textLabel(m_textColumn);
     m_detail = textLabel(m_textColumn);
     m_detail->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    m_slot = new QLabel(m_textColumn);
+    text->addWidget(m_heading);
+    text->addWidget(m_detail);
+    m_slot = new QLabel(this);
     m_slot->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    QSizePolicy keep = m_slot->sizePolicy();
+    keep.setRetainSizeWhenHidden(true);
+    m_slot->setSizePolicy(keep);
     // Opening the announcement counts as reading it: kyu-update won't ask.
     connect(m_slot, &QLabel::linkActivated, this, [this](const QString &url) {
         if (QDesktopServices::openUrl(QUrl(url)) && !m_view.linkKey.isEmpty()) {
@@ -181,15 +196,24 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
             refresh();
         }
     });
-    text->addWidget(m_heading);
-    text->addWidget(m_detail);
-    text->addWidget(m_slot);
-    header->addWidget(m_textColumn);
-    header->addStretch(1); // a wider window (Details open): the space goes here
-    layout->addLayout(header);
+    m_busy = new QProgressBar(this);
+    m_busy->setRange(0, 0);
+    m_busy->setTextVisible(false);
+    QSizePolicy bar(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    bar.setRetainSizeWhenHidden(true); // its row as tall in every state
+    m_busy->setSizePolicy(bar);
+    m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
+    m_grid->addWidget(m_textColumn, 0, 1);
+    m_grid->addWidget(m_slot, 1, 1);
+    m_grid->addWidget(m_busy, 1, 0, 1, 3, Qt::AlignVCenter);
+    m_grid->setColumnStretch(2, 1); // a wider window (Details open): the space goes here
+    layout->addLayout(m_grid);
+    // The buttons a band of their own, a little apart from the text.
+    layout->addSpacing(style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, nullptr, this));
 
-    // When, and what can be done.
-    auto *footer = new QHBoxLayout;
+    // When, and what can be done. The time lines up with the text above it.
+    m_footer = new QHBoxLayout;
+    m_footerIndent = new QWidget(this);
     m_stamp = new QLabel(this);
     m_stamp->setForegroundRole(QPalette::PlaceholderText);
     m_refresh = new QToolButton(this);
@@ -200,9 +224,6 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     connect(m_refresh, &QToolButton::clicked, this, [this]() {
         run(Kyu::CardView::Action::Check);
     });
-    m_busy = new QProgressBar(this);
-    m_busy->setRange(0, 0);
-    m_busy->setTextVisible(false);
     m_details = new QPushButton(QIcon::fromTheme(QStringLiteral("view-list-details")), QStringLiteral("Details"), this);
     m_details->setCheckable(true);
     m_details->setAutoDefault(false);
@@ -216,34 +237,37 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     connect(m_action, &QPushButton::clicked, this, [this]() {
         run(m_view.action);
     });
-    footer->addWidget(m_stamp);
-    footer->addWidget(m_refresh);
-    footer->addWidget(m_busy);
-    footer->addStretch(1);
-    footer->addWidget(m_details);
-    footer->addWidget(m_secondary);
-    footer->addWidget(m_action);
-    layout->addLayout(footer);
+    auto *when = new QHBoxLayout;
+    when->setSpacing(2);
+    when->addWidget(m_stamp);
+    when->addWidget(m_refresh);
+    m_footer->addWidget(m_footerIndent);
+    m_footer->addLayout(when);
+    m_footer->addStretch(1);
+    m_footer->addWidget(m_details);
+    m_footer->addWidget(m_secondary);
+    m_footer->addWidget(m_action);
+    layout->addLayout(m_footer);
 
     // Details: what the update changes, or the failure in the program's words.
-    m_detailsArea = new QStackedWidget(this);
+    m_detailsArea = new QWidget(this);
+    auto *details = new QVBoxLayout(m_detailsArea);
+    details->setContentsMargins(0, 0, 0, 0);
     m_list = new QTreeWidget(m_detailsArea);
     m_list->setHeaderLabels({QString(), QStringLiteral("Package"), QStringLiteral("Version"), QStringLiteral("Source")});
     m_list->headerItem()->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
     m_list->setRootIsDecorated(false);
     m_list->setSelectionMode(QAbstractItemView::NoSelection);
     m_list->setUniformRowHeights(true);
-    m_list->header()->setStretchLastSection(false);
-    m_list->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_list->header()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_list->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_list->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_list->setTextElideMode(Qt::ElideMiddle);
+    m_list->header()->setStretchLastSection(true);
+    m_list->header()->setSectionResizeMode(QHeaderView::Interactive);
     m_raw = new QPlainTextEdit(m_detailsArea);
     m_raw->setReadOnly(true);
     m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     m_raw->setLineWrapMode(QPlainTextEdit::WidgetWidth);
-    m_detailsArea->addWidget(m_list);
-    m_detailsArea->addWidget(m_raw);
+    details->addWidget(m_list);
+    details->addWidget(m_raw);
     m_detailsArea->hide();
     layout->addWidget(m_detailsArea, 1);
 
@@ -274,25 +298,59 @@ void CardWindow::applyFonts()
     }
     heading.setWeight(QFont::DemiBold);
     m_heading->setFont(heading);
-    QFont small = font();
-    if (small.pointSizeF() > 0) {
-        small.setPointSizeF(small.pointSizeF() * 0.9);
-    }
-    m_stamp->setFont(small);
     const QFontMetrics metrics(font());
     m_textColumn->setFixedWidth(metrics.averageCharWidth() * 44);
     m_detail->setMinimumHeight(2 * metrics.lineSpacing());
-    m_slot->setMinimumHeight(metrics.lineSpacing());
-    m_busy->setFixedWidth(metrics.averageCharWidth() * 14);
-    m_list->setMinimumHeight(m_list->header()->sizeHint().height() + 8 * (metrics.lineSpacing() + 4));
-    m_raw->setMinimumHeight(6 * QFontMetrics(m_raw->font()).lineSpacing());
+    // The line below the text, or the progress bar in its place: the same height.
+    m_busy->ensurePolished(); // the style's height, not the default
+    m_grid->setRowMinimumHeight(1, qMax(metrics.lineSpacing(), m_busy->sizeHint().height()));
+    // The time starts where the text does.
+    m_footerIndent->setFixedSize(m_icon->sizeHint().width() + m_grid->horizontalSpacing(), 1);
+    // The refresh button close to the time, its icon small.
+    const int small = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
+    m_refresh->setIconSize({small, small});
+    const int side = qMax(small, metrics.height()) + 4;
+    m_refresh->setFixedSize(side, side);
+    // The button row as tall with or without a button.
+    m_footer->addStrut(m_action->sizeHint().height());
+    sizeDetails();
     setNote(m_noteText);
+}
+
+void CardWindow::sizeDetails()
+{
+    // The list as wide as its columns (no name cut), at most eight rows tall;
+    // the failure's lines as tall as they are (3 to 12).
+    for (int column = 0; column < m_list->columnCount(); ++column) {
+        m_list->resizeColumnToContents(column);
+    }
+    int width = 2 * m_list->frameWidth() + style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, this);
+    for (int column = 0; column < m_list->columnCount(); ++column) {
+        width += m_list->isColumnHidden(column) ? 0 : m_list->columnWidth(column);
+    }
+    m_list->setMinimumWidth(width);
+    const int rows = m_list->topLevelItemCount();
+    const int row = rows > 0 ? m_list->sizeHintForRow(0) : fontMetrics().height() + 6;
+    m_list->setMinimumHeight(m_list->header()->sizeHint().height() + qBound(1, rows, 8) * row + 2 * m_list->frameWidth());
+    // Lines as they wrap in the card's width.
+    const QFontMetrics mono(m_raw->font());
+    const int perLine = qMax(20, (m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing()) / qMax(1, mono.averageCharWidth()) - 2);
+    int lines = 0;
+    for (const QString &line : m_raw->toPlainText().split(QLatin1Char('\n'))) {
+        lines += qMax(1, int((line.size() + perLine - 1) / perLine));
+    }
+    m_raw->setFixedHeight(qBound(3, lines + 1, 12) * mono.lineSpacing() + 2 * m_raw->frameWidth()
+                          + 2 * int(m_raw->document()->documentMargin()));
 }
 
 void CardWindow::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::FontChange || event->type() == QEvent::StyleChange) {
         applyFonts();
+    }
+    // Minimizing the card means "not now": it closes (the tray opens it again).
+    if (event->type() == QEvent::WindowStateChange && isMinimized()) {
+        QTimer::singleShot(0, this, &QWidget::close);
     }
     QWidget::changeEvent(event);
 }
@@ -357,11 +415,13 @@ void CardWindow::present(const Kyu::CardView &view)
         setNote(view.note);
     }
 
-    // The corner: when, or a progress bar while something runs.
+    // While something runs: a progress bar across the card in the place of
+    // the line below the text; otherwise when it was checked or updated.
+    m_slot->setVisible(!view.busy);
+    m_busy->setVisible(view.busy);
     m_stamp->setText(view.stamp);
     m_stamp->setVisible(!view.busy && !view.stamp.isEmpty());
     m_refresh->setVisible(!view.busy && view.canRefresh);
-    m_busy->setVisible(view.busy);
 
     // Details: the list of what changes, or the failure's own words.
     const bool hasDetails = !view.rows.isEmpty() || !view.raw.isEmpty();
@@ -372,6 +432,8 @@ void CardWindow::present(const Kyu::CardView &view)
     m_list->clear();
     for (const Kyu::DetailRow &row : view.rows) {
         auto *item = new QTreeWidgetItem(m_list, {QString(), row.name, row.version, row.source});
+        item->setToolTip(1, row.name);
+        item->setToolTip(2, row.version);
         if (row.restart) {
             item->setIcon(0, QIcon::fromTheme(QStringLiteral("system-reboot")));
             item->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
@@ -383,7 +445,9 @@ void CardWindow::present(const Kyu::CardView &view)
         return row.restart;
     }));
     m_raw->setPlainText(view.raw);
-    m_detailsArea->setCurrentWidget(view.rows.isEmpty() ? static_cast<QWidget *>(m_raw) : m_list);
+    m_list->setVisible(!view.rows.isEmpty());
+    m_raw->setVisible(view.rows.isEmpty());
+    sizeDetails();
 
     // The buttons: a second one when there is one, the main one last.
     m_secondary->setText(view.secondaryText);
