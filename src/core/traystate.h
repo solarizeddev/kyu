@@ -51,12 +51,25 @@ TrayView trayView(const TrayInput &in);
 // One row of the card's Details list: what an update changes.
 struct DetailRow {
     QString name;
-    QString version; // "6.18.20-1 → 6.18.22-1"; a Flatpak's branch
+    QString oldVersion; // empty for a Flatpak
+    QString newVersion; // a Flatpak's branch
     QString source; // the repo, "AUR" or "Flatpak"
     bool restart = false; // the running kernel's package
 
     bool operator==(const DetailRow &) const = default;
 };
+
+// Details as pacman lists packages (its VerbosePkgLists table): monospace
+// lines, columns padded with spaces, "repo/name", the word "restart" on
+// the rows that need one; Flatpaks in a block of their own. A header line
+// is drawn bold.
+struct DetailLine {
+    QString text;
+    bool header = false;
+
+    bool operator==(const DetailLine &) const = default;
+};
+QList<DetailLine> detailLines(const QList<DetailRow> &rows);
 
 // The card the tray opens (a small dialog): an icon, a heading, two lines,
 // one more line (a link to read first, or a note), and at most two buttons;

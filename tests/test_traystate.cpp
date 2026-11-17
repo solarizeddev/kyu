@@ -14,6 +14,7 @@ class TestTrayState : public QObject
 private Q_SLOTS:
     void states();
     void cards();
+    void details();
 };
 
 static UpdateState withUpdates(int n, bool news)
@@ -133,7 +134,8 @@ void TestTrayState::cards()
     QCOMPARE(c.detail, QStringLiteral("1 AUR"));
     QCOMPARE(c.icon, QStringLiteral("update-low"));
     QCOMPARE(c.rows.value(0).source, QStringLiteral("AUR"));
-    QCOMPARE(c.rows.value(0).version, QStringLiteral("1-1 → 2-1"));
+    QCOMPARE(c.rows.value(0).oldVersion, QStringLiteral("1-1"));
+    QCOMPARE(c.rows.value(0).newVersion, QStringLiteral("2-1"));
     QCOMPARE(trayView(in).mark, TrayMark::Updates);
 
     // A failed check with updates listed still shows the updates.
@@ -293,6 +295,33 @@ void TestTrayState::cards()
     c = cardView(in);
     QCOMPARE(c.kind, CardView::Kind::NotChecked);
     QCOMPARE(c.action, CardView::Action::Check);
+}
+
+void TestTrayState::details()
+{
+    const QList<DetailRow> rows{{QStringLiteral("linux618"), QStringLiteral("6.18.20-1"), QStringLiteral("6.18.22-1"), QStringLiteral("core"), true},
+                                {QStringLiteral("mesa"), QStringLiteral("1:26.2.1-1"), QStringLiteral("1:26.2.3-1"), QStringLiteral("extra"), false},
+                                {QStringLiteral("visual-studio-code-bin"), QStringLiteral("1.106.0-1"), QStringLiteral("1.106.2-1"), QStringLiteral("AUR"), false},
+                                {QStringLiteral("org.kde.krita"), QString(), QStringLiteral("stable"), QStringLiteral("Flatpak"), false}};
+    const QList<DetailLine> lines = detailLines(rows);
+    QStringList text;
+    for (const DetailLine &l : lines) {
+        text.append(l.text);
+    }
+    QCOMPARE(text,
+             QStringList({QStringLiteral("Package (3)                  Old Version   New Version"),
+                          QStringLiteral("core/linux618                6.18.20-1     6.18.22-1     restart"),
+                          QStringLiteral("extra/mesa                   1:26.2.1-1    1:26.2.3-1"),
+                          QStringLiteral("aur/visual-studio-code-bin   1.106.0-1     1.106.2-1"),
+                          QString(),
+                          QStringLiteral("Flatpak (1)                  Branch"),
+                          QStringLiteral("org.kde.krita                stable")}));
+    QVERIFY(lines.at(0).header);
+    QVERIFY(!lines.at(1).header);
+    QVERIFY(lines.at(5).header);
+    // Flatpaks alone: their block only.
+    QCOMPARE(detailLines({rows.at(3)}).size(), 2);
+    QVERIFY(detailLines({}).isEmpty());
 }
 
 QTEST_GUILESS_MAIN(TestTrayState)

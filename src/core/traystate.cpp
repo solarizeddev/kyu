@@ -259,18 +259,80 @@ QDateTime lastSuccess(const UpdateState &s)
 QList<DetailRow> detailRows(const UpdateState &s)
 {
     QList<DetailRow> first, rest;
-    const QString arrow = QStringLiteral(" → ");
     for (const PackageUpdate &p : s.packages) {
-        (p.restart ? first : rest).append({p.name, p.oldVersion + arrow + p.newVersion, p.repo, p.restart});
+        (p.restart ? first : rest).append({p.name, p.oldVersion, p.newVersion, p.repo, p.restart});
     }
     for (const PackageUpdate &p : s.aurPackages) {
-        rest.append({p.name, p.oldVersion + arrow + p.newVersion, QStringLiteral("AUR"), false});
+        rest.append({p.name, p.oldVersion, p.newVersion, QStringLiteral("AUR"), false});
     }
     for (const FlatpakUpdate &f : s.flatpaks) {
-        rest.append({f.name, f.branch, QStringLiteral("Flatpak"), false});
+        rest.append({f.name, QString(), f.branch, QStringLiteral("Flatpak"), false});
     }
     return first + rest;
 }
+
+}
+
+QList<DetailLine> detailLines(const QList<DetailRow> &rows)
+{
+    // One block of columns: each as wide as its longest cell (the names as
+    // wide as in the other block, so both line up), three spaces apart, no
+    // trailing spaces.
+    qsizetype nameWidth = 0;
+    const auto block = [&nameWidth](const QList<QStringList> &table, QList<DetailLine> &out) {
+        QList<qsizetype> widths{nameWidth};
+        for (const QStringList &cells : table) {
+            for (qsizetype i = 0; i < cells.size(); ++i) {
+                if (widths.size() <= i) {
+                    widths.append(0);
+                }
+                widths[i] = qMax(widths[i], cells[i].size());
+            }
+        }
+        for (qsizetype r = 0; r < table.size(); ++r) {
+            QString line;
+            for (qsizetype i = 0; i < table[r].size(); ++i) {
+                line += i + 1 < table[r].size() ? table[r][i].leftJustified(widths[i] + 3) : table[r][i];
+            }
+            while (line.endsWith(QLatin1Char(' '))) {
+                line.chop(1);
+            }
+            out.append({line, r == 0});
+        }
+    };
+    QList<QStringList> packages, flatpaks;
+    for (const DetailRow &row : rows) {
+        if (row.source == QLatin1String("Flatpak")) {
+            flatpaks.append({row.name, row.newVersion});
+        } else {
+            packages.append({row.source.toLower() + QLatin1Char('/') + row.name, row.oldVersion, row.newVersion,
+                             row.restart ? QStringLiteral("restart") : QString()});
+        }
+    }
+    if (!packages.isEmpty()) {
+        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version"), QString()});
+    }
+    if (!flatpaks.isEmpty()) {
+        flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), QStringLiteral("Branch")});
+    }
+    for (const QStringList &cells : packages + flatpaks) {
+        nameWidth = qMax(nameWidth, cells.constFirst().size());
+    }
+    QList<DetailLine> out;
+    if (!packages.isEmpty()) {
+        block(packages, out);
+    }
+    if (!flatpaks.isEmpty()) {
+        if (!out.isEmpty()) {
+            out.append(DetailLine{});
+        }
+        block(flatpaks, out);
+    }
+    return out;
+}
+
+namespace
+{
 
 // "1 configuration file to merge: /etc/sddm.conf", "3 configuration files to merge".
 QString toMerge(const QStringList &configs, const QString &tail = QString())

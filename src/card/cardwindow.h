@@ -15,7 +15,6 @@ class QPushButton;
 class QGridLayout;
 class QHBoxLayout;
 class QTimer;
-class QTreeWidget;
 class StateWatcher;
 class CheckScheduler;
 
@@ -109,7 +108,6 @@ private:
     QGridLayout *m_grid;
     QHBoxLayout *m_footer;
     QWidget *m_footerHeight; // the button row as tall without buttons (no width)
-    QTreeWidget *m_list;
     QPlainTextEdit *m_raw;
     bool m_shown = false;
     bool m_detailsShown = false;

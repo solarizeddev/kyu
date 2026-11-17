@@ -14,15 +14,15 @@
 #include <QApplication>
 #include <QDBusConnectionInterface>
 #include <QFontDatabase>
-#include <QHeaderView>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QFuture>
 #include <QGridLayout>
 #include <QStyle>
+#include <QStyleOption>
 #include <QToolButton>
-#include <QTreeWidget>
+#include <QTextCursor>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDesktopServices>
@@ -38,6 +38,7 @@
 #include <QStandardPaths>
 #include <QTextLayout>
 #include <QTimer>
+#include <QtMath>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -307,26 +308,19 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_footer->addWidget(m_action);
     layout->addLayout(m_footer);
 
-    // Details: what the update changes, or the failure in the program's words.
+    // Details: what the update changes, as pacman lists it, or the failure
+    // in the program's words. One read-only text box in the fixed-width
+    // font, on the palette's own colours (not a terminal's: nothing to type).
     m_detailsArea = new QWidget(this);
     auto *details = new QVBoxLayout(m_detailsArea);
     details->setContentsMargins(0, down, 0, 0);
     details->setSpacing(0);
-    m_list = new QTreeWidget(m_detailsArea);
-    m_list->setHeaderLabels({QString(), QStringLiteral("Package"), QStringLiteral("Version"), QStringLiteral("Source")});
-    m_list->headerItem()->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
-    m_list->setRootIsDecorated(false);
-    m_list->setSelectionMode(QAbstractItemView::NoSelection);
-    m_list->setUniformRowHeights(true);
-    m_list->setTextElideMode(Qt::ElideMiddle);
-    m_list->header()->setStretchLastSection(true);
-    m_list->header()->setSectionResizeMode(QHeaderView::Interactive);
-    m_list->header()->setMinimumSectionSize(1);
     m_raw = new QPlainTextEdit(m_detailsArea);
     m_raw->setReadOnly(true);
+    m_raw->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     m_raw->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    m_raw->setLineWrapMode(QPlainTextEdit::WidgetWidth);
-    details->addWidget(m_list);
+    m_raw->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_raw->document()->setDocumentMargin(down);
     details->addWidget(m_raw);
     m_detailsArea->hide();
     layout->addWidget(m_detailsArea, 1);
@@ -366,8 +360,6 @@ void CardWindow::applyFonts()
     // The icon at the size Breeze draws its monochrome status icons (and the
     // tray shows them): 22 px, sharp; top-left, level with the heading.
     m_icon->setFixedSize(22, 22);
-    const int small = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
-    m_list->header()->resizeSection(0, small + 8);
     keepFooterHeight();
     sizeDetails();
 }
@@ -381,51 +373,56 @@ void CardWindow::keepFooterHeight()
 
 void CardWindow::sizeDetails()
 {
-    // The list as wide as its columns (no name cut), at most eight rows tall;
-    // the failure's lines as tall as they are (3 to 12).
-    const int across = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this);
-    for (int column = 1; column < m_list->columnCount(); ++column) {
-        m_list->resizeColumnToContents(column);
-        m_list->setColumnWidth(column, m_list->columnWidth(column) + across); // room between columns
-    }
-    m_list->setColumnWidth(0, style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this) + 8);
-    int width = 2 * m_list->frameWidth() + style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, this);
-    for (int column = 0; column < m_list->columnCount(); ++column) {
-        width += m_list->isColumnHidden(column) ? 0 : m_list->columnWidth(column);
-    }
-    m_list->setMinimumWidth(width);
-    const int rows = m_list->topLevelItemCount();
-    const int row = rows > 0 ? m_list->sizeHintForRow(0) : fontMetrics().height() + 6;
-    // As tall as its rows (up to 10; more scroll).
-    const int listHeight = m_list->header()->sizeHint().height() + qBound(1, rows, 10) * row + 2 * m_list->frameWidth();
-    if (rows <= 10) {
-        m_list->setFixedHeight(listHeight);
-    } else {
-        m_list->setMinimumHeight(listHeight);
-        m_list->setMaximumHeight(QWIDGETSIZE_MAX);
-    }
-    // Lines as the box wraps them (at word boundaries, in the card's width
-    // less the frame and margins): all of them shown, up to 12.
+    // The box as tall as its lines (3 to 12; more scroll). The package list
+    // is not wrapped: the box is as wide as its longest line (up to 80
+    // characters; more scroll sideways). The failure's lines wrap in the
+    // card's width.
     const QFontMetrics mono(m_raw->font());
     const int margin = int(m_raw->document()->documentMargin());
-    const qreal wrapWidth = m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing() - 2 * m_raw->frameWidth() - 2 * margin;
-    QTextOption option;
-    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    const int frame = 2 * m_raw->frameWidth() + 2 * margin;
+    const QStringList text = m_raw->toPlainText().split(QLatin1Char('\n'));
     int lines = 0;
-    for (const QString &line : m_raw->toPlainText().split(QLatin1Char('\n'))) {
-        QTextLayout layout(line, m_raw->font());
-        layout.setTextOption(option);
-        layout.beginLayout();
-        for (QTextLine l = layout.createLine(); l.isValid(); l = layout.createLine()) {
-            l.setLineWidth(wrapWidth);
-            ++lines;
+    bool sideways = false;
+    if (!m_view.rows.isEmpty()) {
+        m_raw->setLineWrapMode(QPlainTextEdit::NoWrap);
+        // Measured as drawn (a character is not a whole number of pixels;
+        // the bold header lines in bold), a pixel for the cursor.
+        QFont boldFont = m_raw->font();
+        boldFont.setBold(true);
+        const QFontMetricsF regular(m_raw->font()), bold(boldFont);
+        const qreal most = regular.horizontalAdvance(QString(80, QLatin1Char('M')));
+        qreal widest = 0;
+        for (const QString &line : text) {
+            widest = qMax(widest, qMax(regular.horizontalAdvance(line), bold.horizontalAdvance(line)));
         }
-        layout.endLayout();
+        sideways = widest > most;
+        m_raw->setMinimumWidth(qCeil(qMin(widest, most)) + frame + 2);
+        lines = int(text.size());
+    } else {
+        m_raw->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+        m_raw->setMinimumWidth(0);
+        // Lines as the box wraps them (at word boundaries, in the card's
+        // width less the frame and margins).
+        const qreal wrapWidth = m_textColumn->width() + m_icon->sizeHint().width() + m_grid->horizontalSpacing() - frame;
+        QTextOption option;
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        for (const QString &line : text) {
+            QTextLayout layout(line, m_raw->font());
+            layout.setTextOption(option);
+            layout.beginLayout();
+            for (QTextLine l = layout.createLine(); l.isValid(); l = layout.createLine()) {
+                l.setLineWidth(wrapWidth);
+                ++lines;
+            }
+            layout.endLayout();
+        }
     }
-    // A scroll bar only when there is more than fits (it would narrow the
-    // box and change the wrapping just measured).
+    // Scroll bars only when there is more than fits (a scroll bar would
+    // narrow the box and change the wrapping just measured).
     m_raw->setVerticalScrollBarPolicy(lines > 12 ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
-    m_raw->setFixedHeight(qBound(3, lines, 12) * mono.lineSpacing() + 2 * m_raw->frameWidth() + 2 * margin + mono.descent());
+    m_raw->setHorizontalScrollBarPolicy(sideways ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+    const int bar = sideways ? style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, m_raw) : 0;
+    m_raw->setFixedHeight(qBound(3, lines, 12) * mono.lineSpacing() + frame + mono.descent() + bar);
 }
 
 void CardWindow::changeEvent(QEvent *event)
@@ -518,25 +515,26 @@ void CardWindow::present(const Kyu::CardView &view)
     if (!hasDetails && m_detailsShown) {
         showDetails(false);
     }
-    m_list->clear();
-    for (const Kyu::DetailRow &row : view.rows) {
-        auto *item = new QTreeWidgetItem(m_list, {QString(), row.name, row.version, row.source});
-        item->setToolTip(1, row.name);
-        item->setToolTip(2, row.version);
-        if (row.restart) {
-            item->setIcon(0, QIcon::fromTheme(QStringLiteral("system-reboot")));
-            item->setToolTip(0, QStringLiteral("Needs a restart afterwards"));
-            item->setToolTip(1, QStringLiteral("Needs a restart afterwards"));
-        }
-    }
-    // The restart column only when a row needs a restart.
-    m_list->setColumnHidden(0, std::none_of(view.rows.cbegin(), view.rows.cend(), [](const Kyu::DetailRow &row) {
-        return row.restart;
-    }));
     keepFooterHeight();
-    m_raw->setPlainText(view.raw);
-    m_list->setVisible(!view.rows.isEmpty());
-    m_raw->setVisible(view.rows.isEmpty());
+    if (view.rows.isEmpty()) {
+        m_raw->setPlainText(view.raw);
+    } else {
+        // pacman's list, its header lines bold as pacman prints them.
+        m_raw->clear();
+        QTextCursor cursor(m_raw->document());
+        QTextCharFormat plain;
+        QTextCharFormat bold;
+        bold.setFontWeight(QFont::Bold);
+        bool first = true;
+        for (const Kyu::DetailLine &line : Kyu::detailLines(view.rows)) {
+            if (!first) {
+                cursor.insertBlock();
+            }
+            first = false;
+            cursor.insertText(line.text, line.header ? bold : plain);
+        }
+        m_raw->moveCursor(QTextCursor::Start);
+    }
     sizeDetails();
 
     // The buttons: a second one when there is one, the main one last.
