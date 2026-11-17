@@ -544,7 +544,9 @@ int main(int argc, char **argv)
     // (--no-wait, or no terminal): after it the person has read the result,
     // last-run.json has it, and a non-zero status would only make Konsole
     // post a "Program exited with status" notification.
+    const QString activityPath = Kyu::Paths::stateDir() + QStringLiteral("/activity");
     auto finish = [&](int code, const Keys &keys = {}) {
+        QFile::remove(activityPath);
         lock.unlock();
         if (parser.isSet(noWait) || !stdinIsTerminal()) {
             return code;
@@ -652,6 +654,15 @@ int main(int argc, char **argv)
         out.prompt(QStringLiteral("[Enter] close "), Tone::Info);
         readAnswer();
         return 0;
+    }
+
+    // What this run does, for the tray and the card while the lock is held.
+    {
+        QSaveFile activity(activityPath);
+        if (activity.open(QIODevice::WriteOnly)) {
+            activity.write(parser.isSet(mergeOnly) ? "merge\n" : "update\n");
+            activity.commit();
+        }
     }
 
     // --- Settings files only (the card's Merge…) ----------------------------
@@ -990,6 +1001,7 @@ int main(int argc, char **argv)
         {QStringLiteral("pacmanExit"), pacmanExit < 0 ? QJsonValue() : QJsonValue(pacmanExit)},
         {QStringLiteral("flatpakExit"), flatpakExit < 0 ? QJsonValue() : QJsonValue(flatpakExit)},
         {QStringLiteral("changed"), int(run.changed.size())},
+        {QStringLiteral("transactionStarted"), run.transactionStarted},
         {QStringLiteral("restartRequired"), !restartReason.isEmpty()},
         {QStringLiteral("restartReason"), restartReason},
         {QStringLiteral("configs"), QJsonArray::fromStringList(configs)},

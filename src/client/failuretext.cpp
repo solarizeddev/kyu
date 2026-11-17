@@ -116,3 +116,12 @@ FailureText describeFailure(const QJsonObject &failure)
     }
     return t;
 }
+
+QString failureTitle(const QString &kind)
+{
+    if (kind == QLatin1String("keyring")) {
+        return QStringLiteral("Package signatures could not be checked");
+    }
+    // The other kinds look nothing up.
+    return describeFailure(QJsonObject{{QStringLiteral("kind"), kind}}).title;
+}

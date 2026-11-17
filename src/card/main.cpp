@@ -22,32 +22,44 @@ namespace
 std::optional<Kyu::CardView> demo(const QString &name)
 {
     using A = Kyu::CardView::Action;
+    using K = Kyu::CardView::Kind;
     Kyu::CardView c;
+    auto set = [&c](K kind, const QString &stamp, const QString &heading, const QString &detail, A action, const QString &actionText, bool primary) {
+        c.kind = kind;
+        c.stamp = stamp;
+        c.heading = heading;
+        c.detail = detail;
+        c.action = action;
+        c.actionText = actionText;
+        c.primary = primary;
+    };
     if (name == QLatin1String("updates")) {
-        c = {QStringLiteral("checked 14:02"), QStringLiteral("8 updates"), QStringLiteral("6 packages · 2 Flatpaks · 412 MB · restart after"),
-             QStringLiteral("Read first: Stable Update 2026-11-14"), QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12"), {}, {}, {},
-             A::Update, QStringLiteral("Update"), true};
+        set(K::Updates, QStringLiteral("checked 14:02"), QStringLiteral("8 updates"), QStringLiteral("6 packages · 2 Flatpaks · 412 MB · restart after"),
+            A::Update, QStringLiteral("Update"), true);
+        c.linkText = QStringLiteral("Read first: Stable Update 2026-11-14");
+        c.linkUrl = QStringLiteral("https://forum.manjaro.org/c/announcements/stable-updates/12");
     } else if (name == QLatin1String("flatpaks")) {
-        c = {QStringLiteral("checked 14:02"), QStringLiteral("2 updates"), QStringLiteral("2 Flatpaks · no password needed"), {}, {}, {}, {}, {},
-             A::Update, QStringLiteral("Update"), true};
+        set(K::Updates, QStringLiteral("checked 14:02"), QStringLiteral("2 updates"), QStringLiteral("2 Flatpaks · no password needed"), A::Update,
+            QStringLiteral("Update"), true);
     } else if (name == QLatin1String("uptodate")) {
-        c = {QStringLiteral("checked 14:02"), QStringLiteral("Up to date"), {}, {}, {}, {}, {}, {}, A::Check, QStringLiteral("Check for updates"), false};
+        set(K::UpToDate, QStringLiteral("checked 14:02"), QStringLiteral("Up to date"), {}, A::Check, QStringLiteral("Check for updates"), false);
     } else if (name == QLatin1String("checking")) {
-        c = {{}, QStringLiteral("Checking…"), {}, {}, {}, {}, {}, {}, A::None, {}, false};
+        set(K::Checking, {}, QStringLiteral("Checking…"), {}, A::None, {}, false);
     } else if (name == QLatin1String("checkfailed")) {
-        c = {{}, QStringLiteral("Could not check"), QStringLiteral("No connection to the mirrors. Last checked yesterday 20:02."), {}, {}, {}, {}, {},
-             A::Check, QStringLiteral("Check for updates"), false};
+        set(K::CheckFailed, {}, QStringLiteral("Could not check"), QStringLiteral("pacman check failed at 14:02: could not resolve host; list from yesterday 20:02"),
+            A::Check, QStringLiteral("Check for updates"), false);
     } else if (name == QLatin1String("updating")) {
-        c = {{}, QStringLiteral("Updating…"), QStringLiteral("In the Kyu window."), {}, {}, {}, {}, {}, A::None, {}, false};
+        set(K::Updating, {}, QStringLiteral("Updating…"), QStringLiteral("In the Kyu window."), A::None, {}, false);
     } else if (name == QLatin1String("restart")) {
-        c = {QStringLiteral("updated 14:12"), QStringLiteral("Restart to finish"), QStringLiteral("New kernel 6.18.22-1-MANJARO"), {}, {},
-             QStringLiteral("1 settings file changed: /etc/sddm.conf"), {QStringLiteral("/etc/sddm.conf.pacnew")}, {}, A::Restart, QStringLiteral("Restart"), true};
+        set(K::Restart, QStringLiteral("updated 14:12"), QStringLiteral("Restart to finish"), QStringLiteral("New kernel 6.18.22-1-MANJARO"), A::Restart,
+            QStringLiteral("Restart"), true);
+        c.mergeText = QStringLiteral("1 settings file changed: /etc/sddm.conf");
     } else if (name == QLatin1String("settings")) {
-        c = {QStringLiteral("updated 14:12"), QStringLiteral("1 settings file changed"), QStringLiteral("/etc/sddm.conf has a new version"), {}, {}, {},
-             {QStringLiteral("/etc/sddm.conf.pacnew")}, {}, A::Merge, QStringLiteral("Merge…"), true};
+        set(K::Settings, QStringLiteral("updated 14:12"), QStringLiteral("1 settings file changed"), QStringLiteral("/etc/sddm.conf has a new version"),
+            A::Merge, QStringLiteral("Merge…"), true);
     } else if (name == QLatin1String("failed")) {
-        c = {QStringLiteral("updated 14:12"), QStringLiteral("The update did not finish"), {}, {}, {}, {}, {}, QStringLiteral("keyring"), A::Update,
-             QStringLiteral("Update again"), true};
+        set(K::Failed, QStringLiteral("tried 14:12"), QStringLiteral("The update did not finish"), {}, A::Update, QStringLiteral("Update again"), true);
+        c.failureKind = QStringLiteral("keyring");
     } else {
         return std::nullopt;
     }
@@ -116,8 +128,8 @@ int main(int argc, char **argv)
         // On Wayland, focus needs the tray click's activation token.
         if (!token.isEmpty()) {
             KWindowSystem::setCurrentXdgActivationToken(token);
-            KWindowSystem::activateWindow(card.windowHandle());
         }
+        KWindowSystem::activateWindow(card.windowHandle());
 #else
         card.activateWindow();
 #endif

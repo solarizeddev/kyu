@@ -44,5 +44,7 @@ private:
     QWidget *m_mergeRow;
     QLabel *m_mergeText;
     QPushButton *m_mergeButton;
+    QWidget *m_gap;
     QPushButton *m_action;
+    bool m_shown = false;
 };

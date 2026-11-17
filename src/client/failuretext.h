@@ -16,6 +16,10 @@ struct FailureText {
 
 FailureText describeFailure(const QJsonObject &failure);
 
+// Only the title for a failure kind ("keyring" → "Package signatures could
+// not be checked"); cheap (runs nothing), for the card.
+QString failureTitle(const QString &kind);
+
 // Installed packages whose names end in "-keyring" (archlinux-keyring,
 // manjaro-keyring, cachyos-keyring, ...): what to update first.
 QStringList installedKeyrings();

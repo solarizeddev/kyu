@@ -7,7 +7,7 @@
 class SingleInstance : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "io.github.solarizeddev.kyu.Panel")
+    Q_CLASSINFO("D-Bus Interface", "io.github.solarizeddev.kyu.Card")
 public:
     using QObject::QObject;
 

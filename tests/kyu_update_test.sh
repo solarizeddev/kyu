@@ -232,6 +232,13 @@ has "$d/out" 'Kyu · settings files' mergeonly
 [ -e "$d/pacdiff-ran" ] || fail "mergeonly: pacdiff did not run"
 grep -q 'sddm.conf.pacnew' "$d/state/kyu/last-run.json" && fail "mergeonly: a merged file is still listed" || true
 
+echo "--merge with no earlier run: pacdiff, nothing else"
+prepare mergefresh
+run mergefresh '' --merge
+[ -e "$work/mergefresh/pacdiff-ran" ] || fail "mergefresh: pacdiff did not run"
+[ ! -e "$work/mergefresh/state/kyu/last-run.json" ] || fail "mergefresh: wrote a record from nothing"
+[ ! -e "$work/mergefresh/state/kyu/activity" ] || fail "mergefresh: left its activity file"
+
 echo "one update at a time"
 KYU_FAKE_MODE=slow run first 'y\n' &
 first=$!
@@ -239,7 +246,11 @@ sleep 1
 XDG_STATE_HOME="$work/first/state" NO_COLOR=1 "$bin/kyu-update" --no-wait --no-check --state-file "$work/first/state.json" \
     </dev/null >"$work/second.out" 2>&1
 second=$?
+XDG_STATE_HOME="$work/first/state" NO_COLOR=1 PATH="$here/update:$PATH" KYU_FAKE_DIR="$work/first" "$bin/kyu-update" --no-wait --no-check --merge \
+    --state-file "$work/first/state.json" </dev/null >"$work/merge-during.out" 2>&1
+merging=$?
 wait $first
+[ "$merging" = 3 ] || fail "--merge during an update: exit $merging, expected 3"
 [ "$second" = 3 ] || fail "second run: exit $second, expected 3"
 has "$work/second.out" 'An update is already running' second
 

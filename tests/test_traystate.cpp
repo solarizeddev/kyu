@@ -97,16 +97,49 @@ void TestTrayState::cards()
     in.now = QDateTime::fromString(QStringLiteral("2026-11-16T15:00:00Z"), Qt::ISODate);
 
     UpdateState s = withUpdates(6, true);
+    s.news.items.first().link = QStringLiteral("https://forum.manjaro.org/t/1");
     FlatpakUpdate f;
     f.name = QStringLiteral("org.x.App");
     s.flatpaks = {f, f};
     in.state = s;
     CardView c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::Updates);
     QCOMPARE(c.heading, QStringLiteral("8 updates"));
     QVERIFY(c.detail.startsWith(QStringLiteral("6 packages · 2 Flatpaks")));
     QCOMPARE(c.linkText, QStringLiteral("Read first: Manual intervention for foo"));
+    QCOMPARE(c.linkUrl, QStringLiteral("https://forum.manjaro.org/t/1"));
     QCOMPARE(c.action, CardView::Action::Update);
     QVERIFY(c.primary);
+    // A settings file from the last update: the extra row.
+    in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
+    QCOMPARE(cardView(in).mergeText, QStringLiteral("1 settings file changed: /etc/sddm.conf"));
+    in.configs = {QStringLiteral("/etc/a.pacnew"), QStringLiteral("/etc/b.pacsave")};
+    QCOMPARE(cardView(in).mergeText, QStringLiteral("2 settings files changed"));
+    in.configs.clear();
+
+    // A failed check with updates listed still shows the updates.
+    UpdateState partly = withUpdates(6, false);
+    partly.flatpak.checked = true;
+    partly.flatpak.ok = false;
+    in.state = partly;
+    c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::Updates);
+    QVERIFY(c.detail.endsWith(QStringLiteral("a check failed")));
+    QCOMPARE(trayView(in).mark, TrayMark::Updates);
+    // ...with none listed it is "Could not check", with the reason.
+    UpdateState none = withUpdates(0, false);
+    none.pacman.ok = false;
+    none.pacman.error = QStringLiteral("could not resolve host");
+    none.pacman.checkedAt = in.now;
+    in.state = none;
+    c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::CheckFailed);
+    QVERIFY(c.detail.contains(QStringLiteral("could not resolve host")));
+    QCOMPARE(c.action, CardView::Action::Check);
+    in.state.reset();
+    in.loadError = QStringLiteral("state.json is not JSON");
+    QCOMPARE(cardView(in).detail, QStringLiteral("state.json is not JSON"));
+    in.loadError.clear();
 
     // Flatpaks only: no password.
     UpdateState fp = withUpdates(0, false);
@@ -114,42 +147,66 @@ void TestTrayState::cards()
     in.state = fp;
     QCOMPARE(cardView(in).detail, QStringLiteral("2 Flatpaks · no password needed"));
 
-    // Up to date: a quiet button, not a primary one.
+    // Up to date: a quiet button; none while checking.
     in.state = withUpdates(0, false);
     c = cardView(in);
-    QCOMPARE(c.heading, QStringLiteral("Up to date"));
+    QCOMPARE(c.kind, CardView::Kind::UpToDate);
     QCOMPARE(c.action, CardView::Action::Check);
     QVERIFY(!c.primary);
+    in.checking = true;
+    QCOMPARE(cardView(in).action, CardView::Action::None);
+    in.checking = false;
+    // ...unless a settings file waits: then that, and the tray stays in view.
+    in.configs = {QStringLiteral("/etc/sddm.conf.pacnew")};
+    c = cardView(in);
+    QCOMPARE(c.kind, CardView::Kind::Settings);
+    QCOMPARE(c.detail, QStringLiteral("/etc/sddm.conf has a new version"));
+    QCOMPARE(c.action, CardView::Action::Merge);
+    QVERIFY(!trayView(in).passive);
+    in.configs.clear();
 
-    // Restart: the reason, capitalised.
+    // Restart: the recorded reason, capitalised; without a record from this
+    // boot, the kernel the system knows.
     in.sameBoot = true;
     in.lastRun = QJsonObject{{QStringLiteral("restartRequired"), true}, {QStringLiteral("restartReason"), QStringLiteral("new kernel 6.18.22-1-MANJARO")},
                              {QStringLiteral("time"), QStringLiteral("2026-11-16T14:12:00Z")}};
     c = cardView(in);
-    QCOMPARE(c.heading, QStringLiteral("Restart to finish"));
+    QCOMPARE(c.kind, CardView::Kind::Restart);
     QCOMPARE(c.detail, QStringLiteral("New kernel 6.18.22-1-MANJARO"));
-    QCOMPARE(c.action, CardView::Action::Restart);
+    QVERIFY(c.stamp.startsWith(QStringLiteral("updated ")));
+    in.sameBoot = false;
+    in.lastRun = {};
+    in.kernelReplaced = true;
+    in.kernelInstalled = QStringLiteral("6.18.23-1-MANJARO");
+    QCOMPARE(cardView(in).detail, QStringLiteral("New kernel 6.18.23-1-MANJARO"));
+    in.kernelReplaced = false;
 
-    // Updating: no button at all.
+    // Updating, or merging: no button.
     in.updating = true;
     c = cardView(in);
-    QCOMPARE(c.heading, QStringLiteral("Updating…"));
+    QCOMPARE(c.kind, CardView::Kind::Updating);
     QCOMPARE(c.action, CardView::Action::None);
-
-    // A failed update: update again, with the kind for the sentence.
+    in.activity = QStringLiteral("merge");
+    QCOMPARE(cardView(in).kind, CardView::Kind::Merging);
+    QCOMPARE(trayView(in).tooltip, QStringLiteral("Merging settings files"));
     in.updating = false;
-    in.sameBoot = false;
+    in.activity.clear();
+
+    // A failed update: update again; stamped "tried", with what happened.
     in.state = withUpdates(2, false);
-    in.lastRun = QJsonObject{{QStringLiteral("pacmanExit"), 1}, {QStringLiteral("failure"), QStringLiteral("keyring")}, {QStringLiteral("time"), QStringLiteral("2026-11-16T14:30:00Z")}};
+    in.lastRun = QJsonObject{{QStringLiteral("pacmanExit"), 1}, {QStringLiteral("failure"), QStringLiteral("keyring")},
+                             {QStringLiteral("transactionStarted"), true}, {QStringLiteral("time"), QStringLiteral("2026-11-16T14:30:00Z")}};
     c = cardView(in);
-    QCOMPARE(c.heading, QStringLiteral("The update did not finish"));
+    QCOMPARE(c.kind, CardView::Kind::Failed);
     QCOMPARE(c.failureKind, QStringLiteral("keyring"));
+    QVERIFY(c.transactionStarted);
+    QVERIFY(c.stamp.startsWith(QStringLiteral("tried ")));
     QCOMPARE(c.actionText, QStringLiteral("Update again"));
 
     // Never checked: the check button.
     in = TrayInput{};
     c = cardView(in);
-    QCOMPARE(c.heading, QStringLiteral("Not checked yet"));
+    QCOMPARE(c.kind, CardView::Kind::NotChecked);
     QCOMPARE(c.action, CardView::Action::Check);
 }
 

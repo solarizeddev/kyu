@@ -45,25 +45,28 @@ void startUpdate(const QStringList &args)
     }
 }
 
-QLabel *label(QWidget *parent, int pointDelta = 0, bool bold = false)
+QLabel *label(QWidget *parent, double scale = 1.0, bool bold = false)
 {
     auto *l = new QLabel(parent);
     l->setWordWrap(true);
     l->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    if (pointDelta || bold) {
+    if (scale != 1.0 || bold) {
         QFont f = l->font();
-        f.setPointSizeF(f.pointSizeF() + pointDelta);
+        if (f.pointSizeF() > 0) {
+            f.setPointSizeF(f.pointSizeF() * scale);
+        } else {
+            f.setPixelSize(qRound(f.pixelSize() * scale));
+        }
         f.setBold(bold);
         l->setFont(f);
     }
     return l;
 }
 
+// Quieter text, in the colour scheme's own colour (follows scheme changes).
 void mute(QLabel *l)
 {
-    QPalette p = l->palette();
-    p.setColor(QPalette::WindowText, p.color(QPalette::PlaceholderText));
-    l->setPalette(p);
+    l->setForegroundRole(QPalette::PlaceholderText);
 }
 }
 
@@ -79,10 +82,10 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     layout->setContentsMargins(18, 14, 18, 16);
     layout->setSpacing(6);
 
-    m_stamp = label(this, -1);
+    m_stamp = label(this, 0.9);
     m_stamp->setAlignment(Qt::AlignRight);
     mute(m_stamp);
-    m_heading = label(this, 5, true);
+    m_heading = label(this, 1.5, true);
     m_detail = label(this);
     mute(m_detail);
     m_link = label(this);
@@ -107,7 +110,9 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     layout->addWidget(m_detail);
     layout->addWidget(m_link);
     layout->addWidget(m_mergeRow);
-    layout->addSpacing(10);
+    m_gap = new QWidget(this);
+    m_gap->setFixedHeight(10);
+    layout->addWidget(m_gap);
     layout->addWidget(m_action);
 
     if (m_watcher) {
@@ -139,15 +144,20 @@ void CardWindow::refresh()
 
 void CardWindow::present(const Kyu::CardView &view)
 {
+    // Unchanged (most polls): leave the window as it is, selection included.
+    if (m_shown && view == m_view) {
+        return;
+    }
+    m_shown = true;
     m_view = view;
     m_stamp->setText(view.stamp);
     m_stamp->setVisible(!view.stamp.isEmpty());
     m_heading->setText(view.heading);
     QString detail = view.detail;
-    if (!view.failureKind.isEmpty() || (detail.isEmpty() && view.heading == QLatin1String("The update did not finish"))) {
-        const FailureText text = describeFailure(QJsonObject{{QStringLiteral("kind"), view.failureKind}});
-        detail = text.title.isEmpty() ? QStringLiteral("pacman stopped with an error; the Kyu window shows why.")
-                                      : text.title + QStringLiteral(". Nothing was installed.");
+    if (view.kind == Kyu::CardView::Kind::Failed) {
+        const QString title = view.failureKind.isEmpty() ? QString() : failureTitle(view.failureKind);
+        const QString changed = view.transactionStarted ? QStringLiteral("pacman stopped halfway.") : QStringLiteral("Nothing was installed.");
+        detail = title.isEmpty() ? changed : title + QStringLiteral(". ") + changed;
     }
     m_detail->setText(detail);
     m_detail->setVisible(!detail.isEmpty());
@@ -161,9 +171,14 @@ void CardWindow::present(const Kyu::CardView &view)
     m_mergeText->setText(view.mergeText);
     m_mergeRow->setVisible(!view.mergeText.isEmpty());
     m_action->setText(view.actionText);
-    m_action->setVisible(view.action != Kyu::CardView::Action::None);
+    const bool hasAction = view.action != Kyu::CardView::Action::None;
+    m_action->setVisible(hasAction);
+    m_gap->setVisible(hasAction);
     m_action->setDefault(view.primary);
     m_action->setAutoDefault(view.primary);
+    if (hasAction) {
+        m_action->setFocus(); // Enter presses it, not the news link
+    }
     adjustSize();
 }
 
@@ -212,6 +227,10 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Escape) {
         close();
+        return;
+    }
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && m_action->isVisible()) {
+        m_action->click();
         return;
     }
     QWidget::keyPressEvent(event);
