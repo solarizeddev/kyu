@@ -75,6 +75,16 @@ run news-yes 'y\ny\n'
 # The second "y" reached pacman's own question (the fake stops without one).
 has "$work/news-yes/out" 'Done in ' news-yes
 
+echo "news: asked about once; afterwards only listed"
+prepare newsonce; state "$work/newsonce/state.json" 2 1 1
+run newsonce 'y\ny\n'
+has "$work/newsonce/out" 'Continue? [y/N]' newsonce
+grep -q 'archlinux.org/news/foo' "$work/newsonce/state/kyu/news-seen.json" || fail "newsonce: not remembered as seen"
+run newsonce 'y\n'
+has "$work/newsonce/out" 'Arch Linux news since your last update (read)' newsonce-2
+hasnt "$work/newsonce/out" 'Continue? [y/N]' newsonce-2
+has "$work/newsonce/out" 'Done in ' newsonce-2
+
 echo "failure: keyring, explained, Flatpaks skipped"
 KYU_FAKE_MODE=keyring run keyring 'y\n'
 d=$work/keyring

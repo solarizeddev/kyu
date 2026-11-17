@@ -24,6 +24,7 @@ struct TrayInput {
     QString kernelInstalled; // the installed version of the running kernel's package, when known
     bool updating = false; // a kyu-update holds its lock
     QString activity; // what that kyu-update does: "update" or "merge"
+    QStringList newsSeen; // announcements already read (news.h)
     QDateTime now;
 };
 

@@ -12,6 +12,7 @@
 #include "aftercare.h"
 #include "failure.h"
 #include "failuretext.h"
+#include "news.h"
 #include "paths.h"
 #include "updatestate.h"
 
@@ -717,25 +718,47 @@ int main(int argc, char **argv)
         out.note(QStringLiteral("Keep this window open until Kyu says it is done."), Tone::Dim);
     }
 
+    // The news since the last full upgrade. Asked about once per announcement
+    // (seen: confirmed here before, or opened from the card); seen ones are
+    // only listed.
     if (state && !state->news.items.isEmpty() && !parser.isSet(newsRead)) {
+        const QStringList seen = Kyu::seenNews();
+        QList<Kyu::NewsItem> fresh;
+        for (const Kyu::NewsItem &item : state->news.items) {
+            if (!seen.contains(Kyu::newsKey(item))) {
+                fresh.append(item);
+            }
+        }
         out.blank();
-        out.heading(QStringLiteral("%1 since your last update").arg(state->news.source), Tone::Warn);
-        for (const Kyu::NewsItem &item : state->news.items.mid(0, 5)) {
-            out.note(item.title);
-            out.note(item.link, Tone::Dim);
-        }
-        if (state->news.items.size() > 5) {
-            out.note(QStringLiteral("… and %1 more: %2").arg(state->news.items.size() - 5).arg(state->news.page), Tone::Dim);
-        }
-        // No by default: Enter alone must not skip news that may need action.
-        out.prompt(QStringLiteral("Continue? [y/N] "), Tone::Warn);
-        const QString answer = readAnswer();
-        if (!stdinIsTerminal()) {
-            out.blank(); // a typed answer ends the line itself
-        }
-        if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
-            out.warn(QStringLiteral("Stopped. Nothing was installed."));
-            return finish(4);
+        if (fresh.isEmpty()) {
+            out.heading(QStringLiteral("%1 since your last update (read)").arg(state->news.source), Tone::Dim);
+            for (const Kyu::NewsItem &item : state->news.items.mid(0, 3)) {
+                out.note(item.title + QStringLiteral(" · ") + item.link, Tone::Dim);
+            }
+        } else {
+            out.heading(QStringLiteral("%1 since your last update").arg(state->news.source), Tone::Warn);
+            for (const Kyu::NewsItem &item : fresh.mid(0, 5)) {
+                out.note(item.title);
+                out.note(item.link, Tone::Dim);
+            }
+            if (fresh.size() > 5) {
+                out.note(QStringLiteral("… and %1 more: %2").arg(fresh.size() - 5).arg(state->news.page), Tone::Dim);
+            }
+            // No by default: Enter alone must not skip news that may need action.
+            out.prompt(QStringLiteral("Continue? [y/N] "), Tone::Warn);
+            const QString answer = readAnswer();
+            if (!stdinIsTerminal()) {
+                out.blank(); // a typed answer ends the line itself
+            }
+            if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
+                out.warn(QStringLiteral("Stopped. Nothing was installed."));
+                return finish(4);
+            }
+            QStringList keys;
+            for (const Kyu::NewsItem &item : std::as_const(fresh)) {
+                keys.append(Kyu::newsKey(item));
+            }
+            Kyu::markNewsSeen(keys);
         }
     }
 

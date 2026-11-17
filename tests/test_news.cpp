@@ -25,6 +25,7 @@ class TestNews : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void seen();
     void rss()
     {
         const QByteArray xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -161,6 +162,17 @@ private Q_SLOTS:
         QVERIFY(!missing.error.isEmpty());
     }
 };
+
+void TestNews::seen()
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath(QStringLiteral("kyu/news-seen.json"));
+    QVERIFY(seenNews(path).isEmpty());
+    markNewsSeen({QStringLiteral("https://a"), QStringLiteral("https://b")}, path);
+    markNewsSeen({QStringLiteral("https://b"), QStringLiteral("https://c")}, path);
+    QCOMPARE(seenNews(path), (QStringList{QStringLiteral("https://a"), QStringLiteral("https://b"), QStringLiteral("https://c")}));
+    QCOMPARE(newsKey(NewsItem{QStringLiteral("T"), QString(), QDateTime()}), QStringLiteral("T"));
+}
 
 QTEST_GUILESS_MAIN(TestNews)
 #include "test_news.moc"

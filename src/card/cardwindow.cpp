@@ -2,6 +2,7 @@
 
 #include "checkscheduler.h"
 #include "failuretext.h"
+#include "news.h"
 #include "statewatcher.h"
 
 #include <QApplication>
@@ -90,7 +91,12 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     mute(m_detail);
     m_link = label(this);
     m_link->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    m_link->setOpenExternalLinks(true);
+    // Opening the announcement counts as reading it: kyu-update won't ask.
+    connect(m_link, &QLabel::linkActivated, this, [this](const QString &url) {
+        QDesktopServices::openUrl(QUrl(url));
+        Kyu::markNewsSeen({url});
+        refresh();
+    });
 
     m_mergeRow = new QWidget(this);
     auto *row = new QHBoxLayout(m_mergeRow);

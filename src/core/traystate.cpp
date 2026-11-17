@@ -1,6 +1,7 @@
 #include "traystate.h"
 
 #include "aftercare.h"
+#include "news.h"
 #include "paths.h"
 #include "statustext.h"
 
@@ -97,8 +98,26 @@ TrayInput currentTrayInput(const std::optional<UpdateState> &state, bool checkin
     if (in.updating) {
         in.activity = readText(Paths::stateDir() + QStringLiteral("/activity"));
     }
+    in.newsSeen = seenNews();
     in.now = QDateTime::currentDateTime();
     return in;
+}
+
+namespace
+{
+// The first announcement not read yet, if any.
+const NewsItem *unreadNews(const TrayInput &in)
+{
+    if (!in.state) {
+        return nullptr;
+    }
+    for (const NewsItem &item : in.state->news.items) {
+        if (!in.newsSeen.contains(newsKey(item))) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
 }
 
 TrayView trayView(const TrayInput &in)
@@ -111,7 +130,8 @@ TrayView trayView(const TrayInput &in)
     // A failed check with updates still listed shows the updates (the tooltip
     // says the check failed); with none listed it is the state to show.
     const bool checkFailed = total == 0 && (!in.loadError.isEmpty() || (in.state && in.state->hasError()));
-    const bool news = in.state && total > 0 && !in.state->news.items.isEmpty();
+    const NewsItem *unread = unreadNews(in);
+    const bool news = total > 0 && unread;
     const QStringList status = statusLines(in.state, in.checking, in.loadError, in.now);
 
     if (in.updating) {
@@ -133,7 +153,7 @@ TrayView trayView(const TrayInput &in)
     } else if (news) {
         v.mark = TrayMark::News;
         v.iconName = QStringLiteral("update-medium");
-        v.tooltip = QStringLiteral("Read first: ") + in.state->news.items.constFirst().title + QLatin1Char('\n') + status.value(0);
+        v.tooltip = QStringLiteral("Read first: ") + unread->title + QLatin1Char('\n') + status.value(0);
         if (const QString failed = failureLines(*in.state, in.now).value(0); !failed.isEmpty()) {
             v.tooltip += QLatin1Char('\n') + failed;
         }
@@ -243,8 +263,13 @@ CardView cardView(const TrayInput &in)
         }
         c.heading = plural(total, QStringLiteral("update"), QStringLiteral("updates"));
         c.detail = parts.join(QStringLiteral(" · "));
-        if (!s.news.items.isEmpty()) {
-            c.linkText = QStringLiteral("Read first: ") + s.news.items.constFirst().title;
+        // The news: "Read first" until read (confirmed in kyu-update, or
+        // opened from here); afterwards just the link.
+        if (const NewsItem *unread = unreadNews(in)) {
+            c.linkText = QStringLiteral("Read first: ") + unread->title;
+            c.linkUrl = unread->link;
+        } else if (!s.news.items.isEmpty()) {
+            c.linkText = QStringLiteral("News: ") + s.news.items.constFirst().title;
             c.linkUrl = s.news.items.constFirst().link;
         }
         c.action = CardView::Action::Update;

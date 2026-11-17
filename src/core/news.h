@@ -55,4 +55,11 @@ struct NewsResult {
 // Fetches the feed (http(s) or file URL), keeps items published since the
 // last full upgrade (or the last 30 days when pacman.log has none).
 NewsResult fetchNews(const NewsSource &source, const QDateTime &since, int timeoutMs = 20000);
+
+// Announcements already seen: confirmed in kyu-update ("Continue? y") or
+// opened from the card. Kept by link (title when there is none), in
+// news-seen.json in Kyu's state directory unless a path is given.
+QString newsKey(const NewsItem &item);
+QStringList seenNews(const QString &path = QString());
+void markNewsSeen(const QStringList &keys, const QString &path = QString());
 }

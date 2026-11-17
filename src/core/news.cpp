@@ -1,9 +1,17 @@
 #include "news.h"
 
+#include "paths.h"
+
+#include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QSaveFile>
 #include <QSysInfo>
 #include <QTimer>
 #include <QXmlStreamReader>
@@ -208,5 +216,54 @@ NewsResult fetchNews(const NewsSource &source, const QDateTime &since, int timeo
     }
     result.ok = true;
     return result;
+}
+}
+
+namespace Kyu
+{
+namespace
+{
+QString seenPath(const QString &path)
+{
+    return path.isEmpty() ? Paths::stateDir() + QStringLiteral("/news-seen.json") : path;
+}
+}
+
+QString newsKey(const NewsItem &item)
+{
+    return item.link.isEmpty() ? item.title : item.link;
+}
+
+QStringList seenNews(const QString &path)
+{
+    QFile file(seenPath(path));
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    QStringList keys;
+    for (const QJsonValue &v : QJsonDocument::fromJson(file.readAll()).object().value(QStringLiteral("seen")).toArray()) {
+        keys.append(v.toString());
+    }
+    return keys;
+}
+
+void markNewsSeen(const QStringList &keys, const QString &path)
+{
+    QStringList seen = seenNews(path);
+    for (const QString &key : keys) {
+        if (!key.isEmpty() && !seen.contains(key)) {
+            seen.append(key);
+        }
+    }
+    // The newest hundred are plenty: older ones fall out of the feeds.
+    while (seen.size() > 100) {
+        seen.removeFirst();
+    }
+    QDir().mkpath(QFileInfo(seenPath(path)).absolutePath());
+    QSaveFile file(seenPath(path));
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("seen"), QJsonArray::fromStringList(seen)}}).toJson());
+        file.commit();
+    }
 }
 }

@@ -141,6 +141,14 @@ void TestTrayState::cards()
     QCOMPARE(cardView(in).detail, QStringLiteral("state.json is not JSON"));
     in.loadError.clear();
 
+    // News already read: no "Read first", no orange tray; the link stays.
+    in.state = s;
+    in.newsSeen = {QStringLiteral("https://forum.manjaro.org/t/1")};
+    QCOMPARE(trayView(in).mark, TrayMark::Updates);
+    QCOMPARE(cardView(in).linkText, QStringLiteral("News: Manual intervention for foo"));
+    in.newsSeen.clear();
+    QCOMPARE(trayView(in).mark, TrayMark::News);
+
     // Flatpaks only: no password.
     UpdateState fp = withUpdates(0, false);
     fp.flatpaks = {f, f};
