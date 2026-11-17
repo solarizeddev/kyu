@@ -116,6 +116,10 @@ install -Dm644 build/data/kyu.notifyrc ~/.local/share/knotifications6/kyu.notify
   window's taskbar entry asks for attention. **Show** brings the window
   forward and the notification goes; so does answering from the window.
   It never shows while the Kyu window is in front.
+- From the build tree, `kyu-window` prints "Failed to register with host
+  portal … App info not found for 'io.github.solarizeddev.kyu'": the portal
+  looks for Kyu's installed `.desktop` file. Harmless; it goes once Kyu is
+  installed from the PKGBUILD.
 - **News:** with an announcement not read yet, start `build/bin/kyu-tray`: one
   notification with its title, **Read** opens it (and counts as read). Quit
   and start the tray again: no second one. To see it again, remove

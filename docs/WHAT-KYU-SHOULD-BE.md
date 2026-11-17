@@ -63,11 +63,11 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 3 | "Could not check" is its own state, never "up to date" or a stale count | Arch-Update "Cannot fetch Update" on Manjaro | have | 1 |
 | 4 | Every check has a timeout and can't block later checks; retry when the network is back after boot or resume | Apdatifier hangs; Arch-Update errors on wake | have: the Flatpak check gives up after 2 min, kyu-check ends after 10 min whatever happens, the timer catches up after sleep, the tray checks after resume and when the network is back after a failed check | 1 |
 | 5 | Check again whenever packages change, not only after Kyu's own update (pamac, plain pacman) | Apdatifier keeps the old list | have: the tray watches pacman's package database and Flatpak's change marker and checks once things are quiet | 1 |
-| 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | have (untested on Plasma): the card replaces the old panel | 1 |
+| 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | have: the card replaces the old panel; its states checked in screenshots on Plasma 6.7 (Breeze) | 1 |
 | 7 | One tray, not two: print how to turn pamac's tray off (never change it ourselves) | two trays and two notifications on Manjaro | missing | 2 |
 | 8 | A failed check is quiet (tooltip "could not check since …"); loud only after about a day | an offline laptop shouldn't show red | missing (today: red at once, like a failed update) | 2 |
 | 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
-| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part (untested on Plasma): "News" and "The update is waiting for you"; "Updates", "Done", "Failed" not yet | 2 |
+| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part: "Read before updating" (news) and "The update is waiting for you" (seen working on the owner's Plasma); "Updates", "Done", "Failed" not yet | 2 |
 | 11 | Icons that don't depend on colour alone | Arch-Update colourblind request | part (tooltip) | 2 |
 | 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | verify | 2 |
 
@@ -116,7 +116,7 @@ there is a second user). Branch switching: unsupported; say so in the docs.
 |---|---|---|---|
 | 33 | One real update on the owner's Manjaro before anything else is built | missing | 1 |
 | 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | have | 1 |
-| 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | missing | 1 |
+| 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | have (README) | 1 |
 | 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |
 
 ## Notifications
@@ -145,7 +145,7 @@ when it no longer applies.
 | Kind | When | Text and button | Lasts |
 |---|---|---|---|
 | Updates | only when going from none to some, and at most once a day; never when the list only grows or shrinks | "8 updates: 6 packages, 2 Flatpaks", naming at most the notable ones (kernel, Plasma, Mesa, NVIDIA, systemd); **Update** | goes away by itself; closed when an update starts |
-| News | once per new announcement (Manjaro, or Arch news) | its title; **Read** | stays until dismissed (must not miss) |
+| News | once per new announcement (Manjaro, or Arch news) | "Read before updating" and its title; **Read** (opens it, counts as read); clicking it opens the card | stays until dismissed or read (must not miss) |
 | Waiting for you | pacman or sudo is waiting for an answer while the Kyu window is not in front (the terminal part reports silence), plus the taskbar entry asks for attention | "The update is waiting for you"; **Show** | stays until answered |
 | Done | the update finished while the Kyu window was not in front | the verdict; **Restart** when a restart is needed | goes away by itself |
 | Failed | the update failed while the window was not in front | the one-sentence reason; **Show** | stays until dismissed |
@@ -160,7 +160,8 @@ a password prompt behind other windows stalls the update without a sign), and
 done/failed only fire when the window is not in front. Both: one kind per
 event, replaced, and switchable in System Settings.
 
-Status: "News" and "Waiting for you" have it (untested on Plasma); "Updates",
+Status: "News" ("Read before updating") and "Waiting for you" have it (the
+latter seen working on Plasma); "Updates",
 "Done", "Failed" 2 and "Could not check" 3 (with item 8) are missing.
 
 How "Waiting for you" knows: kyu-update runs pacman, flatpak and the AUR

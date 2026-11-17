@@ -17,11 +17,21 @@ tested less.
 
 | Program | What it does |
 |---|---|
-| `kyu-tray` | The tray icon: your icon theme's update icons (none, updates, news to read first, restart to finish, failed) and a spinning one while updating. Hidden when there is nothing to do. Left click opens the card. |
-| `kyu` | The card: what is going on and the one thing to do next (Update, Restart, Merge…, Check for updates). |
+| `kyu-tray` | The tray icon: your icon theme's update icons (none, updates, news to read first, restart required, failed) and a spinning one while updating. Hidden when there is nothing to do. Left click opens the card. |
+| `kyu` | The card: what is going on and the one thing to do next (Update, Try Again, Restart, Merge…, Check for Updates, Show Window). Details lists the updates as pacman does (a block per source, with download sizes), or pacman's own lines after a failure. Each button's first letter is its Alt key; F5 checks for updates. |
 | `kyu-window` | Kyu's own window with Konsole's terminal inside (your window decoration, no toolbars), running `kyu-update`. Built when KF6 Parts is available; otherwise the update opens in Konsole. |
 | `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu` (a new keyring first, on its own), `flatpak update`, then your AUR helper (paru, yay, or pamac with the AUR on), then one verdict and one key per thing left to do. `kyu-update --merge` only merges configuration files (pacdiff). |
 | `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks, news, and AUR packages from the AUR's web API when an AUR helper is installed; run by a systemd user timer. |
+
+Two notifications, each of which can be switched off in System Settings →
+Notifications → Kyu:
+
+- **The update is waiting for you**: pacman, sudo, flatpak, the AUR helper or
+  Kyu asks a question while Kyu's window is behind others (the question, or
+  "Your password is needed."; the taskbar entry asks for attention too). It
+  goes when you answer or bring the window forward.
+- **Read before updating**: a new announcement from your distribution, once
+  per announcement, until it is read.
 
 Nothing runs as root except pacman itself (through `sudo`, `doas` or
 `pkexec`) and what you start with a key.
@@ -38,7 +48,7 @@ sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem 
 ```
 
 ```bash
-cmake -S . -B build -G Ninja -DKYU_REQUIRE_KSNI=ON -DKYU_REQUIRE_WINDOW=ON
+cmake -S . -B build -G Ninja -DKYU_REQUIRE_KSNI=ON -DKYU_REQUIRE_WINDOW=ON -DKYU_REQUIRE_NOTIFICATIONS=ON
 ```
 
 ```bash
@@ -57,8 +67,9 @@ The card in each state, without touching anything:
 build/bin/kyu --demo updates
 ```
 
-(States: `updates`, `flatpaks`, `uptodate`, `checking`, `checkfailed`,
-`updating`, `restart`, `settings`, `failed`.)
+(States: `updates`, `stale`, `flatpaks`, `uptodate`, `checking`,
+`checkfailed`, `updating`, `merging`, `restart`, `settings`, `failed`; add
+`--details` to open Details.)
 
 The real thing: check, then the tray, then the update (a real
 `sudo pacman -Syu`):
@@ -73,6 +84,13 @@ build/bin/kyu-tray &
 
 ```bash
 build/bin/kyu-window
+```
+
+The notifications show only with their description installed (the package
+does this); from the build tree, once:
+
+```bash
+install -Dm644 build/data/kyu.notifyrc ~/.local/share/knotifications6/kyu.notifyrc
 ```
 
 ## Test on a real system

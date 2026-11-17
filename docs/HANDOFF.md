@@ -4,7 +4,8 @@
 > polkit action and update panel were built and then removed when Kyu moved
 > to running the real pacman in a terminal: see
 > [`TERMINAL-FIRST.md`](TERMINAL-FIRST.md) and, for what Kyu is now,
-> [`WHAT-KYU-SHOULD-BE.md`](WHAT-KYU-SHOULD-BE.md).
+> [`WHAT-KYU-SHOULD-BE.md`](WHAT-KYU-SHOULD-BE.md). The screenshots in
+> `screenshots/` and the sketches in `sketches/` are of that old panel.
 
 Working name: **Kyu** (KDE "K" + pacman `-Syu`, read as "queue"). Check the name on GitHub, the AUR and KDE's app list before committing to it.
 

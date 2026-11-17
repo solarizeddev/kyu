@@ -1,5 +1,11 @@
 # Terminal-first Kyu: what goes, what stays
 
+> **Decision record (2026-11-16).** The tables below are the plan as decided
+> then. The card's words, layout and states have changed since (designed
+> with Fable over several real-machine rounds): see the README for what Kyu
+> does now, and [`WHAT-KYU-SHOULD-BE.md`](WHAT-KYU-SHOULD-BE.md) for its
+> status.
+
 Decided 2026-11-16 by the owner, after the second real-system test: the update panel was "too complicated, too much text, too confusing. I'd rather use the terminal than this tool." Fable and I reached the same conclusion: on Arch the terminal is the trusted interface. Kyu's value is everything around the update, not re-drawing it.
 
 Sketches (direction A): https://claude.ai/artifact/J5AmuUGK3MBmFpU5SCKsK7
