@@ -173,6 +173,23 @@ QJsonObject classifyFailure(const QStringList &allLines)
         });
         f = {{QStringLiteral("kind"), lists ? QStringLiteral("mirrorlists") : QStringLiteral("mirror")}, {QStringLiteral("lines"), first(retrieving)},
              {QStringLiteral("files"), unique(files)}, {QStringLiteral("hosts"), unique(hosts)}};
+    } else if (((has("signature from") && has("is invalid")) || has("(checksum)"))
+               && !(has("unknown trust") || has("marginal trust") || has("required key missing from keyring") || has("could not be looked up remotely"))) {
+        // A signature that does not match a trusted key's, or a checksum:
+        // the file is damaged, not the keyring (seen with a real pacman).
+        static const QRegularExpression corrupted(QStringLiteral("^:: File (/\\S+) is corrupted"));
+        QStringList packages, files;
+        for (const QString &l : lines) {
+            if (l.contains(QLatin1String("signature from")) && l.startsWith(QLatin1String("error: "))) {
+                packages.append(l.mid(7).section(QLatin1Char(':'), 0, 0));
+            }
+            if (const auto m = corrupted.match(l); m.hasMatch()) {
+                files.append(m.captured(1));
+            }
+        }
+        f = {{QStringLiteral("kind"), QStringLiteral("corrupt")},
+             {QStringLiteral("lines"), matching([](const QString &l) { return l.contains(QLatin1String("signature")) || l.contains(QLatin1String("corrupted")); })},
+             {QStringLiteral("packages"), unique(packages)}, {QStringLiteral("files"), unique(files)}};
     } else if (has("unknown trust") || has("marginal trust") || has("(PGP signature)") || has("required key missing from keyring")
                || has("could not be looked up remotely") || (has("signature from") && has("is invalid"))) {
         QStringList packages;
@@ -197,8 +214,9 @@ QJsonObject classifyFailure(const QStringList &allLines)
             }
         }
         f = {{QStringLiteral("kind"), QStringLiteral("files")},
+             // The conflicts themselves too: the card's Details names the files.
              {QStringLiteral("lines"), matching([](const QString &l) {
-                  return l.contains(QLatin1String("conflicting files")) || l.startsWith(QLatin1String("Errors occurred"));
+                  return l.contains(QLatin1String("conflicting files")) || l.contains(QLatin1String(" exists in ")) || l.startsWith(QLatin1String("Errors occurred"));
               })},
              {QStringLiteral("files"), files}, {QStringLiteral("fileCount"), count}};
     } else if (has("too full") || has("not enough free disk space") || has("Failure writing output to destination") || has("No space left on device")) {

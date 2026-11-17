@@ -683,17 +683,16 @@ QString recordingTemplate()
 // A command that may ask questions (flatpak, the AUR helper), run inside
 // util-linux `script` so its output can be watched for them; as it is
 // without `script`, or when nobody is at a terminal to answer.
-int runWatched(const QStringList &command)
+int runWatched(const QStringList &command, QProcessEnvironment env = QProcessEnvironment::systemEnvironment())
 {
     const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
     QTemporaryDir recording(recordingTemplate());
     if (script.isEmpty() || !recording.isValid() || !stdinIsTerminal()) {
-        return runInTerminal(command.first(), command.mid(1));
+        return runInTerminal(command.first(), command.mid(1), env);
     }
     const QString typescript = recording.filePath(QStringLiteral("typescript"));
     // script runs the command with $SHELL: /bin/sh, and the command gets
     // the user's own back (makepkg and the helper may use it).
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     const QString shell = env.value(QStringLiteral("SHELL"));
     env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
     const QString line = (shell.isEmpty() ? QStringLiteral("unset SHELL; exec ") : QStringLiteral("SHELL=%1 exec ").arg(shellJoin({shell}))) + shellJoin(command);
@@ -743,8 +742,9 @@ bool runPacdiff(Out &out, const QString &elevate)
     out.note(QStringLiteral("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
                             "o use the new version, s skip."),
              Tone::Dim);
-    const int rc = elevate == QLatin1String("sudo") ? runInTerminal(QStringLiteral("pacdiff"), {QStringLiteral("--sudo")}, env)
-                                                    : runInTerminal(elevate, {QStringLiteral("pacdiff")}, env);
+    // Watched: its questions count for "The update is waiting for you".
+    const int rc = elevate == QLatin1String("sudo") ? runWatched({QStringLiteral("pacdiff"), QStringLiteral("--sudo")}, env)
+                                                    : runWatched({elevate, QStringLiteral("pacdiff")}, env);
     if (rc != 0) {
         out.bad(QStringLiteral("pacdiff stopped (status %1).").arg(rc));
     }

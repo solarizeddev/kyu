@@ -166,6 +166,12 @@ private Q_SLOTS:
                                                      QStringLiteral("error: failed retrieving file 'core.db' from geo.mirror.pkgbuild.com : The requested URL returned error: 404"),
                                                      QStringLiteral("error: failed to synchronize all databases (failed to retrieve some files)")}
                                       << QStringLiteral("mirrorlists");
+        // A damaged download (a real pacman): the signature does not match a
+        // trusted key's. Not the keyring.
+        QTest::newRow("corrupt") << QStringList{QStringLiteral("error: zlib: signature from \"David Runge <dvzrv@archlinux.org>\" is invalid"),
+                                                QStringLiteral(":: File /var/cache/pacman/pkg/zlib-1:1.4-1-x86_64.pkg.tar.zst is corrupted (invalid or corrupted package (PGP signature))."),
+                                                QStringLiteral("error: failed to commit transaction (invalid or corrupted package)")}
+                                 << QStringLiteral("corrupt");
         QTest::newRow("disk") << QStringList{QStringLiteral("error: Partition / too full: 61234 blocks needed, 1024 blocks free")} << QStringLiteral("disk");
         QTest::newRow("cache full") << QStringList{QStringLiteral("error: failed retrieving file 'nano-9.3-1-x86_64.pkg.tar.zst' from geo.mirror.pkgbuild.com : Failure writing output to destination, passed 8192 returned 0"),
                                                    QStringLiteral("warning: failed to retrieve some files"),

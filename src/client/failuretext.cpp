@@ -85,6 +85,18 @@ FailureText describeFailure(const QJsonObject &failure)
         t.command = QStringLiteral("sudo pacman -Sy --needed %1 && sudo pacman -Su").arg(keyrings.join(QLatin1Char(' ')));
         // kyu-update follows the fix with the whole update at once.
         t.fix = QStringLiteral("sudo pacman -Sy --needed %1").arg(keyrings.join(QLatin1Char(' ')));
+    } else if (kind == QLatin1String("corrupt")) {
+        const QStringList packages = strings(failure.value(QStringLiteral("packages")));
+        const QStringList files = strings(failure.value(QStringLiteral("files")));
+        t.title = QStringLiteral("A downloaded package is damaged");
+        t.text = QStringLiteral("%1 in pacman's cache does not match its signature: the download was damaged or cut short, not the "
+                                "keyring. Removing it and updating again downloads it anew.")
+                     .arg(packages.isEmpty() ? QStringLiteral("A package") : packages.join(QStringLiteral(", ")));
+        t.items = files;
+        if (!files.isEmpty()) {
+            t.command = QStringLiteral("sudo rm -f %1").arg(files.join(QLatin1Char(' ')));
+            t.fix = t.command;
+        }
     } else if (kind == QLatin1String("files")) {
         const QStringList files = strings(failure.value(QStringLiteral("files")));
         const int count = failure.value(QStringLiteral("fileCount")).toInt();
