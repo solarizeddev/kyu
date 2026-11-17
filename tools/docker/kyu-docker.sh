@@ -7,6 +7,7 @@
 #   tools/docker/kyu-docker.sh image manjaro            Manjaro's official image as it is,
 #                                                      Kyu built in it
 #   tools/docker/kyu-docker.sh rebuild IMAGE            Kyu again from this checkout, in IMAGE
+#   tools/docker/kyu-docker.sh scenario IMAGE NAME [OUTDIR]  one case, tools/docker/scenarios/NAME.sh
 #   tools/docker/kyu-docker.sh run IMAGE [OUTDIR]       today's mirrors, then kyu-check and
 #                                                      the real kyu-update as user "tester"
 #
@@ -39,6 +40,7 @@ set -e
 useradd -m tester
 echo tester:kyu | chpasswd
 echo "tester ALL=(ALL) ALL" > /etc/sudoers.d/tester
+echo "tester ALL=(ALL) NOPASSWD: /usr/bin/pkill" > /etc/sudoers.d/tester-kill
 # Behind a proxy, sudo keeps it (as a proxy user sets up sudo).
 echo "Defaults env_keep += \"HTTPS_PROXY HTTP_PROXY https_proxy http_proxy NO_PROXY no_proxy\"" > /etc/sudoers.d/proxy
 mkdir -p /opt/kyu-src
@@ -75,6 +77,31 @@ image)
     docker commit "$name" "$tag" >/dev/null
     docker rm "$name" >/dev/null
     echo "$tag"
+    ;;
+scenario)
+    # One case from tools/docker/scenarios/NAME.sh: setup() as root, then
+    # drive() as "tester" (lib.sh), then after() as root if defined. A line
+    # "# docker: FLAGS" adds flags to docker run.
+    image=${2:?image}
+    case_=${3:?scenario}
+    file=$here/scenarios/$case_.sh
+    [ -f "$file" ] || { echo "no scenario $file" >&2; exit 2; }
+    out=${4:-$PWD/kyu-docker-$case_}
+    rm -rf "$out"; mkdir -p "$out" && chmod 777 "$out"
+    read -r -a extra <<< "$(sed -n 's/^# docker: //p' "$file")"
+    case "$image" in kyu-manjaro*) now=$MANJARO_NOW ;; *) now=$ARCH_NOW ;; esac
+    docker run --rm "${common[@]}" "${extra[@]}" -v "$out:/out" -v "$here/drive.py:/drive.py:ro" \
+        -v "$here/lib.sh:/lib.sh:ro" -v "$file:/scenario.sh:ro" "$image" bash -c "
+        $trust
+        echo 'tester ALL=(ALL) NOPASSWD: /usr/bin/pkill' > /etc/sudoers.d/tester-kill
+        printf 'Server = $now\n' > /etc/pacman.d/mirrorlist
+        source /scenario.sh
+        setup > /out/setup.log 2>&1 || echo setup failed: \$? >> /out/setup.log
+        su tester -c 'export HOME=/home/tester USER=tester LOGNAME=tester; cd; source /lib.sh; source /scenario.sh; drive' > /out/drive.log 2>&1
+        if declare -F after >/dev/null; then after > /out/after.log 2>&1; fi
+        tail -n 300 /var/log/pacman.log > /out/pacman.log
+        ls -la /var/lib/pacman/db.lck > /out/lock.txt 2>&1 || true"
+    echo "$out"
     ;;
 rebuild)
     # Kyu again from this checkout, into an image made by "image".
@@ -121,7 +148,7 @@ run)
     echo "$out"
     ;;
 *)
-    sed -n '2,17p' "$0"
+    sed -n '2,18p' "$0"
     exit 2
     ;;
 esac
