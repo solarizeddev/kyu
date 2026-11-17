@@ -5,6 +5,7 @@
 #include "news.h"
 #include "statewatcher.h"
 
+#include <QFile>
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -248,4 +249,20 @@ void CardWindow::keyPressEvent(QKeyEvent *event)
         return;
     }
     QWidget::keyPressEvent(event);
+}
+
+bool CardWindow::event(QEvent *event)
+{
+    // Test kit only: says whether the card is the active window, so its
+    // screenshot (with the window's decoration) is of the card.
+    if (event->type() == QEvent::ActivationChange) {
+        const QString path = qEnvironmentVariable("KYU_CARD_ACTIVE_FILE");
+        if (!path.isEmpty()) {
+            QFile file(path);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                file.write(isActiveWindow() ? "1" : "0");
+            }
+        }
+    }
+    return QWidget::event(event);
 }

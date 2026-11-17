@@ -1,7 +1,7 @@
 #!/bin/sh
 # One command for a test on a real system. Builds Kyu, runs the automated
-# tests, screenshots the card in each state and kyu-update in real Konsole
-# windows for every outcome,
+# tests, screenshots the card in each state (as a window, with your window
+# decoration) and kyu-update in Kyu's own window for every outcome,
 # in your profile, Konsole's colour schemes and window sizes (a fake system:
 # fake sudo, pacman and flatpak; nothing on your machine changes, no root),
 # keeps the text of each run, notes versions and the facts kyu-update reads
@@ -11,7 +11,7 @@
 #   tools/kyu-test-all.sh /path/name.zip   writes that zip
 #
 # Takes about 6 minutes. Turn on Do Not Disturb first, then leave the
-# desktop alone: Konsole windows open and close by themselves and each
+# desktop alone: Kyu's windows open and close by themselves and each
 # screenshot is of the active window. Look through screens/ before you send
 # the zip. Your home directory, user name and the checkout's path are
 # replaced in the text files. Environment: BUILD (build directory, default
@@ -102,15 +102,33 @@ if [ "$status" = ok ]; then
 
     step "The card's states (cards/)"
     mkdir -p "$out/cards"
+    # Each card as a window, with your window decoration (Spectacle, the
+    # active window); without Spectacle, the card's contents alone.
     for state in updates flatpaks uptodate checking checkfailed updating restart settings failed; do
-        if ! timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$out/cards/$state.png" >/dev/null 2>&1; then
-            echo "card $state: failed"
+        file="$out/cards/$state.png"
+        if command -v spectacle >/dev/null; then
+            rm -f "$stage/card-active"
+            KYU_CARD_ACTIVE_FILE="$stage/card-active" "$build/bin/kyu" --demo "$state" >/dev/null 2>&1 &
+            card=$!
+            for i in $(seq 50); do [ "$(cat "$stage/card-active" 2>/dev/null)" = 1 ] && break; sleep 0.2; done
+            if [ "$(cat "$stage/card-active" 2>/dev/null)" = 1 ]; then
+                sleep 0.5 # the window's opening animation
+                spectacle --background --nonotify --activewindow --output "$file" >/dev/null 2>&1
+                for i in $(seq 25); do [ -s "$file" ] && break; sleep 0.2; done
+            fi
+            kill "$card" 2>/dev/null
+            wait "$card" 2>/dev/null
+        else
+            timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$file" >/dev/null 2>&1
+        fi
+        if [ ! -s "$file" ]; then
+            echo "card $state: failed (the card was not the active window, or no screenshot)"
             [ "$status" = ok ] && status="card screenshots failed" || status="$status, card screenshots failed"
         fi
     done
     ls "$out/cards" | wc -l | sed 's/$/ card screenshots/'
 
-    step "kyu-update in Konsole (screens/, about 5 minutes; one line per screenshot)"
+    step "kyu-update in Kyu's window (screens/, about 5 minutes; one line per screenshot)"
     BUILD="$build" "$src/tools/kyu-update-screens.sh" "$out/screens" 2>&1 | tee "$out/screens-run.log"
     if ! grep -q '^done:' "$out/screens/screens.log" 2>/dev/null || grep -q FAILED "$out/screens/screens.log"; then
         [ "$status" = ok ] && status="screenshots failed" || status="$status, screenshots failed"
@@ -147,7 +165,7 @@ else
 fi
 if [ $? -eq 0 ]; then
     echo "wrote $zipfile ($(du -h "$zipfile" | cut -f1)), result: $status"
-    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Kyu or Konsole window; and kyu-test/cards/."
+    echo "Before you send it, unzip it and look through kyu-test/screens/: every picture should be a Kyu window; and kyu-test/cards/."
 else
     # Keep the results rather than lose ten minutes of work.
     trap - EXIT

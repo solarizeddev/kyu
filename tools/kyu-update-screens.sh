@@ -1,6 +1,8 @@
 #!/bin/bash
-# Screenshots of kyu-update in real Konsole windows: every outcome, in your
-# own Konsole profile, in Konsole's bundled colour schemes, narrow and wide.
+# Screenshots of kyu-update in Kyu's own window (kyu-window: Konsole's
+# terminal, no toolbars): every outcome, in your own Konsole profile, in
+# Konsole's bundled colour schemes, narrow and wide. Without kyu-window
+# built, or with KONSOLE=1, in plain Konsole windows instead (the fallback).
 # Each window runs the real kyu-update against a fake system (fake sudo,
 # pacman and flatpak first on PATH, fake pacman.log, /proc and lock file in a
 # temporary directory): nothing on your machine changes, no root, no network.
@@ -12,7 +14,7 @@
 #
 # Needs konsole, spectacle and busctl. Takes about 5 minutes; windows open
 # and close by themselves. Leave the desktop alone: the screenshot is of the
-# active window, and a shot is skipped if Konsole is not the active one.
+# active window, and a shot is skipped if the window is not the active one.
 # Turn on Do Not Disturb first: each window can post Konsole notifications.
 # Look through the PNGs before you send them on.
 #
@@ -29,6 +31,9 @@ out=$(realpath -m "${1:?usage: kyu-update-screens.sh OUTDIR}")
 fakes=$src/tests/update
 . "$fakes/fake-system.sh"
 
+# Kyu's own window, unless it was not built or KONSOLE=1 asks for Konsole.
+WINDOW=
+[ -x "$build/bin/kyu-window" ] && [ -z "${KONSOLE:-}" ] && WINDOW=1
 for tool in konsole spectacle busctl script; do
     command -v $tool >/dev/null || { echo "kyu-update-screens: $tool is not installed" >&2; exit 2; }
 done
@@ -111,12 +116,13 @@ shot() {
     [ "$st" = - ] || fake_state "$d/state.json" $st
     fake_system "$d"
     local -a profile=(-p "LocalTabTitleFormat=Kyu test" -p "RemoteTabTitleFormat=Kyu test" -p TerminalRows=40)
+    local columns=100 settings=
     case "$size" in
-    narrow) profile+=(-p TerminalColumns=60) ;;
-    wide) profile+=(-p TerminalColumns=160) ;;
-    *) profile+=(-p TerminalColumns=100) ;;
+    narrow) columns=60 ;;
+    wide) columns=160 ;;
     esac
-    [ "$scheme" = - ] || profile+=(-p "ColorScheme=$scheme")
+    profile+=(-p "TerminalColumns=$columns")
+    [ "$scheme" = - ] || { profile+=(-p "ColorScheme=$scheme"); settings="ColorScheme=$scheme"; }
     for step in "$@"; do
         case "$step" in
         lock) touch "$d/db.lck" ;;
@@ -147,6 +153,7 @@ shot() {
         # shellcheck disable=SC2046 # fake_args is a word list without spaces
         env PATH="$fakes:$PATH" KYU_FAKE_DIR="$d" KYU_FAKE_MODE="$mode" KYU_FAKE_FLATPAK_EXIT="${FLATPAK_EXIT:-0}" \
             XDG_STATE_HOME="$d/state" KYU_WINDOW_ANSWERS="$d/answers" KYU_WINDOW_ACTIVE_FILE="$d/active" \
+            KYU_WINDOW_SETTINGS="$settings" KYU_WINDOW_COLUMNS="$columns" \
             "$work/bin/kyu-window" $(fake_args "$d") >>"$work/konsole.log" 2>&1 &
         pid=$!
         # The terminal's session is on the window's own bus connection.
@@ -174,7 +181,7 @@ shot() {
         # timed waits instead.
         log "note $name: the terminal's text is not readable over D-Bus"
     elif ! busctl --user introspect "$service" /Sessions/1 >/dev/null 2>&1; then
-        log "FAILED $name: Konsole did not appear on D-Bus"
+        log "FAILED $name: the terminal did not appear on D-Bus"
         failed=$((failed + 1))
         close
         return
@@ -227,7 +234,7 @@ shot() {
             if [ "$state" = no ]; then
                 # Something else has the focus: no screenshot of it, and stop
                 # here rather than go on taking pictures of the wrong window.
-                log "FAILED $label: Konsole is not the active window; stopping (leave the desktop alone while this runs)"
+                log "FAILED $label: the window is not the active one; stopping (leave the desktop alone while this runs)"
                 failed=$((failed + 1))
                 close
                 exit 1
@@ -235,7 +242,7 @@ shot() {
             spectacle --background --nonotify --activewindow --output "$file" >>"$work/konsole.log" 2>&1
             for i in $(seq 25); do [ -s "$file" ] && break; sleep 0.2; done
             if [ -s "$file" ]; then
-                [ "$state" = yes ] && log "ok $label" || log "ok $label (could not confirm it is Konsole: check this one)"
+                [ "$state" = yes ] && log "ok $label" || log "ok $label (could not confirm it is the window: check this one)"
             else
                 log "FAILED $label: no screenshot"
                 failed=$((failed + 1))
@@ -277,7 +284,11 @@ close() {
 
 NEW=6.18.22-1-MANJARO # the installed kernel in the fake system
 
-log "== your Konsole profile"
+if [ -n "$WINDOW" ]; then
+    log "== in Kyu's own window (kyu-window), your Konsole profile"
+else
+    log "== in Konsole (kyu-window was not built, or KONSOLE=1), your Konsole profile"
+fi
 shot A-01-done - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
 if [ -z "${ONLY:-}" ] && [ -z "$checked_fakes" ]; then
     log "FAILED: the fake pacman did not run in the first window; stopping"
@@ -317,16 +328,6 @@ for s in $schemes; do
     shot "B-$s-keyring" "$s" normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
     shot "B-$s-news" "$s" normal normal "2 1 1" "until Continue?" shot
 done
-
-log "== Kyu's own window (kyu-window)"
-if [ -x "$work/bin/kyu-window" ]; then
-    WINDOW=1 shot W-01-done - normal normal - "until Proceed with" "type y" "until [Enter] close" shot
-    WINDOW=1 shot W-02-news - normal normal "2 1 1" "until Continue?" shot "type y" "until Proceed with" "type y" "until [Enter] close" shot
-    WINDOW=1 shot W-03-downloading - normal slow - "until Proceed with" "type y" "wait 1" shot "until [Enter] close"
-    WINDOW=1 shot W-04-keyring - normal keyring - "until Proceed with" "type y" "until [Enter] close" shot
-else
-    log "skip: kyu-window was not built (KF6 Parts missing)"
-fi
 
 log "== narrow (60 columns) and wide (160 columns)"
 for z in narrow wide; do

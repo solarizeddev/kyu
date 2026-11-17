@@ -26,6 +26,7 @@ public Q_SLOTS:
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
+    bool event(QEvent *event) override;
 
 private:
     void present(const Kyu::CardView &view);

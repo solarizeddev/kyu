@@ -11,7 +11,9 @@
 //
 // For the screenshot test kit only: KYU_WINDOW_ANSWERS names a pipe whose
 // text is typed into the terminal, KYU_WINDOW_ACTIVE_FILE a file that says
-// whether the window is the active one ("1" or "0").
+// whether the window is the active one ("1" or "0"), KYU_WINDOW_SETTINGS
+// changes the profile for this window only (as `konsole -p`, "ColorScheme=
+// Linux;..."), and KYU_WINDOW_COLUMNS sets its width in characters.
 
 #include "paths.h"
 
@@ -193,13 +195,24 @@ int main(int argc, char **argv)
     window->setFocusProxy(part->widget());
 
 
+    // Test kit: another colour scheme, for this window only (Konsole's
+    // part takes "key=value;..." as konsole's -p does).
+    if (const QString settings = qEnvironmentVariable("KYU_WINDOW_SETTINGS"); !settings.isEmpty()) {
+        if (!QMetaObject::invokeMethod(part.data(), "changeSessionSettings", Q_ARG(QString, settings))) {
+            qWarning("kyu-window: this Konsole part cannot change its settings (KYU_WINDOW_SETTINGS)");
+        }
+    }
+
     // About 100 × 34 characters in the profile's font.
-    QSize size(900, 620);
+    bool columnsSet = false;
+    const int columns = qEnvironmentVariableIntValue("KYU_WINDOW_COLUMNS", &columnsSet);
+    const int width = columnsSet && columns >= 20 ? columns : 100;
+    QSize size(width * 9, 620);
     const QVariant font = terminal->profileProperty(QStringLiteral("Font"));
     if (font.typeId() == QMetaType::QFont) {
         const QFontMetricsF metrics(font.value<QFont>());
         const int scrollBar = window->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
-        size = QSize(qCeil(metrics.horizontalAdvance(QLatin1Char('M')) * 100) + scrollBar + 8, qCeil(metrics.height() * 34) + 8);
+        size = QSize(qCeil(metrics.horizontalAdvance(QLatin1Char('M')) * width) + scrollBar + 8, qCeil(metrics.height() * 34) + 8);
     }
     window->resize(size);
     window->show();

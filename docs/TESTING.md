@@ -21,7 +21,7 @@ cd kyu
 
 ## 2. The quick way: one command, one zip
 
-Turn on Do Not Disturb first (each Konsole window it opens can post a
+Turn on Do Not Disturb first (each window it opens can post a
 notification), then:
 
 ```bash
@@ -33,19 +33,20 @@ It takes about 6 minutes:
 1. It builds Kyu and runs the automated tests.
 2. It runs `kyu-update` against a fake system (fake `sudo`, `pacman` and
    `flatpak`) and keeps the text of every run (`transcripts/`).
-3. It saves a picture of the card in each state (`cards/`).
-4. It opens real Konsole windows (and Kyu's own window, when built) with
-   `kyu-update` in them, types the answers itself and screenshots each
+3. It opens the card in each state and screenshots it as a window, with
+   your window decoration (`cards/`).
+4. It opens Kyu's own window (Konsole's terminal, no toolbars) with
+   `kyu-update` in it, types the answers itself and screenshots each
    outcome, in your Konsole profile, Konsole's colour schemes, and 60 and 160
    columns wide (`screens/`). Leave the desktop alone meanwhile: a shot is
    taken only while that window is the active one, and the run stops
-   otherwise. If Konsole cannot report the active window, it stops at the
-   first shot; `UNCHECKED=1 tools/kyu-test-all.sh` takes them anyway.
+   otherwise. Plain Konsole windows (with Konsole's toolbar) are used only if
+   Kyu's window was not built, or with `KONSOLE=1`.
 5. It notes the versions of the relevant packages and what `kyu-update`
    reads about your system (the kernel's module folder, the boot image name,
    whether pamac runs, your shell).
 6. It writes `~/kyu-test.zip`. Unzip it and look through `kyu-test/screens/`
-   (every picture should be a Kyu or Konsole window) and `kyu-test/cards/`,
+   (every picture should be a Kyu window) and `kyu-test/cards/`,
    then send it back.
 
 In the text files your home directory, user name and the checkout's path are
