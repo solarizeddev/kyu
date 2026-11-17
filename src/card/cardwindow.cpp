@@ -130,13 +130,8 @@ QSize IconView::sizeHint() const
 
 void IconView::paintEvent(QPaintEvent *)
 {
-    // Breeze's monochrome icons are drawn for 22 px: asked for at that size
-    // and rendered for this widget's (32 at 100 %), so the vector is drawn
-    // sharp at the size shown, not a small icon in a big box.
-    constexpr int design = 22;
     QPainter painter(this);
-    const QPixmap pixmap = m_icon.pixmap(QSize(design, design), devicePixelRatioF() * width() / qreal(design), isEnabled() ? QIcon::Normal : QIcon::Disabled);
-    painter.drawPixmap(rect(), pixmap);
+    m_icon.paint(&painter, rect(), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
 }
 
 void IconView::changeEvent(QEvent *event)
@@ -147,6 +142,54 @@ void IconView::changeEvent(QEvent *event)
         update();
     }
     QWidget::changeEvent(event);
+}
+
+Disclosure::Disclosure(const QString &text, QWidget *parent)
+    : QAbstractButton(parent)
+{
+    setText(text);
+    setCursor(Qt::PointingHandCursor);
+    setFocusPolicy(Qt::StrongFocus);
+}
+
+void Disclosure::setOpen(bool open)
+{
+    m_open = open;
+    update();
+}
+
+QSize Disclosure::sizeHint() const
+{
+    const QFontMetrics metrics(font());
+    const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
+    const int arrow = metrics.height() / 2 + 2;
+    return {arrow + gap + metrics.horizontalAdvance(text()) + 2, metrics.height() + 2};
+}
+
+void Disclosure::paintEvent(QPaintEvent *)
+{
+    QPainter painter(this);
+    const QFontMetrics metrics(font());
+    // The arrow about half the text's height, from the very left edge (where
+    // the text above starts), then the label.
+    const int arrow = metrics.height() / 2 + 2;
+    const int gap = style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, this) / 2;
+    QStyleOption option;
+    option.initFrom(this);
+    option.rect = QRect(0, (height() - arrow) / 2, arrow, arrow);
+    style()->drawPrimitive(m_open ? QStyle::PE_IndicatorArrowDown : QStyle::PE_IndicatorArrowRight, &option, &painter, this);
+    QFont label = font();
+    label.setUnderline(underMouse());
+    painter.setFont(label);
+    painter.setPen(palette().color(QPalette::WindowText));
+    const QRect text(arrow + gap, 0, width() - arrow - gap, height());
+    painter.drawText(text, Qt::AlignLeft | Qt::AlignVCenter, this->text());
+    if (hasFocus()) {
+        QStyleOptionFocusRect focus;
+        focus.initFrom(this);
+        focus.rect = rect();
+        style()->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, &painter, this);
+    }
 }
 
 CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget *parent)
@@ -171,7 +214,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     // text: heading, two lines, and a third (a link to read first, or a
     // note) when there is one.
     m_grid = new QGridLayout;
-    m_grid->setHorizontalSpacing(2 * across);
+    m_grid->setHorizontalSpacing(across * 3 / 2);
     m_grid->setVerticalSpacing(0);
     m_icon = new IconView(this);
     m_textColumn = new QWidget(this);
@@ -202,15 +245,16 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     text->addWidget(m_busy);
     // "▸ Details" under the text, as in KDE's message boxes: a disclosure,
     // not a button beside the actions; what it shows opens below the buttons.
-    m_details = new QToolButton(m_textColumn);
-    m_details->setText(QStringLiteral("Details"));
-    m_details->setAutoRaise(true);
-    m_details->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_details->setArrowType(Qt::RightArrow);
-    connect(m_details, &QToolButton::clicked, this, [this]() {
+    m_detailsRow = new QWidget(m_textColumn);
+    auto *row = new QHBoxLayout(m_detailsRow);
+    row->setContentsMargins(0, down / 2, 0, 0); // with the column's spacing: a line's spacing
+    m_details = new Disclosure(QStringLiteral("Details"), m_detailsRow);
+    connect(m_details, &QAbstractButton::clicked, this, [this]() {
         showDetails(!m_detailsShown);
     });
-    text->addWidget(m_details, 0, Qt::AlignLeft);
+    row->addWidget(m_details);
+    row->addStretch(1);
+    text->addWidget(m_detailsRow);
     m_grid->addWidget(m_icon, 0, 0, Qt::AlignTop);
     m_grid->addWidget(m_textColumn, 0, 1);
     m_grid->setColumnStretch(1, 1); // a wider window (Details open): the text gets the room
@@ -228,6 +272,8 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
         run(m_view.secondary);
     });
     m_action = new QPushButton(this);
+    m_measure = new QPushButton(QIcon::fromTheme(QStringLiteral("system-upgrade")), QStringLiteral("Update"), this);
+    m_measure->hide();
     connect(m_action, &QPushButton::clicked, this, [this]() {
         run(m_view.action);
     });
@@ -293,10 +339,9 @@ void CardWindow::applyFonts()
     const QFontMetrics metrics(font());
     m_textColumn->setFixedWidth(metrics.averageCharWidth() * 42);
     m_detail->setMinimumHeight((m_view.busy ? 1 : 2) * metrics.lineSpacing());
-    // The icon at the style's large size (32 at 100 %), top-left, level
-    // with the heading.
-    const int large = style()->pixelMetric(QStyle::PM_LargeIconSize, nullptr, this);
-    m_icon->setFixedSize(large, large);
+    // The icon at the size Breeze draws its monochrome status icons (and the
+    // tray shows them): 22 px, sharp; top-left, level with the heading.
+    m_icon->setFixedSize(22, 22);
     const int small = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
     m_list->header()->resizeSection(0, small + 8);
     keepFooterHeight();
@@ -306,10 +351,9 @@ void CardWindow::applyFonts()
 
 void CardWindow::keepFooterHeight()
 {
-    // As tall as a button with its icon and text (the Details button always
-    // has both), whether any button shows or not.
-    m_details->ensurePolished();
-    m_footerHeight->setFixedSize(0, m_details->sizeHint().height());
+    // As tall as a button with its icon and text, whether any shows or not.
+    m_measure->ensurePolished();
+    m_footerHeight->setFixedSize(0, m_measure->sizeHint().height());
 }
 
 void CardWindow::sizeDetails()
@@ -429,7 +473,7 @@ void CardWindow::present(const Kyu::CardView &view)
 
     // Details: the list of what changes, or the failure's own words.
     const bool hasDetails = !view.rows.isEmpty() || !view.raw.isEmpty();
-    m_details->setVisible(hasDetails);
+    m_detailsRow->setVisible(hasDetails);
     if (!hasDetails && m_detailsShown) {
         showDetails(false);
     }
@@ -478,7 +522,7 @@ void CardWindow::showDetails(bool shown)
 {
     m_detailsShown = shown;
     m_detailsArea->setVisible(shown);
-    m_details->setArrowType(shown ? Qt::DownArrow : Qt::RightArrow);
+    m_details->setOpen(shown);
     // Open: the window can grow, and the text with it; closed: its own width.
     const int column = QFontMetrics(font()).averageCharWidth() * 42;
     if (shown) {

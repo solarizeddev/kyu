@@ -2,6 +2,7 @@
 
 #include "traystate.h"
 
+#include <QAbstractButton>
 #include <QIcon>
 #include <QWidget>
 
@@ -34,6 +35,22 @@ protected:
 
 private:
     QIcon m_icon;
+};
+
+// "▸ Details" as KDE's message boxes have it: the arrow flush with the
+// text's left edge, the label after it, no button frame.
+class Disclosure : public QAbstractButton
+{
+public:
+    explicit Disclosure(const QString &text, QWidget *parent = nullptr);
+    void setOpen(bool open);
+    QSize sizeHint() const override;
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
+private:
+    bool m_open = false;
 };
 
 // The card the tray opens: a small dialog with an icon, a heading, two
@@ -82,7 +99,9 @@ private:
     QLabel *m_slot;
     QWidget *m_textColumn;
     QProgressBar *m_busy;
-    QToolButton *m_details;
+    Disclosure *m_details;
+    QWidget *m_detailsRow; // the disclosure, a line's spacing below the text
+    QPushButton *m_measure; // never shown: how tall a button with icon and text is
     QPushButton *m_secondary;
     QPushButton *m_action;
     QWidget *m_detailsArea;
