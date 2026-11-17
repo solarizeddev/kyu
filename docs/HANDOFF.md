@@ -1,5 +1,11 @@
 # Kyu: design handoff
 
+> **History.** This is the original design (2026-11). Its root helper,
+> polkit action and update panel were built and then removed when Kyu moved
+> to running the real pacman in a terminal: see
+> [`TERMINAL-FIRST.md`](TERMINAL-FIRST.md) and, for what Kyu is now,
+> [`WHAT-KYU-SHOULD-BE.md`](WHAT-KYU-SHOULD-BE.md).
+
 Working name: **Kyu** (KDE "K" + pacman `-Syu`, read as "queue"). Check the name on GitHub, the AUR and KDE's app list before committing to it.
 
 This file records the decisions from the design session so a coding session can start without the chat history. Static copies of the sketches are in `sketches/` (also packed in `kyu-handoff.zip`).

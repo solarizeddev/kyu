@@ -89,6 +89,10 @@ In all, roughly 9,000 lines go and about 1,000 new or ported lines come in.
 
 ## Order of work
 
+Status (2026-11-17): 1, 3 and 4 done; 2 and the second run of 5 still need
+the owner's machine. The remaining work is the list in
+[`WHAT-KYU-SHOULD-BE.md`](WHAT-KYU-SHOULD-BE.md).
+
 1. `kyu-update` as the terminal program: pre-flight (news, lock, pid file, Flatpaks-only path), pacman under `script`, flatpak, post-flight, `last-run.json`. Port aftercare (with the systemd rule) and failure classification to C++, with their tests.
 2. **A real-machine run of `kyu-update` on the owner's Manjaro**, before anything is deleted.
 3. The card, replacing the panel (with the diff ported), and the tray changes.

@@ -1,6 +1,7 @@
 #!/bin/sh
 # One command for a test on a real system. Builds Kyu, runs the automated
-# tests, screenshots kyu-update in real Konsole windows for every outcome,
+# tests, screenshots the card in each state and kyu-update in real Konsole
+# windows for every outcome,
 # in your profile, Konsole's colour schemes and window sizes (a fake system:
 # fake sudo, pacman and flatpak; nothing on your machine changes, no root),
 # keeps the text of each run, notes versions and the facts kyu-update reads
@@ -14,8 +15,7 @@
 # screenshot is of the active window. Look through screens/ before you send
 # the zip. Your home directory, user name and the checkout's path are
 # replaced in the text files. Environment: BUILD (build directory, default
-# ./build), KONSOLE_SCHEMES and UNCHECKED (see tools/kyu-update-screens.sh), PANEL=1 (also
-# the old panel's screenshots, 15 minutes more; SCHEMES for those),
+# ./build), KONSOLE_SCHEMES and UNCHECKED (see tools/kyu-update-screens.sh),
 # KYU_CMAKE_ARGS (configure options, default -DKYU_REQUIRE_KSNI=ON
 # -DKYU_REQUIRE_WINDOW=ON).
 set -u
@@ -66,10 +66,10 @@ step "System"
         echo "  konsole profile: ${profile:-(built-in)}, colour scheme: $( [ -n "$profile" ] && kreadconfig6 --file "$HOME/.local/share/konsole/$profile" --group Appearance --key ColorScheme)"
     fi
     echo "packages:"
-    pacman -Q qt6-base qt6-declarative qt6-wayland kirigami qqc2-desktop-style kstatusnotifieritem kwindowsystem kconfig \
+    pacman -Q qt6-base qt6-wayland kstatusnotifieritem kwindowsystem kparts kcoreaddons kconfig \
         plasma-workspace plasma-integration libkscreen breeze flatpak pacman pacman-contrib polkit dbus \
         konsole spectacle util-linux sudo pamac-gtk pamac-cli \
-        rust cmake ninja corrosion imagemagick 2>&1 | sed 's/^/  /'
+        cmake ninja 2>&1 | sed 's/^/  /'
 } >"$out/system.txt" 2>&1
 cat "$out/system.txt"
 
@@ -100,17 +100,19 @@ if [ "$status" = ok ]; then
     done
     tail -n 1 "$out/transcripts/test.log"
 
+    step "The card's states (cards/)"
+    mkdir -p "$out/cards"
+    for state in updates flatpaks uptodate checking checkfailed updating restart settings failed; do
+        timeout 20 "$build/bin/kyu" --demo "$state" --screenshot "$out/cards/$state.png" >/dev/null 2>&1 || echo "card $state: failed"
+    done
+    ls "$out/cards" | wc -l | sed 's/$/ card screenshots/'
+
     step "kyu-update in Konsole (screens/, about 5 minutes; one line per screenshot)"
     BUILD="$build" "$src/tools/kyu-update-screens.sh" "$out/screens" 2>&1 | tee "$out/screens-run.log"
     if ! grep -q '^done:' "$out/screens/screens.log" 2>/dev/null || grep -q FAILED "$out/screens/screens.log"; then
         [ "$status" = ok ] && status="screenshots failed" || status="$status, screenshots failed"
     fi
 
-    if [ -n "${PANEL:-}" ]; then
-        step "Screenshots of the old panel (panel-screens/, about 15 minutes)"
-        BUILD="$build" SCHEMES="${SCHEMES:-BreezeLight BreezeDark BreezeClassic}" \
-            "$src/tools/kyu-screens.sh" "$out/panel-screens" 2>&1 | tee "$out/panel-screens.log"
-    fi
 fi
 echo "result: $status" >>"$out/system.txt"
 

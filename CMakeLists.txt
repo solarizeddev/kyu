@@ -53,29 +53,6 @@ set(KYU_APP_ID "io.github.solarizeddev.kyu")
 set(KYU_SYSTEMD_USER_UNIT_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user"
     CACHE PATH "Where the systemd user units are installed")
 
-# The privileged helper is Rust (see docs/HANDOFF.md), built through Corrosion
-# so that `cmake --build` stays the only entry point.
-option(KYU_HELPER "Build the privileged helper (needs cargo)" ON)
-if(KYU_HELPER)
-    find_package(Corrosion 0.5 QUIET)
-    if(NOT Corrosion_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(Corrosion
-            GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-            GIT_TAG v0.6.1)
-        FetchContent_MakeAvailable(Corrosion)
-    endif()
-    corrosion_import_crate(MANIFEST_PATH helper/Cargo.toml LOCKED)
-    install(IMPORTED_RUNTIME_ARTIFACTS kyu-helper DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
-    # dbus-daemon reads system bus policy only from /usr/share and /etc, and
-    # polkit its actions only from /usr/share: elsewhere the helper cannot
-    # own its name. Packages use -DCMAKE_INSTALL_PREFIX=/usr.
-    if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
-        message(WARNING "CMAKE_INSTALL_PREFIX is ${CMAKE_INSTALL_PREFIX}: the helper's D-Bus policy and polkit action "
-                        "only work when installed under /usr. Configure with -DCMAKE_INSTALL_PREFIX=/usr.")
-    endif()
-endif()
-
 add_subdirectory(src)
 add_subdirectory(data)
 if(BUILD_TESTING)

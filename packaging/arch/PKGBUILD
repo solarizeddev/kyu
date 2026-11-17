@@ -11,29 +11,28 @@
 pkgname=kyu-git
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='KDE updater for Arch-based systems: pacman and Flatpak updates in one list'
+pkgdesc='Plasma update notifier for Manjaro and Arch: the real pacman in a terminal, with the news first and what is left to do after'
 arch=(x86_64 aarch64)
 url='https://github.com/solarizeddev/kyu'
 license=(GPL-3.0-or-later)
 depends=(
     dbus
+    diffutils
     flatpak
     gcc-libs
     glibc
-    kirigami
+    kcoreaddons
     konsole
     kparts
     kstatusnotifieritem
     kwindowsystem
     pacman
     pacman-contrib
-    polkit
-    qqc2-desktop-style
     qt6-base
-    qt6-declarative
+    sudo
+    util-linux
 )
-makedepends=(cmake corrosion ninja rust)
-checkdepends=(flatpak)
+makedepends=(cmake ninja)
 provides=(kyu)
 conflicts=(kyu)
 
@@ -43,7 +42,6 @@ build() {
     cmake -S "$_root" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=None \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_LIBEXECDIR=lib/kyu \
         -DKYU_REQUIRE_KSNI=ON \
         -DKYU_REQUIRE_WINDOW=ON
     cmake --build build

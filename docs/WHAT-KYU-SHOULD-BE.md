@@ -63,7 +63,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 3 | "Could not check" is its own state, never "up to date" or a stale count | Arch-Update "Cannot fetch Update" on Manjaro | have | 1 |
 | 4 | Every check has a timeout and can't block later checks; retry when the network is back after boot or resume | Apdatifier hangs; Arch-Update errors on wake | **part**: only checkupdates has a timeout; the Flatpak check doesn't; a hung check holds the lock so later checks exit; no resume/network retry | 1 |
 | 5 | Check again whenever packages change, not only after Kyu's own update (pamac, plain pacman) | Apdatifier keeps the old list | **part**: only after kyu-update; otherwise stale for up to an hour | 1 |
-| 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | **fix**: icons done (untested on Plasma); left click still opens the old panel | 1 |
+| 6 | Tray: theme icons, hidden when up to date, left click opens the card or the update, right click only the menu | Arch-Update's tray on Plasma | have (untested on Plasma): the card replaces the old panel | 1 |
 | 7 | One tray, not two: print how to turn pamac's tray off (never change it ourselves) | two trays and two notifications on Manjaro | missing | 2 |
 | 8 | A failed check is quiet (tooltip "could not check since …"); loud only after about a day | an offline laptop shouldn't show red | missing (today: red at once, like a failed update) | 2 |
 | 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
@@ -115,7 +115,7 @@ there is a second user). Branch switching: unsupported; say so in the docs.
 | # | What | Status | Pri |
 |---|---|---|---|
 | 33 | One real update on the owner's Manjaro before anything else is built | missing | 1 |
-| 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | missing | 1 |
+| 34 | Rewire the tray's click to the new flow (row 6), then delete the old helper, old panel and `kyu-flatpak` (about 9,000 lines) | have | 1 |
 | 35 | Say "Manjaro first; Arch tested less" until tested elsewhere | missing | 1 |
 | 36 | Survive Plasma, Qt and Konsole updates: small tray; Konsole's part optional | part (the window falls back to Konsole) | 2 |
 

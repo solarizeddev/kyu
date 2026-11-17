@@ -2,7 +2,6 @@
 // kyu-check writes; never runs as root and never changes the system.
 
 #include "checkscheduler.h"
-#include "helperwatcher.h"
 #include "statewatcher.h"
 #include "trayicon.h"
 
@@ -24,9 +23,6 @@ int main(int argc, char **argv)
     CheckScheduler scheduler;
     TrayIcon tray(&watcher);
     QObject::connect(&tray, &TrayIcon::checkRequested, &scheduler, &CheckScheduler::checkNow);
-    // After a pacman update, check again: the count is stale otherwise.
-    HelperWatcher helper;
-    QObject::connect(&helper, &HelperWatcher::transactionFinished, &scheduler, &CheckScheduler::checkNow);
     QObject::connect(&tray, &TrayIcon::panelRequested, &tray, [](const QString &token) {
         // The card is its own process (so it can close or crash without
         // touching the tray) and is single-instance: a second start raises it.
