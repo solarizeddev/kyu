@@ -1,80 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="it_IT">
+<TS version="2.1" language="sv_SE">
 <context>
     <name>MainWindow</name>
     <message>
         <location filename="../src/mainwindow.ui" line="20"/>
         <location filename="../src/mainwindow.cpp" line="81"/>
         <location filename="../src/mainwindow.cpp" line="96"/>
-        <source>CachyOS Package Installer</source>
-        <translation>Installatore Pacchetti CachyOS</translation>
+        <source>Kyu Software</source>
+        <translation>Paketinstallerare för CachyOS</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="57"/>
         <source>Popular Applications</source>
-        <translation>Applicazioni Popolari</translation>
+        <translation>Populära applikationer</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="83"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Package</source>
-        <translation>Pacchetto</translation>
+        <translation>Paket</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="88"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Info</source>
-        <translation>Informazioni</translation>
+        <translation>Info</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="93"/>
         <location filename="../src/mainwindow.ui" line="250"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Description</source>
-        <translation>Descrizione</translation>
+        <translation>Beskrivning</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="113"/>
         <location filename="../src/mainwindow.ui" line="216"/>
         <location filename="../src/mainwindow.ui" line="595"/>
         <source>search</source>
-        <translation>cerca</translation>
+        <translation>sök</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="123"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Manage popular packages&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Greyed out items have already been installed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Gestisci pacchetti popolari&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Gli elementi in grigio sono stati già installati.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Hantera populära paket&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Gråmarkerade objekt har redan installerats.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="153"/>
         <source>Repo</source>
-        <translation>Repository</translation>
+        <translation>Förråd</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="174"/>
         <location filename="../src/mainwindow.ui" line="538"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filter packages according to their status.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filtra i pacchetti in base al loro stato.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filtrera paketen efter deras status.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="177"/>
         <location filename="../src/mainwindow.ui" line="181"/>
         <location filename="../src/mainwindow.cpp" line="1849"/>
         <source>All packages</source>
-        <translation>Tutti i pacchetti</translation>
+        <translation>Alla paket</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="186"/>
         <location filename="../src/mainwindow.cpp" line="1863"/>
         <source>Installed</source>
-        <translation>Installati</translation>
+        <translation>Installerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="191"/>
         <location filename="../src/mainwindow.cpp" line="1861"/>
         <source>Upgradable</source>
-        <translation>Aggiornabili</translation>
+        <translation>Uppgraderingsbart</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="196"/>
@@ -84,101 +84,101 @@
         <location filename="../src/mainwindow.cpp" line="1943"/>
         <location filename="../src/mainwindow.cpp" line="1944"/>
         <source>Not installed</source>
-        <translation>Non installati</translation>
+        <translation>Inte installerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="240"/>
         <source>Package Name</source>
-        <translation>Nome del Pacchetto</translation>
+        <translation>Paketnamn</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="245"/>
         <location filename="../src/mainwindow.ui" line="630"/>
         <source>Version</source>
-        <translation>Versione</translation>
+        <translation>Version</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="284"/>
         <source>Remove orphan packages</source>
-        <translation>Rimuovi pacchetti orfani</translation>
+        <translation>Ta bort föräldralösa paket</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="295"/>
         <source>Installed:</source>
-        <translation>Installati:</translation>
+        <translation>Installerade:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="331"/>
         <location filename="../src/mainwindow.ui" line="700"/>
         <source>Upgrade All</source>
-        <translation>Aggiorna Tutti</translation>
+        <translation>Uppgradera alla</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="373"/>
         <source>Refresh list</source>
-        <translation>Ricarica lista</translation>
+        <translation>Uppdatera listan</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="394"/>
         <source>Hide library and developer packages</source>
-        <translation>Nascondi librerie e pacchetti di sviluppo</translation>
+        <translation>Dölj biblioteks- och utvecklarpaket</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="404"/>
         <source>Total packages:</source>
-        <translation>Pacchetti totali:</translation>
+        <translation>Totalt antal paket:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="411"/>
         <source>Upgradable:</source>
-        <translation>Aggiornabili:</translation>
+        <translation>Uppgraderingsbara:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="441"/>
         <location filename="../src/mainwindow.ui" line="857"/>
         <source>Greyed out items have already been installed.</source>
-        <translation>Gli elementi in grigio sono stati già installati.</translation>
+        <translation>Gråmarkerade objekt har redan installerats.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="497"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;= Upgradable package. Newer version available in selected repository.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;= Pacchetto aggiornabile. Versione più recente disponibile nel repository selezionato.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;= Uppgraderingsbart paket. Nyare version finns tillgänglig i utvalt förråd.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="517"/>
         <source>Flatpaks</source>
-        <translation>Flatpak</translation>
+        <translation>Flatpaks</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="541"/>
         <location filename="../src/mainwindow.ui" line="545"/>
         <location filename="../src/mainwindow.cpp" line="1811"/>
         <source>All apps</source>
-        <translation>Tutte le applicazioni</translation>
+        <translation>Alla appar</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="550"/>
         <location filename="../src/mainwindow.cpp" line="1816"/>
         <source>All runtimes</source>
-        <translation>Tutti i runtime</translation>
+        <translation>Alla körtider</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="555"/>
         <location filename="../src/mainwindow.cpp" line="1821"/>
         <source>All available</source>
-        <translation>Tutti i disponibili</translation>
+        <translation>Alla tillgängliga</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="560"/>
         <location filename="../src/mainwindow.cpp" line="1809"/>
         <source>Installed apps</source>
-        <translation>Applicazioni installate</translation>
+        <translation>Installerade appar</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="565"/>
         <location filename="../src/mainwindow.cpp" line="1807"/>
         <source>Installed runtimes</source>
-        <translation>Runtime installati</translation>
+        <translation>Installerade körtider</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="570"/>
@@ -186,90 +186,90 @@
         <location filename="../src/mainwindow.cpp" line="1937"/>
         <location filename="../src/mainwindow.cpp" line="1938"/>
         <source>All installed</source>
-        <translation>Tutti gli installati</translation>
+        <translation>Alla installerade</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="620"/>
         <source>Short Name</source>
-        <translation>Nome Breve</translation>
+        <translation>Kortnamn</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="625"/>
         <source>Full Package Name</source>
-        <translation>Nome Completo del Pacchetto</translation>
+        <translation>Fullständigt paketnamn</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="635"/>
         <source>Size</source>
-        <translation>Dimensione</translation>
+        <translation>Storlek</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="679"/>
         <source>Total items </source>
-        <translation>Elementi totali </translation>
+        <translation>Totalt antal poster </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="693"/>
         <source>Installed apps:</source>
-        <translation>Applicazioni installate:</translation>
+        <translation>Installerade appar:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="746"/>
         <source>Advanced</source>
-        <translation>Avanzato</translation>
+        <translation>Avancerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="776"/>
         <source>Total installed size:</source>
-        <translation>Dimensione totale installata:</translation>
+        <translation>Total installerad storlek:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="790"/>
         <source>Remove unused runtimes</source>
-        <translation>Rimuovi runtime inutilizzati</translation>
+        <translation>Ta bort oanvända körtider</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="807"/>
         <location filename="../src/mainwindow.ui" line="811"/>
         <source>For all users</source>
-        <translation>Per tutti gli utenti</translation>
+        <translation>För alla användare</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="816"/>
         <source>For current user</source>
-        <translation>Per l&apos;utente corrente</translation>
+        <translation>För aktuell användare</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="834"/>
         <source>Remote (repo):</source>
-        <translation>Repository remoto:</translation>
+        <translation>Fjärr (förråd):</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="877"/>
         <location filename="../src/mainwindow.cpp" line="1678"/>
         <location filename="../src/mainwindow.cpp" line="1769"/>
         <source>Console Output</source>
-        <translation>Output della Console</translation>
+        <translation>Konsolutdata</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="883"/>
         <source>Enter</source>
-        <translation>Invio</translation>
+        <translation>Enter</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="894"/>
         <source>Respond here</source>
-        <translation>Rispondi qui</translation>
+        <translation>Svara här</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="950"/>
         <source>Display help </source>
-        <translation>Mostra aiuto </translation>
+        <translation>Visa hjälp </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="953"/>
         <source>Help</source>
-        <translation>Aiuto</translation>
+        <translation>Hjälp</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="960"/>
@@ -283,7 +283,7 @@
         <location filename="../src/mainwindow.cpp" line="1935"/>
         <location filename="../src/mainwindow.cpp" line="2156"/>
         <source>Install</source>
-        <translation>Installa</translation>
+        <translation>Installera</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1015"/>
@@ -293,12 +293,12 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1034"/>
         <source>Quit application</source>
-        <translation>Chiudi applicazione</translation>
+        <translation>Avsluta applikation</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1037"/>
         <source>Close</source>
-        <translation>Chiudi</translation>
+        <translation>Stäng</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1044"/>
@@ -308,7 +308,7 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1060"/>
         <source>Uninstall</source>
-        <translation>Disinstalla</translation>
+        <translation>Avinstallera</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1067"/>
@@ -318,12 +318,12 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1083"/>
         <source>About this application</source>
-        <translation>Informazioni su questa applicazione</translation>
+        <translation>Om denna applikation</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1086"/>
         <source>About...</source>
-        <translation>Informazioni...</translation>
+        <translation>Om...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1093"/>
@@ -333,110 +333,110 @@
     <message>
         <location filename="../src/mainwindow.cpp" line="81"/>
         <source>Cannot initialize ALPM library</source>
-        <translation>Impossibile inizializzare la libreria ALPM</translation>
+        <translation>ALPM-biblioteket kan inte initieras</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="224"/>
         <source>Uninstalling packages...</source>
-        <translation>Disinstallazione pacchetti in corso...</translation>
+        <translation>Avinstallerar paket...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="430"/>
         <source>Unable to fetch pkglist. Timeout!</source>
-        <translation>Impossibile recuperare la lista dei pacchetti. Tempo scaduto!</translation>
+        <translation>Det gick inte att hämta pkglist. Tidsgräns överstegs!</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="524"/>
         <source>Cancel</source>
-        <translation>Annulla</translation>
+        <translation>Avbryt</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="531"/>
         <source>Please wait...</source>
-        <translation>Per favore, attendi...</translation>
+        <translation>Vänta...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="722"/>
         <location filename="../src/mainwindow.cpp" line="739"/>
         <source>Version </source>
-        <translation>Versione </translation>
+        <translation>Version </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="722"/>
         <source> in repo</source>
-        <translation> nel repository</translation>
+        <translation> i förråd</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="724"/>
         <source>Not available in repo</source>
-        <translation>Non disponibile nel repository</translation>
+        <translation>Inte tillgängligt i förråd</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="733"/>
         <source>Latest version </source>
-        <translation>Versione più recente </translation>
+        <translation>Senaste version </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="733"/>
         <source> already installed</source>
-        <translation> già installato</translation>
+        <translation> redan installerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="739"/>
         <source> installed</source>
-        <translation> installato</translation>
+        <translation> installerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="850"/>
         <source>CachyOS includes this repository of flatpaks for the users&apos; convenience only, and is not responsible for the functionality of the individual flatpaks themselves. For more, consult flatpaks in the Wiki.</source>
-        <translation>CachyOS include questo repository di flatpak solo per la comodità degli utenti e non è responsabile della funzionalità dei singoli flatpak. Per maggiori informazioni, consultare la sezione flatpak nella Wiki.</translation>
+        <translation>CachyOS inkluderar detta förråd med flatpaks endast för användarnas bekvämlighet och ansvarar inte för funktionaliteten hos de enskilda flatpaks själva. För mer information, se flatpaks i wikin.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="858"/>
         <location filename="../src/mainwindow.cpp" line="2181"/>
         <source>Warning</source>
-        <translation>Avviso</translation>
+        <translation>Varning</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="861"/>
         <source>Do not show this message again</source>
-        <translation>Non mostrare nuovamente questo messaggio</translation>
+        <translation>Visa inte detta meddelande igen</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="958"/>
         <source>Remove</source>
-        <translation>Rimuovi</translation>
+        <translation>Ta bort</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="974"/>
         <source>The following packages were selected. Click Show Details for list of changes.</source>
-        <translation>I seguenti pacchetti sono stati selezionati. Clicca Mostra Dettagli per la lista dei cambiamenti.</translation>
+        <translation>Följande paket har valts ut. Klicka på Visa detaljer för en lista över ändringar.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1001"/>
         <source>Installing packages...</source>
-        <translation>Installazione pacchetti in corso...</translation>
+        <translation>Installerar paket...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1054"/>
         <source>Installing </source>
-        <translation>Installazione </translation>
+        <translation>Installerar </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1130"/>
         <source>Fetching infomation about packages...</source>
-        <translation>Recupero delle informazioni sui pacchetti in corso...</translation>
+        <translation>Hämtar information om paket...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1385"/>
         <source>Packages to be installed: </source>
-        <translation>Pacchetti da installare: </translation>
+        <translation>Paket som ska installeras: </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1387"/>
         <location filename="../src/mainwindow.cpp" line="1406"/>
         <source>Package info</source>
-        <translation>Informazioni sul pacchetto</translation>
+        <translation>Paketinformation</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1522"/>
@@ -450,7 +450,7 @@
         <location filename="../src/mainwindow.cpp" line="2071"/>
         <location filename="../src/mainwindow.cpp" line="2170"/>
         <source>Done</source>
-        <translation>Fatto</translation>
+        <translation>Färdig</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1522"/>
@@ -466,7 +466,7 @@
         <location filename="../src/mainwindow.cpp" line="2170"/>
         <location filename="../src/mainwindow.cpp" line="2191"/>
         <source>Processing finished successfully.</source>
-        <translation>Elaborazione terminata con successo.</translation>
+        <translation>Bearbetningen slutfördes.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1526"/>
@@ -480,7 +480,7 @@
         <location filename="../src/mainwindow.cpp" line="2174"/>
         <location filename="../src/mainwindow.cpp" line="2194"/>
         <source>Error</source>
-        <translation>Errore</translation>
+        <translation>Fel</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1526"/>
@@ -490,22 +490,22 @@
         <location filename="../src/mainwindow.cpp" line="2050"/>
         <location filename="../src/mainwindow.cpp" line="2077"/>
         <source>Problem detected while installing, please inspect the console output.</source>
-        <translation>Problema rilevato durante l&apos;installazione, per favore controlla l&apos;output della console.</translation>
+        <translation>Problem upptäcktes under installationen, inspektera konsolutdata.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1571"/>
         <source>About %1</source>
-        <translation>Informazioni su %1</translation>
+        <translation>Om %1</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
         <source>Version: </source>
-        <translation>Versione: </translation>
+        <translation>Version: </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
         <source>Package Installer for CachyOS</source>
-        <translation>Installatore Pacchetti per CachyOS</translation>
+        <translation>Paketinstallerare för CachyOS</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
@@ -515,100 +515,100 @@
     <message>
         <location filename="../src/mainwindow.cpp" line="1651"/>
         <source>We encountered a problem uninstalling, please check output</source>
-        <translation>Si è verificato un problema durante la disinstallazione, per favore controlla l&apos;output</translation>
+        <translation>Vi påträffade ett problem vid avinstallationen, kontrollera utdata</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1665"/>
         <location filename="../src/mainwindow.cpp" line="2191"/>
         <source>Success</source>
-        <translation>Successo</translation>
+        <translation>Lyckades</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1668"/>
         <location filename="../src/mainwindow.cpp" line="2194"/>
         <source>We encountered a problem uninstalling the program</source>
-        <translation>Si è verificato un problema durante la disinstallazione del programma</translation>
+        <translation>Vi påträffade ett problem med att avinstallation av programmet</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1738"/>
         <location filename="../src/mainwindow.cpp" line="1751"/>
         <source>Flatpak not installed</source>
-        <translation>Flatpak non installato</translation>
+        <translation>Flatpak är inte installerat</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1738"/>
         <source>Flatpak is not currently installed.
 OK to go ahead and install it?</source>
-        <translation>Flatpak non è attualmente installato.
-Vuoi installarlo?</translation>
+        <translation>Flatpak är inte installerat för närvarande.
+OK att fortsätta och installera det?</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1751"/>
         <source>Flatpak was not installed</source>
-        <translation>Flatpak non è stato installato</translation>
+        <translation>Flatpak installerades inte</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1760"/>
         <source>Flathub remote failed</source>
-        <translation>Errore del repository remoto Flathub</translation>
+        <translation>Flathub fjärr misslyckades</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1760"/>
         <source>Flathub remote could not be added</source>
-        <translation>Impossibile aggiungere il repository remoto Flathub</translation>
+        <translation>Flathub fjärr kunde inte läggas till</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1773"/>
         <source>Needs re-login</source>
-        <translation>È necessario effettuare nuovamente l&apos;accesso</translation>
+        <translation>Kräver ny inloggning</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1773"/>
         <source>You might need to logout/login to see installed items in the menu</source>
-        <translation>Potresti dover uscire ed effettuare nuovamente l&apos;accesso per vedere gli elementi installati nel menù</translation>
+        <translation>Du kan behöva logga ut/logga in för att se installerade poster i menyn</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1933"/>
         <source>Upgrade</source>
-        <translation>Aggiorna</translation>
+        <translation>Uppgradera</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1984"/>
         <source>Upgrading system...</source>
-        <translation>Aggiornamento del sistema in corso...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2019"/>
         <source>Quit?</source>
-        <translation>Uscire?</translation>
+        <translation>Avsluta?</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2020"/>
         <source>Process still running, quitting might leave the system in an unstable state.&lt;p&gt;&lt;b&gt;Are you sure you want to exit CachyOS Package Installer?&lt;/b&gt;</source>
-        <translation>Il processo è ancora in esecuzione, uscire potrebbe lasciare il sistema in una condizione instabile.&lt;p&gt;&lt;b&gt;Sei sicuro di voler uscire da Installatore Pacchetti CachyOS?&lt;/b&gt;</translation>
+        <translation>Processen körs fortfarande, om du avslutar den kan systemet hamna i ett instabilt tillstånd.&lt;p&gt;&lt;b&gt;Är du säker på att du vill avsluta Paketinstallerare för CachyOS?&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2110"/>
         <location filename="../src/mainwindow.cpp" line="2120"/>
         <source>More &amp;info...</source>
-        <translation>Ulteriori informazioni...</translation>
+        <translation>Mer &amp;info...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2154"/>
         <source>Reinstall</source>
-        <translation>Reinstalla</translation>
+        <translation>Installera om</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2174"/>
         <source>Problem detected during last operation, please inspect the console output.</source>
-        <translation>È stato rilevato un problema durante l&apos;ultima operazione, per favore controlla l&apos;output della console.</translation>
+        <translation>Problem upptäcktes under den senaste operationen, inspektera konsolutdata.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2181"/>
         <source>Potentially dangerous operation.
 Please make sure you check carefully the list of packages to be removed.</source>
-        <translation>Operazione potenzialmente pericolosa.
-Per favore, assicurati di controllare attentamente la lista dei pacchetti da rimuovere.</translation>
+        <translation>Möjligen farlig operation.
+Kontrollera noga listan över de paket som ska tas bort.</translation>
     </message>
 </context>
 <context>
@@ -616,82 +616,82 @@ Per favore, assicurati di controllare attentamente la lista dei pacchetti da rim
     <message>
         <location filename="../src/remotes.cpp" line="34"/>
         <source>Manage Flatpak Remotes</source>
-        <translation>Gestisci Repository Remoti Flatpak</translation>
+        <translation>Hantera Flatpak-fjärr</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="39"/>
         <source>For all users</source>
-        <translation>Per tutti gli utenti</translation>
+        <translation>För alla användare</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="40"/>
         <source>For current user</source>
-        <translation>Per l&apos;utente corrente</translation>
+        <translation>För aktuell användare</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="43"/>
         <source>enter Flatpak remote URL</source>
-        <translation>inserisci l&apos;indirizzo del repository remoto Flatpak</translation>
+        <translation>ange URL för Flatpak fjärr</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="45"/>
         <source>enter Flatpakref location to install app</source>
-        <translation>inserisci la posizione del Flatpakref per installare l&apos;applicazione</translation>
+        <translation>ange Flatpakref-plats för att installera appen</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="47"/>
         <source>Add or remove flatpak remotes (repos), or install apps using flatpakref URL or path</source>
-        <translation>Aggiungi o rimuovi i repository remoti flatpak, o installa le applicazioni usando l&apos;indirizzo o il percorso di un file flatpakref</translation>
+        <translation>Lägg till eller ta bort flatpak-fjärr (förråd) eller installera appar med hjälp av flatpakref URL eller sökväg</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="56"/>
         <source>Remove remote</source>
-        <translation>Rimuovi repository remoto</translation>
+        <translation>Ta bort fjärr</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="61"/>
         <source>Add remote</source>
-        <translation>Aggiungi repository remoto</translation>
+        <translation>Lägg till fjärr</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="66"/>
         <source>Install app</source>
-        <translation>Installa applicazione</translation>
+        <translation>Installera app</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="71"/>
         <source>Close</source>
-        <translation>Chiudi</translation>
+        <translation>Stäng</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="87"/>
         <source>Not removable</source>
-        <translation>Non rimuovibile</translation>
+        <translation>Inte borttagbar</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="88"/>
         <source>Flathub is the main Flatpak remote and won&apos;t be removed</source>
-        <translation>Flathub è il repository remoto principale di Flatpak e non sarà rimosso</translation>
+        <translation>Flathub är den huvudsakliga fjärren för Flatpak och kommer inte att tas bort</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="107"/>
         <source>Error adding remote</source>
-        <translation>Impossibile aggiungere repository remoto</translation>
+        <translation>Fel vid tillägg av fjärr</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="108"/>
         <source>Could not add remote - command returned an error. Please double-check the remote address and try again</source>
-        <translation>Impossibile aggiungere il repository remoto - il comando ha restituito un errore. Per favore, ricontrolla l&apos;indirizzo del repository remoto e riprova</translation>
+        <translation>Det gick inte att lägga till fjärr - kommandot returnerade ett fel. Dubbelkolla fjärrens adress och försök igen</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="112"/>
         <source>Success</source>
-        <translation>Successo</translation>
+        <translation>Lyckades</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="112"/>
         <source>Remote added successfully</source>
-        <translation>Repository remoto aggiunto con successo</translation>
+        <translation>Fjärren har lagts till</translation>
     </message>
 </context>
 <context>
@@ -699,58 +699,58 @@ Per favore, assicurati di controllare attentamente la lista dei pacchetti da rim
     <message>
         <location filename="../src/about.cpp" line="18"/>
         <source>License</source>
-        <translation>Licenza</translation>
+        <translation>Licens</translation>
     </message>
     <message>
         <location filename="../src/about.cpp" line="19"/>
         <source>Cancel</source>
-        <translation>Annulla</translation>
+        <translation>Avbryt</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="159"/>
         <location filename="../src/main.cpp" line="167"/>
         <location filename="../src/main.cpp" line="175"/>
         <source>Error</source>
-        <translation>Errore</translation>
+        <translation>Fel</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="160"/>
         <source>Instance of the program is already running! Please close it first</source>
-        <translation>Un&apos;istanza del programma è già in esecuzione! Per favore, chiudila prima di proseguire.</translation>
+        <translation>En instans av programmet är redan igång! Stäng den först</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="168"/>
         <source>No db found!
 Please run `pacman -Sy` to update DB!
 This is needed for the app to work properly</source>
-        <translation>Nessun database trovato!
-Per favore, esegui `pacman -Sy` per aggiornare il database!
-Questo è necessario affinché l&apos;applicazione funzioni correttamente</translation>
+        <translation>Ingen db hittades!
+Kör `pacman -Sy` för att uppdatera DB!
+Detta är nödvändigt för att appen ska fungera korrekt</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="176"/>
         <source>You seem to be logged in as root, please log out and log in as normal user to use this program.</source>
-        <translation>Sembra che tu abbia effettuato l&apos;accesso come root, per favore esci ed effettua l&apos;accesso come utente normale per usare questo programma.</translation>
+        <translation>Du verkar vara inloggad som root, logga ut och logga in som vanlig användare för att använda detta program.</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="182"/>
         <source>Unable to run the app</source>
-        <translation>Impossibile avviare l&apos;applicazione</translation>
+        <translation>Det går inte att köra appen</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="183"/>
         <source>Please don&apos;t run that application as root user!</source>
-        <translation>Per favore, non eseguire questa applicazione come utente root!</translation>
+        <translation>Kör inte det programmet som root-användare!</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="191"/>
         <source>Unable to get exclusive lock</source>
-        <translation>Impossibile ottenere un blocco esclusivo</translation>
+        <translation>Det går inte att få exklusivt lås</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="192"/>
         <source>Another package management application (like pamac or pacman), is already running. Please close that application first</source>
-        <translation>Un&apos;altra applicazione di gestione dei pacchetti (come pamac o pacman) è già in esecuzione. Per favore, chiudila prima di proseguire.</translation>
+        <translation>Ett annat program för pakethantering (t.ex. pamac eller pacman) körs redan. Stäng den applikationen först</translation>
     </message>
 </context>
 </TS>

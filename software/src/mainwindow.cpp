@@ -28,7 +28,6 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 
-#include <cpr/cpr.h>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 
@@ -78,7 +77,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
         if (alpm_manager.has_value()) {
             m_alpm_manager = std::make_unique<alpm::AlpmManager>(std::move(*alpm_manager));
         } else {
-            QMessageBox::critical(this, tr("CachyOS Package Installer"), tr("Cannot initialize ALPM library"));
+            QMessageBox::critical(this, tr("Kyu Software"), tr("Cannot initialize ALPM library"));
             return;
         }
     }
@@ -93,7 +92,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
     setWindowFlags(Qt::Window);  // for the close, min and max buttons
 
     // Set window title
-    this->setWindowTitle(tr("CachyOS Package Installer"));
+    this->setWindowTitle(tr("Kyu Software"));
 
     setup();
 }
@@ -190,7 +189,7 @@ void MainWindow::setup() noexcept {
 
     // connect buttons
     connect(m_ui->pushHelp, &QPushButton::clicked, [] {
-        about::display_doc(QStringLiteral("file:///usr/share/doc/cachyos-packageinstaller/cachyos-pi.html"));
+        about::display_doc(QStringLiteral("file://" KYU_SOFTWARE_DOC_DIR "/help.html"));
     });
 
     connect(m_ui->pushAbout, &QPushButton::clicked, this, &MainWindow::on_push_about);
@@ -399,38 +398,14 @@ void processMap(MainWindow& window, const std::string& parent_category, ryml::No
     }
 }
 
-// Load data from Github repo
+// Load the app list Kyu ships
 void MainWindow::fetch_net_pkglist() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
 
-    const auto& fetch_filepath = [this]() -> QString {
-        auto progress_callback = []([[maybe_unused]] auto&& downloadTotal, [[maybe_unused]] auto&& downloadNow, [[maybe_unused]] auto&& uploadTotal,
-                                     [[maybe_unused]] auto&& uploadNow, [[maybe_unused]] auto&& userdata) -> bool { return true; };
-
-        const auto& file_url      = cpr::Url{"https://raw.githubusercontent.com/cachyos/packageinstaller/develop/pkglist.yaml"};
-        const auto& fetch_timeout = cpr::Timeout{100 * 1000};  // 100s
-        const auto& response      = cpr::Get(file_url, fetch_timeout, cpr::ProgressCallback(std::move(progress_callback)));
-
-        if (response.error.code == cpr::ErrorCode::OK) {
-            const auto& config_path = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation).toStdString();
-            auto pkglist_path       = fmt::format("{}/pkglist.yaml", config_path);
-            if (!fs::exists(config_path)) {
-                std::error_code err{};
-                fs::create_directories(config_path, err);
-                if (err) {
-                    spdlog::error("failed to create directories: {}", err.message());
-                }
-            }
-
-            std::ofstream pkglistyaml{pkglist_path};
-            pkglistyaml << response.text;
-            return QString::fromStdString(std::move(pkglist_path));
-        } else if (response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT) {
-            spdlog::error("Unable to fetch pkglist. Timeout");
-            QMessageBox::warning(this, "CachyOS Package Installer", tr("Unable to fetch pkglist. Timeout!"));
-        }
-        return {"/usr/lib/cachyos-pi/pkglist.yaml"};
-    }();
+    // The list ships with Kyu (no download: its names reach a shell
+    // command, so nobody else's file may); KYU_SOFTWARE_PKGLIST for tests.
+    const QString fetch_filepath = qEnvironmentVariableIsSet("KYU_SOFTWARE_PKGLIST") ? qEnvironmentVariable("KYU_SOFTWARE_PKGLIST")
+                                                                                       : QStringLiteral(KYU_SOFTWARE_PKGLIST);
 
     QFile file(fetch_filepath);
     if (!file.open(QFile::ReadOnly | QFile::Text)) {
@@ -847,9 +822,8 @@ void MainWindow::displayWarning(std::string_view repo) noexcept {
     using namespace std::string_view_literals;
     if (repo == "flatpaks"sv) {
         displayed = &m_warning_flatpaks;
-        msg       = tr("CachyOS includes this repository of flatpaks for the users' convenience only, and "
-                             "is not responsible for the functionality of the individual flatpaks themselves. "
-                             "For more, consult flatpaks in the Wiki.");
+        msg       = tr("Flathub is a repository of flatpaks run by its own community; Kyu adds it for your convenience "
+                             "and is not responsible for the individual flatpaks themselves.");
     }
     if (!displayed || *displayed || (m_settings.value("disableWarning", false).toBool())) {
         return;
@@ -1569,9 +1543,9 @@ void MainWindow::on_push_install() noexcept {
 // About button clicked
 void MainWindow::on_push_about() noexcept {
     const auto& msgbox_title = tr("About %1").arg(this->windowTitle());
-    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + tr("Package Installer for CachyOS") + R"(</h3></p><p align="center"><a href="http://cachyos.org">http://cachyos.org</a><br /></p><p align="center">)" + tr("Copyright (c) CachyOS") + "<br /><br /></p>";
+    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + tr("Install and remove software on Manjaro and Arch") + "</h3></p><p align=\"center\">" + tr("Free software under the GNU GPL v3, based on the MX Linux package installer") + "<br /><br /></p>";
     about::display_about_msgbox(msgbox_title, msgbox_body,
-        QStringLiteral("file:///usr/share/doc/cachyos-packageinstaller/license.html"));
+        QStringLiteral("file://" KYU_SOFTWARE_DOC_DIR "/license.html"));
 }
 
 // Resize columns when expanding
@@ -2017,7 +1991,7 @@ void MainWindow::on_push_cancel() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
     if (m_cmd.state() != QProcess::NotRunning) {
         if (QMessageBox::warning(this, tr("Quit?"),
-                tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to exit CachyOS Package Installer?</b>"),
+                tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to quit Kyu Software?</b>"),
                 QMessageBox::Yes, QMessageBox::No)
             == QMessageBox::No) {
             return;

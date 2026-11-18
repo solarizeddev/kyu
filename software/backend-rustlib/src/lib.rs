@@ -23,7 +23,7 @@ use alpm_utils::DbListExt;
 use anyhow::{Context, Result};
 // use tracing::{error, info, warn};
 
-#[cxx::bridge(namespace = "cachyos_pi::rustlib")]
+#[cxx::bridge(namespace = "kyu_software::rustlib")]
 mod ffi {
     pub struct StringStruct {
         pub first: String,

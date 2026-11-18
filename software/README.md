@@ -1,58 +1,28 @@
-# cachyos-packageinstaller
-Simple Software Application Package Installer.
+# Kyu Software
 
-Requirements
-------------
-* C++23 feature required (tested with GCC 14.1.1 and Clang 18)
-Any compiler which support C++23 standard should work.
+Install and remove software on Manjaro and Arch: popular applications by
+category, every package in the repositories, and Flatpaks. Qt 6 Widgets, so
+it follows your Plasma style and colours. Part of [Kyu](../README.md): its
+tray opens it, and "Upgrade All" runs Kyu's update.
 
-######
-## Installing from Source
+Based on CachyOS's package installer (itself a fork of MX Linux's
+mx-packageinstaller), GPL-3.0; see UPSTREAM.md for the exact source and
+how Kyu's changes are kept apart.
 
-This is tested on Arch Linux, but *any* recent Arch Linux based system with latest C++23 compiler should do:
-```sh
-sudo pacman -S \
-    base-devel cmake pkg-config make qt6-base qt6-tools polkit-qt6
-```
-You also need Rust installed:
-```sh
-sudo pacman -S rustup
-rustup default stable
+## Build
+
+```bash
+sudo pacman -S --needed base-devel cmake ninja rust qt6-base qt6-tools polkit-qt6
+cmake -S software -B build-software -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C build-software
+./build-software/kyu-software
 ```
 
-### Cloning the Source Code
-```sh
-git clone https://github.com/cachyos/packageinstaller.git
-cd packageinstaller
-```
+The first build downloads fmt, spdlog, rapidyaml and Corrosion (CPM) and the
+Rust crates.
 
-### Building and Configuring
-To build, first, configure it(if you intend to install it globally, you
-might also want `--prefix=/usr`):
-```sh
-./configure.sh --prefix=/usr/local
-```
-Second, build it:
-```sh
-./build.sh
-```
+## The app list
 
-### Running the Binary
-```sh
-./build/RelWithDebInfo/cachyos-pi
-```
-
-### Easy way to verify pkglist.yaml in fish
-```fish
-for pkg in (yq -r '.[].packages[]' pkglist.yaml)
-    for split in (string split ' ' $pkg)
-        pacman -Si $split >/dev/null 2>&1; and echo "Found: $split"; or echo "NOT FOUND: $split"
-    end
-end
-```
-
-### Libraries used in this project
-
-* [Qt](https://www.qt.io) used for GUI.
-* [A modern formatting library](https://github.com/fmtlib/fmt) used for formatting strings, output and logging.
-
+`pkglist.yaml`: categories, each a list of entries; an entry is one or more
+package names installed together. Only names in Manjaro's repositories
+(checked with `pacman -Si`); it ships with Kyu and is never downloaded.

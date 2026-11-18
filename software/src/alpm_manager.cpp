@@ -70,7 +70,7 @@ namespace alpm {
 
 auto AlpmManager::init_alpm_manager() noexcept -> std::optional<AlpmManager> {
     try {
-        auto&& manager = AlpmManager(cachyos_pi::rustlib::init_alpm_manager());
+        auto&& manager = AlpmManager(kyu_software::rustlib::init_alpm_manager());
         return std::make_optional<AlpmManager>(std::move(manager));
     } catch (const std::exception& e) {
         spdlog::error("failed to init ALPM handle: {}", e.what());
@@ -177,7 +177,7 @@ auto AlpmManager::get_list_of_packages() noexcept -> std::vector<PackageView> {
 
 auto is_valid_alpm_dbs() noexcept -> bool {
     try {
-        return cachyos_pi::rustlib::is_valid_alpm_dbs();
+        return kyu_software::rustlib::is_valid_alpm_dbs();
     } catch (const std::exception& e) {
         spdlog::error("failed to check if ALPM is valid: {}", e.what());
     }

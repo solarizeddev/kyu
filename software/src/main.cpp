@@ -117,12 +117,12 @@ void initTranslations(QTranslator& qtTranslatorBase, QTranslator& qtTranslator, 
         QApplication::installTranslator(&qtTranslator);
     }
 
-    // Load e.g. cachyos-kernel-manager_de.qm (shortcut "de" needs to be defined in bitcoin.qrc)
+    // Load e.g. kyu-software_de.qm (shortcut "de" defined in kyu-software_locale.qrc)
     if (translatorBase.load(lang, ":/translations/")) {
         QApplication::installTranslator(&translatorBase);
     }
 
-    // Load e.g. cachyos-kernel-manager_de_DE.qm (shortcut "de_DE" needs to be defined in bitcoin.qrc)
+    // Load e.g. kyu-software_de_DE.qm
     if (translator.load(lang_territory, ":/translations/")) {
         QApplication::installTranslator(&translator);
     }
@@ -139,13 +139,14 @@ auto main(int argc, char** argv) -> std::int32_t {
 #endif
 
     /// 2. Application identification
-    QApplication::setOrganizationName("cachyos");
-    QApplication::setOrganizationDomain("cachyos.org");
-    QApplication::setApplicationName("cachyos-pi");
+    QApplication::setOrganizationName("kyu");
+    QApplication::setOrganizationDomain("solarizeddev.github.io");
+    QApplication::setApplicationName("kyu-software");
+    QApplication::setDesktopFileName("io.github.solarizeddev.kyu.software");
 
     // Set application attributes
     const QApplication app(argc, argv);
-    QApplication::setWindowIcon(QIcon(":/icons/cachyos-pi.png"));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("system-software-install")));
 
     /// 3. Initialization of translations
     QTranslator qtTranslatorBase;
@@ -154,7 +155,7 @@ auto main(int argc, char** argv) -> std::int32_t {
     QTranslator translator;
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
-    QSharedMemory sharedMemoryLock("CachyOS-PI-lock");
+    QSharedMemory sharedMemoryLock("Kyu-Software-lock");
     if (IsInstanceAlreadyRunning(sharedMemoryLock)) {
         QMessageBox::critical(nullptr, QObject::tr("Error"),
             QObject::tr("Instance of the program is already running! Please close it first"));
@@ -195,17 +196,17 @@ auto main(int argc, char** argv) -> std::int32_t {
     }
 
     const auto& cache_path   = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    const auto& log_filepath = fmt::format("{}/cachyospi.log", cache_path.toStdString());
+    const auto& log_filepath = fmt::format("{}/kyu-software.log", cache_path.toStdString());
     if (fs::exists(log_filepath)) {
         std::ifstream currentfile{log_filepath};
         const std::string file_data{std::istreambuf_iterator<char>(currentfile), std::istreambuf_iterator<char>()};
         std::ofstream oldlogfile{fmt::format("{}.old", log_filepath)};
-        oldlogfile << "-----------------------------------------------------------\nCACHYOSPI SESSION\n"
+        oldlogfile << "-----------------------------------------------------------\nKYU SOFTWARE SESSION\n"
                       "-----------------------------------------------------------\n";
         oldlogfile << file_data;
         fs::remove(log_filepath);
     }
-    auto logger = spdlog::create_async<spdlog::sinks::basic_file_sink_mt>("cachyos_logger", log_filepath);
+    auto logger = spdlog::create_async<spdlog::sinks::basic_file_sink_mt>("kyu_software_logger", log_filepath);
     spdlog::set_default_logger(logger);
     spdlog::set_pattern("[%r][%^---%L---%$] %v");
     spdlog::set_level(spdlog::level::debug);

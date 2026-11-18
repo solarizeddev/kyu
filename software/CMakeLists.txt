@@ -6,7 +6,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 ## PROJECT
 ## name and version
 ##
-project(cachyos-pi
+project(kyu-software
         VERSION 1.6.2
         LANGUAGES CXX)
 
@@ -42,12 +42,6 @@ CPMAddPackage(
   NAME spdlog
   GITHUB_REPOSITORY gabime/spdlog
   GIT_TAG v1.17.0
-  EXCLUDE_FROM_ALL YES
-)
-CPMAddPackage(
-  NAME cpr
-  GITHUB_REPOSITORY libcpr/cpr
-  GIT_TAG 1.12.0
   EXCLUDE_FROM_ALL YES
 )
 CPMAddPackage(
@@ -93,8 +87,8 @@ qt_add_translation(QM_FILES ${TS_FILES})   # generate qm files
 
 add_custom_command(
     DEPENDS "${QM_FILES}"
-    OUTPUT "${CMAKE_BINARY_DIR}/cachyospi_locale.qrc"
-    COMMAND cp "${CMAKE_SOURCE_DIR}/cachyospi_locale.qrc" "${CMAKE_CURRENT_BINARY_DIR}"
+    OUTPUT "${CMAKE_BINARY_DIR}/kyu-software_locale.qrc"
+    COMMAND cp "${CMAKE_CURRENT_SOURCE_DIR}/kyu-software_locale.qrc" "${CMAKE_CURRENT_BINARY_DIR}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
@@ -103,7 +97,7 @@ add_custom_command(
 ##
 qt_add_executable(${PROJECT_NAME}
     ${RESOURCES}
-    images.qrc "${CMAKE_BINARY_DIR}/cachyospi_locale.qrc"
+    images.qrc "${CMAKE_BINARY_DIR}/kyu-software_locale.qrc"
     src/ini.hpp
     src/utils.hpp src/utils.cpp
     src/logging_utils.hpp src/logging_utils.cpp
@@ -132,7 +126,10 @@ corrosion_add_cxxbridge(backend-rustlib-cxxbridge CRATE backend_rustlib FILES li
 
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE project_warnings project_options Qt6::Widgets Threads::Threads spdlog::spdlog fmt::fmt ryml::ryml cpr::cpr backend-rustlib-cxxbridge PkgConfig::LIBALPM)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    KYU_SOFTWARE_PKGLIST="${CMAKE_INSTALL_FULL_DATADIR}/kyu/pkglist.yaml"
+    KYU_SOFTWARE_DOC_DIR="${CMAKE_INSTALL_FULL_DOCDIR}")
+target_link_libraries(${PROJECT_NAME} PRIVATE project_warnings project_options Qt6::Widgets Threads::Threads spdlog::spdlog fmt::fmt ryml::ryml backend-rustlib-cxxbridge PkgConfig::LIBALPM)
 
 option(ENABLE_UNITY "Enable Unity builds of projects" OFF)
 if(ENABLE_UNITY)
@@ -146,25 +143,16 @@ install(
 )
 
 install(
-   FILES org.cachyos.cachyos-pi.pkexec.policy
-   DESTINATION "${POLKITQT-1_POLICY_FILES_INSTALL_DIR}"
-)
-
-install(
    FILES "${PROJECT_SOURCE_DIR}/pkglist.yaml"
-   DESTINATION lib/cachyos-pi
+   DESTINATION ${CMAKE_INSTALL_DATADIR}/kyu
 )
 file(GLOB HELP_FILES "${PROJECT_SOURCE_DIR}/help/*")
 install(
    FILES ${HELP_FILES}
-   DESTINATION share/doc/cachyos-packageinstaller
+   DESTINATION ${CMAKE_INSTALL_DOCDIR}
 )
 
 install(
-   FILES cachyos-pi.desktop
+   FILES io.github.solarizeddev.kyu.software.desktop
    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
-)
-install(
-   FILES icons/cachyos-pi.png
-   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
 )

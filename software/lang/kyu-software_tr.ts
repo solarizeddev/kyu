@@ -6,7 +6,7 @@
     <message>
         <location filename="../src/mainwindow.ui" line="20"/>
         <location filename="../src/mainwindow.cpp" line="88"/>
-        <source>CachyOS Package Installer</source>
+        <source>Kyu Software</source>
         <translation>CachyOS Paket Kurucusu</translation>
     </message>
     <message>

@@ -48,7 +48,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-namespace cachyos_pi::rustlib {
+namespace kyu_software::rustlib {
 struct AlpmManager;
 }
 
@@ -114,10 +114,10 @@ class AlpmManager {
     AlpmManager() = delete;
 
  private:
-    explicit AlpmManager(::rust::Box<::cachyos_pi::rustlib::AlpmManager>&& manager) : m_manager(std::move(manager)) { }
+    explicit AlpmManager(::rust::Box<::kyu_software::rustlib::AlpmManager>&& manager) : m_manager(std::move(manager)) { }
 
     /// @brief A pointer to the AlpmManager structure from Rust code.
-    ::rust::Box<::cachyos_pi::rustlib::AlpmManager> m_manager;
+    ::rust::Box<::kyu_software::rustlib::AlpmManager> m_manager;
 };
 
 /// @brief A shared pointer to a AlpmManager object.

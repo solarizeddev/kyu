@@ -1,80 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="es_ES">
+<TS version="2.1" language="sk">
 <context>
     <name>MainWindow</name>
     <message>
         <location filename="../src/mainwindow.ui" line="20"/>
         <location filename="../src/mainwindow.cpp" line="81"/>
         <location filename="../src/mainwindow.cpp" line="96"/>
-        <source>CachyOS Package Installer</source>
-        <translation>Instalador de paquetes de CachyOS</translation>
+        <source>Kyu Software</source>
+        <translation>Inštalátor balíčkov CachyOS</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="57"/>
         <source>Popular Applications</source>
-        <translation>Aplicaciones populares</translation>
+        <translation>Populárne aplikácie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="83"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Package</source>
-        <translation>Paquete</translation>
+        <translation>Balíček</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="88"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Info</source>
-        <translation>Información</translation>
+        <translation>Info</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="93"/>
         <location filename="../src/mainwindow.ui" line="250"/>
         <location filename="../src/mainwindow.cpp" line="125"/>
         <source>Description</source>
-        <translation>Descripción</translation>
+        <translation>Popis</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="113"/>
         <location filename="../src/mainwindow.ui" line="216"/>
         <location filename="../src/mainwindow.ui" line="595"/>
         <source>search</source>
-        <translation>buscar</translation>
+        <translation>hľadanie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="123"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Manage popular packages&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Greyed out items have already been installed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Gestionar paquetes populares&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Los elementos en gris ya han sido instalados.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt;&quot;&gt;Spravovať populárne balíčky&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Sivé položky už boli nainštalované.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="153"/>
         <source>Repo</source>
-        <translation>Repositorio</translation>
+        <translation>Repo</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="174"/>
         <location filename="../src/mainwindow.ui" line="538"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filter packages according to their status.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filtrar paquetes según su estado.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Filtrovať balíčky podľa ich stavu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="177"/>
         <location filename="../src/mainwindow.ui" line="181"/>
         <location filename="../src/mainwindow.cpp" line="1849"/>
         <source>All packages</source>
-        <translation>Todos los paquetes</translation>
+        <translation>Všetky balíčky</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="186"/>
         <location filename="../src/mainwindow.cpp" line="1863"/>
         <source>Installed</source>
-        <translation>Instalados</translation>
+        <translation>Nainštalované</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="191"/>
         <location filename="../src/mainwindow.cpp" line="1861"/>
         <source>Upgradable</source>
-        <translation>Actualizables</translation>
+        <translation>Možnosť rozšírenia</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="196"/>
@@ -84,101 +84,101 @@
         <location filename="../src/mainwindow.cpp" line="1943"/>
         <location filename="../src/mainwindow.cpp" line="1944"/>
         <source>Not installed</source>
-        <translation>No instalados</translation>
+        <translation>Nenainštalované</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="240"/>
         <source>Package Name</source>
-        <translation>Nombre del paquete</translation>
+        <translation>Názov balíčka</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="245"/>
         <location filename="../src/mainwindow.ui" line="630"/>
         <source>Version</source>
-        <translation>Versión</translation>
+        <translation>Verzia</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="284"/>
         <source>Remove orphan packages</source>
-        <translation>Eliminar paquetes huérfanos</translation>
+        <translation>Odstrániť osirelé balíčky</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="295"/>
         <source>Installed:</source>
-        <translation>Instalados:</translation>
+        <translation>Nainštalované:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="331"/>
         <location filename="../src/mainwindow.ui" line="700"/>
         <source>Upgrade All</source>
-        <translation>Actualizar todo</translation>
+        <translation>Aktualizovať všetko</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="373"/>
         <source>Refresh list</source>
-        <translation>Actualizar lista</translation>
+        <translation>Obnoviť zoznam</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="394"/>
         <source>Hide library and developer packages</source>
-        <translation>Ocultar librerías y paquetes de desarrollo</translation>
+        <translation>Skryť knižnice a vývojárske balíčky</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="404"/>
         <source>Total packages:</source>
-        <translation>Paquetes totales:</translation>
+        <translation>Celkový počet balíčkov:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="411"/>
         <source>Upgradable:</source>
-        <translation>Actualizables:</translation>
+        <translation>Možnosť rozšírenia:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="441"/>
         <location filename="../src/mainwindow.ui" line="857"/>
         <source>Greyed out items have already been installed.</source>
-        <translation>Los elementos en gris ya han sido instalados.</translation>
+        <translation>Sivé položky už boli nainštalované.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="497"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;= Upgradable package. Newer version available in selected repository.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;= Paquete actualizable. Nueva versión disponible en el repositorio seleccionado.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;=Balíček je možné aktualizovať. Novšia verzia je dostupná vo vybranom repozitári.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="517"/>
         <source>Flatpaks</source>
-        <translation>Flatpaks</translation>
+        <translation>Flatpaky</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="541"/>
         <location filename="../src/mainwindow.ui" line="545"/>
         <location filename="../src/mainwindow.cpp" line="1811"/>
         <source>All apps</source>
-        <translation>Todas las aplicaciones</translation>
+        <translation>Všetky aplikácie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="550"/>
         <location filename="../src/mainwindow.cpp" line="1816"/>
         <source>All runtimes</source>
-        <translation>Todos los entornos de ejecución (runtimes)</translation>
+        <translation>Všetky runtime</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="555"/>
         <location filename="../src/mainwindow.cpp" line="1821"/>
         <source>All available</source>
-        <translation>Todos los disponibles</translation>
+        <translation>Všetky dostupné</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="560"/>
         <location filename="../src/mainwindow.cpp" line="1809"/>
         <source>Installed apps</source>
-        <translation>Aplicaciones instaladas</translation>
+        <translation>Nainštalované aplikácie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="565"/>
         <location filename="../src/mainwindow.cpp" line="1807"/>
         <source>Installed runtimes</source>
-        <translation>Entornos de ejecución instalados</translation>
+        <translation>Nainštalované runtime</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="570"/>
@@ -186,70 +186,70 @@
         <location filename="../src/mainwindow.cpp" line="1937"/>
         <location filename="../src/mainwindow.cpp" line="1938"/>
         <source>All installed</source>
-        <translation>Todos los instalados</translation>
+        <translation>Všetky nainštalované</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="620"/>
         <source>Short Name</source>
-        <translation>Nombre corto</translation>
+        <translation>Skrátený názov</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="625"/>
         <source>Full Package Name</source>
-        <translation>Nombre completo del paquete</translation>
+        <translation>Celý názov balíčka</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="635"/>
         <source>Size</source>
-        <translation>Tamaño</translation>
+        <translation>Veľkosť</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="679"/>
         <source>Total items </source>
-        <translation>Elementos totales </translation>
+        <translation>Položky celkom</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="693"/>
         <source>Installed apps:</source>
-        <translation>Aplicaciones instaladas:</translation>
+        <translation>Nainštalované aplikácie:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="746"/>
         <source>Advanced</source>
-        <translation>Avanzado</translation>
+        <translation>Pokročilý</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="776"/>
         <source>Total installed size:</source>
-        <translation>Tamaño total instalado:</translation>
+        <translation>Celková veľkosť inštalácie:</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="790"/>
         <source>Remove unused runtimes</source>
-        <translation>Eliminar entornos de ejecución no utilizados</translation>
+        <translation>Odstrániť nepoužívané runtime</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="807"/>
         <location filename="../src/mainwindow.ui" line="811"/>
         <source>For all users</source>
-        <translation>Para todos los usuarios</translation>
+        <translation>Pre všetkých používateľov</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="816"/>
         <source>For current user</source>
-        <translation>Para el usuario actual</translation>
+        <translation>Pre aktuálneho používateľa</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="834"/>
         <source>Remote (repo):</source>
-        <translation>Remoto (repo):</translation>
+        <translation>Vzdialený (repo):</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="877"/>
         <location filename="../src/mainwindow.cpp" line="1678"/>
         <location filename="../src/mainwindow.cpp" line="1769"/>
         <source>Console Output</source>
-        <translation>Salida de consola</translation>
+        <translation>Výstup konzoly</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="883"/>
@@ -259,17 +259,17 @@
     <message>
         <location filename="../src/mainwindow.ui" line="894"/>
         <source>Respond here</source>
-        <translation>Responder aquí</translation>
+        <translation>Odpovedať tu</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="950"/>
         <source>Display help </source>
-        <translation>Mostrar ayuda </translation>
+        <translation>Zobraziť pomoc</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="953"/>
         <source>Help</source>
-        <translation>Ayuda</translation>
+        <translation>Pomoc</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="960"/>
@@ -283,7 +283,7 @@
         <location filename="../src/mainwindow.cpp" line="1935"/>
         <location filename="../src/mainwindow.cpp" line="2156"/>
         <source>Install</source>
-        <translation>Instalar</translation>
+        <translation>Inštalovať</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1015"/>
@@ -293,12 +293,12 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1034"/>
         <source>Quit application</source>
-        <translation>Salir de la aplicación</translation>
+        <translation>Zatvoriť aplikáciu</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1037"/>
         <source>Close</source>
-        <translation>Cerrar</translation>
+        <translation>Zatvoriť</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1044"/>
@@ -308,7 +308,7 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1060"/>
         <source>Uninstall</source>
-        <translation>Desinstalar</translation>
+        <translation>Odinštalovať</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1067"/>
@@ -318,12 +318,12 @@
     <message>
         <location filename="../src/mainwindow.ui" line="1083"/>
         <source>About this application</source>
-        <translation>Acerca de esta aplicación</translation>
+        <translation>O tejto aplikácii</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1086"/>
         <source>About...</source>
-        <translation>Acerca de...</translation>
+        <translation>O...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1093"/>
@@ -331,112 +331,138 @@
         <translation>Alt+B</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="81"/>
-        <source>Cannot initialize ALPM library</source>
-        <translation>No se puede inicializar la biblioteca ALPM</translation>
-    </message>
-    <message>
         <location filename="../src/mainwindow.cpp" line="224"/>
         <source>Uninstalling packages...</source>
-        <translation>Desinstalando paquetes...</translation>
+        <translation>Odinštalovanie balíčkov...</translation>
+    </message>
+    <message>
+        <source>Refreshing sources...</source>
+        <translation type="vanished">Obnovovanie zdrojov...</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1526"/>
+        <location filename="../src/mainwindow.cpp" line="1553"/>
+        <location filename="../src/mainwindow.cpp" line="1563"/>
+        <location filename="../src/mainwindow.cpp" line="1651"/>
+        <location filename="../src/mainwindow.cpp" line="1668"/>
+        <location filename="../src/mainwindow.cpp" line="1996"/>
+        <location filename="../src/mainwindow.cpp" line="2050"/>
+        <location filename="../src/mainwindow.cpp" line="2077"/>
+        <location filename="../src/mainwindow.cpp" line="2174"/>
+        <location filename="../src/mainwindow.cpp" line="2194"/>
+        <source>Error</source>
+        <translation>Chyba</translation>
+    </message>
+    <message>
+        <source>There was a problem updating sources. Some sources may not have provided updates. For more info check: </source>
+        <translation type="vanished">Pri aktualizácii zdrojov došlo k problému. Niektoré zdroje možno neposkytli aktualizácie. Pre viac informácií skontrolujte: </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="430"/>
         <source>Unable to fetch pkglist. Timeout!</source>
-        <translation>No se pudo obtener la lista de paquetes. ¡Tiempo de espera agotado!</translation>
+        <translation>Nie je možné načítať pkglist. Vypršal časový limit!</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="524"/>
         <source>Cancel</source>
-        <translation>Cancelar</translation>
+        <translation>Zrušiť</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="531"/>
         <source>Please wait...</source>
-        <translation>Por favor, espere...</translation>
+        <translation>Prosím čakajte...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="722"/>
         <location filename="../src/mainwindow.cpp" line="739"/>
         <source>Version </source>
-        <translation>Versión </translation>
+        <translation>Verzia </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="722"/>
         <source> in repo</source>
-        <translation> en repositorio</translation>
+        <translation> v repozitári</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="724"/>
         <source>Not available in repo</source>
-        <translation>No disponible en el repositorio</translation>
+        <translation>Nie je dostupné v repozitári</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="733"/>
         <source>Latest version </source>
-        <translation>La última versión </translation>
+        <translation>Najnovšia verzia</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="733"/>
         <source> already installed</source>
-        <translation> ya está instalada</translation>
+        <translation> už nainštalované</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="739"/>
         <source> installed</source>
-        <translation> instalada</translation>
+        <translation> nainštalované</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="850"/>
         <source>CachyOS includes this repository of flatpaks for the users&apos; convenience only, and is not responsible for the functionality of the individual flatpaks themselves. For more, consult flatpaks in the Wiki.</source>
-        <translation>CachyOS incluye este repositorio de flatpaks solo para conveniencia del usuario, y no es responsable de la funcionalidad de los flatpaks individuales. Para más información, consulte la sección de Flatpaks en la Wiki.</translation>
+        <translation>CachyOS obsahuje toto úložisko flatpakov len pre pohodlie používateľov a nie je zodpovedný za funkčnosť jednotlivých flatpakov. Pre viac informácií konzultujte flatpaky vo Wiki.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="858"/>
         <location filename="../src/mainwindow.cpp" line="2181"/>
         <source>Warning</source>
-        <translation>Advertencia</translation>
+        <translation>Varovanie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="861"/>
         <source>Do not show this message again</source>
-        <translation>No mostrar este mensaje de nuevo</translation>
+        <translation>Túto správu už viac nezobrazovať.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="958"/>
         <source>Remove</source>
-        <translation>Eliminar</translation>
+        <translation>Odstrániť</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="974"/>
         <source>The following packages were selected. Click Show Details for list of changes.</source>
-        <translation>Se seleccionaron los siguientes paquetes. Haga clic en Mostrar detalles para ver la lista de cambios.</translation>
+        <translation>Boli vybrané nasledujúce balčíky. Kliknite na Zobraziť podrobnosti pre zoznam zmien.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1001"/>
         <source>Installing packages...</source>
-        <translation>Instalando paquetes...</translation>
+        <translation>Inštalácia balíčkov...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1054"/>
         <source>Installing </source>
-        <translation>Instalando </translation>
+        <translation>Inštalovanie </translation>
+    </message>
+    <message>
+        <source>Downloading package info...</source>
+        <translation type="vanished">Sťahovanie informácií o balíčkoch...</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="81"/>
+        <source>Cannot initialize ALPM library</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1130"/>
         <source>Fetching infomation about packages...</source>
-        <translation>Obteniendo información sobre los paquetes...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1385"/>
         <source>Packages to be installed: </source>
-        <translation>Paquetes a instalar: </translation>
+        <translation>Balíčky na inštaláciu: </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1387"/>
         <location filename="../src/mainwindow.cpp" line="1406"/>
         <source>Package info</source>
-        <translation>Información del paquete</translation>
+        <translation>Informácie o balíčku</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1522"/>
@@ -450,7 +476,7 @@
         <location filename="../src/mainwindow.cpp" line="2071"/>
         <location filename="../src/mainwindow.cpp" line="2170"/>
         <source>Done</source>
-        <translation>Hecho</translation>
+        <translation>Hotovo</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1522"/>
@@ -466,21 +492,7 @@
         <location filename="../src/mainwindow.cpp" line="2170"/>
         <location filename="../src/mainwindow.cpp" line="2191"/>
         <source>Processing finished successfully.</source>
-        <translation>El proceso finalizó con éxito</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1526"/>
-        <location filename="../src/mainwindow.cpp" line="1553"/>
-        <location filename="../src/mainwindow.cpp" line="1563"/>
-        <location filename="../src/mainwindow.cpp" line="1651"/>
-        <location filename="../src/mainwindow.cpp" line="1668"/>
-        <location filename="../src/mainwindow.cpp" line="1996"/>
-        <location filename="../src/mainwindow.cpp" line="2050"/>
-        <location filename="../src/mainwindow.cpp" line="2077"/>
-        <location filename="../src/mainwindow.cpp" line="2174"/>
-        <location filename="../src/mainwindow.cpp" line="2194"/>
-        <source>Error</source>
-        <translation>Error</translation>
+        <translation>Spracovanie úspešne dokončené.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1526"/>
@@ -490,22 +502,22 @@
         <location filename="../src/mainwindow.cpp" line="2050"/>
         <location filename="../src/mainwindow.cpp" line="2077"/>
         <source>Problem detected while installing, please inspect the console output.</source>
-        <translation>Se detectó un problema durante la instalación; por favor, revise la salida de la consola.</translation>
+        <translation>Zistený problém pri inštalácii, skontrolujte výstup konzoly.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1571"/>
         <source>About %1</source>
-        <translation>Acerca de %1</translation>
+        <translation>O %1</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
         <source>Version: </source>
-        <translation>Versión: </translation>
+        <translation>Verzia: </translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
         <source>Package Installer for CachyOS</source>
-        <translation>Instalador de paquetes para CachyOS</translation>
+        <translation>Inštalátor balíčkov pre CachyOS</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1572"/>
@@ -515,100 +527,100 @@
     <message>
         <location filename="../src/mainwindow.cpp" line="1651"/>
         <source>We encountered a problem uninstalling, please check output</source>
-        <translation>Encontramos un problema al desinstalar; por favor, revise la salida</translation>
+        <translation>Vyskytol sa problém s odinštalovaním, skontrolujte výstupné údaje</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1665"/>
         <location filename="../src/mainwindow.cpp" line="2191"/>
         <source>Success</source>
-        <translation>Éxito</translation>
+        <translation>Úspech</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1668"/>
         <location filename="../src/mainwindow.cpp" line="2194"/>
         <source>We encountered a problem uninstalling the program</source>
-        <translation>Encontramos un problema al desinstalar el programa</translation>
+        <translation>Narazili sme na problém pri odinštalovaní programu.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1738"/>
         <location filename="../src/mainwindow.cpp" line="1751"/>
         <source>Flatpak not installed</source>
-        <translation>Flatpak no instalado</translation>
+        <translation>Flatpak nie je nainštalovaný</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1738"/>
         <source>Flatpak is not currently installed.
 OK to go ahead and install it?</source>
-        <translation>Flatpak no está instalado actualmente.
-¿Está bien proceder a instalarlo?</translation>
+        <translation>Flatpak nie je nainštalovaný.
+Ok pre jeho inštaláciu?</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1751"/>
         <source>Flatpak was not installed</source>
-        <translation>Flatpak no fue instalado</translation>
+        <translation>Flatpak nebol nainštalovaný</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1760"/>
         <source>Flathub remote failed</source>
-        <translation>Fallo en el remoto Flathub</translation>
+        <translation>Zlyhalo pripojenie k Flathub.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1760"/>
         <source>Flathub remote could not be added</source>
-        <translation>No se pudo añadir el remoto Flathub</translation>
+        <translation>Repozitár Flathub nie je možné pridať</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1773"/>
         <source>Needs re-login</source>
-        <translation>Requiere reiniciar sesión</translation>
+        <translation>Vyžaduje sa opätovné prihlásenie</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1773"/>
         <source>You might need to logout/login to see installed items in the menu</source>
-        <translation>Es posible que deba cerrar e iniciar sesión para ver los elementos instalados en el menú</translation>
+        <translation>Možno sa budete musieť odhlásiť a znova prihlásiť, aby ste videli nainštalované položky v ponuke.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1933"/>
         <source>Upgrade</source>
-        <translation>Actualizar</translation>
+        <translation>Aktualizácia</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="1984"/>
         <source>Upgrading system...</source>
-        <translation>Actualizando el sistema...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2019"/>
         <source>Quit?</source>
-        <translation>¿Salir?</translation>
+        <translation>Odísť?</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2020"/>
         <source>Process still running, quitting might leave the system in an unstable state.&lt;p&gt;&lt;b&gt;Are you sure you want to exit CachyOS Package Installer?&lt;/b&gt;</source>
-        <translation>El proceso aún se está ejecutando; salir ahora podría dejar el sistema en un estado inestable. &lt;p&gt;&lt;b&gt;¿Está seguro de que desea salir del instalador de paquetes de CachyOS?&lt;/b&gt;</translation>
+        <translation>Proces stále beží, ukončenie môže zanechať systém v nestabilnom stave.&lt;p&gt;&lt;b&gt;Naozaj si želáte ukončiť CachyOS Package Installer?&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2110"/>
         <location filename="../src/mainwindow.cpp" line="2120"/>
         <source>More &amp;info...</source>
-        <translation>Más &amp;información...</translation>
+        <translation>Viac &amp;info...</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2154"/>
         <source>Reinstall</source>
-        <translation>Reinstalar</translation>
+        <translation>Reinštalácia</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2174"/>
         <source>Problem detected during last operation, please inspect the console output.</source>
-        <translation>Se detectó un problema durante la última operación; por favor, revise la salida de la consola.</translation>
+        <translation>Počas poslednej operácie bol zistený problém, skontrolujte výstup konzoly.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2181"/>
         <source>Potentially dangerous operation.
 Please make sure you check carefully the list of packages to be removed.</source>
-        <translation>Operación potencialmente peligrosa.
-Por favor, asegúrese de revisar cuidadosamente la lista de paquetes que se van a eliminar.</translation>
+        <translation>Potenciálne nebezpečná operácia.
+Uistite sa, že dôkladne skontrolujete zoznam balíkov, ktoré majú byť odstránené.</translation>
     </message>
 </context>
 <context>
@@ -616,82 +628,82 @@ Por favor, asegúrese de revisar cuidadosamente la lista de paquetes que se van 
     <message>
         <location filename="../src/remotes.cpp" line="34"/>
         <source>Manage Flatpak Remotes</source>
-        <translation>Gestionar remotos de Flatpak</translation>
+        <translation>Správa úložísk Flatpak</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="39"/>
         <source>For all users</source>
-        <translation>Para todos los usuarios</translation>
+        <translation>Pre všetkých používateľov</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="40"/>
         <source>For current user</source>
-        <translation>Para el usuario actual</translation>
+        <translation>Pre aktuálneho používateľa</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="43"/>
         <source>enter Flatpak remote URL</source>
-        <translation>introduzca la URL del remoto Flatpak</translation>
+        <translation>vložiť URL úložiska Flatpak</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="45"/>
         <source>enter Flatpakref location to install app</source>
-        <translation>introduzca la ubicación de Flatpakref para instalar la aplicación</translation>
+        <translation>pre inštaláciu aplikácie zadajte umiestnenie Flatpakref</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="47"/>
         <source>Add or remove flatpak remotes (repos), or install apps using flatpakref URL or path</source>
-        <translation>Añadir o eliminar remotos (repositorios) de Flatpak, o instalar aplicaciones usando una URL o ruta flatpakref</translation>
+        <translation>Pridajte alebo odstráňte vzdialené úložiská Flatpak (repozitáre), alebo nainštalujte aplikácie pomocou URL alebo cesty Flatpakref</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="56"/>
         <source>Remove remote</source>
-        <translation>Eliminar remoto</translation>
+        <translation>Odstrániť vzdialené úložisko</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="61"/>
         <source>Add remote</source>
-        <translation>Añadir remoto</translation>
+        <translation>Pridať vzdialené úložisko</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="66"/>
         <source>Install app</source>
-        <translation>Instalar aplicación</translation>
+        <translation>Nainštalovať aplikáciu</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="71"/>
         <source>Close</source>
-        <translation>Cerrar</translation>
+        <translation>Zatvoriť</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="87"/>
         <source>Not removable</source>
-        <translation>No eliminable</translation>
+        <translation>Nedá sa odstrániť</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="88"/>
         <source>Flathub is the main Flatpak remote and won&apos;t be removed</source>
-        <translation>Flathub es el remoto principal de Flatpak y no será eliminado</translation>
+        <translation>Flathub je hlavné vzdialené úložisko Flatpak a nebude odstránené</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="107"/>
         <source>Error adding remote</source>
-        <translation>Error al añadir el remoto</translation>
+        <translation>pridávanie vzdialeného úložiska</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="108"/>
         <source>Could not add remote - command returned an error. Please double-check the remote address and try again</source>
-        <translation>No se pudo añadir el remoto; el comando devolvió un error. Por favor, compruebe la dirección remota e inténtelo de nuevo</translation>
+        <translation>Nie je možné pridať vzdialené úložisko - príkaz vrátil chybu. Skontrolujte vzdialenú adresu a skúste to znova</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="112"/>
         <source>Success</source>
-        <translation>Éxito</translation>
+        <translation>Úspech</translation>
     </message>
     <message>
         <location filename="../src/remotes.cpp" line="112"/>
         <source>Remote added successfully</source>
-        <translation>Remoto añadido con éxito</translation>
+        <translation>Vzdialené úložisko úspešne pridané</translation>
     </message>
 </context>
 <context>
@@ -704,53 +716,57 @@ Por favor, asegúrese de revisar cuidadosamente la lista de paquetes que se van 
     <message>
         <location filename="../src/about.cpp" line="19"/>
         <source>Cancel</source>
-        <translation>Cancelar</translation>
+        <translation>Zrušiť</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="159"/>
         <location filename="../src/main.cpp" line="167"/>
         <location filename="../src/main.cpp" line="175"/>
         <source>Error</source>
-        <translation>Error</translation>
+        <translation>Chyba</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="160"/>
         <source>Instance of the program is already running! Please close it first</source>
-        <translation>¡Ya hay una instancia del programa en ejecución! Por favor, ciérrela primero</translation>
+        <translation>Inštancia programu už beží! Prosím, najskôr ju ukončite.</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="168"/>
         <source>No db found!
 Please run `pacman -Sy` to update DB!
 This is needed for the app to work properly</source>
-        <translation>¡No se encontró la base de datos!
-Por favor, ejecute `pacman -Sy` para actualizarla.
-Esto es necesario para que la aplicación funcione correctamente</translation>
+        <translation>Nenašla sa žiadna databáza!
+Prosím, spustite `pacman -Sy` na aktualizáciu databázy!
+Je to potrebné pre správne fungovanie aplikácie.</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="176"/>
         <source>You seem to be logged in as root, please log out and log in as normal user to use this program.</source>
-        <translation>Parece que ha iniciado sesión como root. Por favor, cierre la sesión e inicie sesión como usuario normal para usar este programa.</translation>
+        <translation>Zdá sa, že ste prihlásený ako root, odhláste sa a prihláste sa ako bežný používateľ, aby ste mohli používať tento program.</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="182"/>
         <source>Unable to run the app</source>
-        <translation>No se puede ejecutar la aplicación</translation>
+        <translation>Nie je možné spustiť aplikáciu</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="183"/>
         <source>Please don&apos;t run that application as root user!</source>
-        <translation>¡Por favor, no ejecute esta aplicación como usuario root!</translation>
+        <translation>Prosím nespúšťajte túto aplikáciu ako root!</translation>
+    </message>
+    <message>
+        <source>Please run that application as root user!</source>
+        <translation type="vanished">Spustite túto aplikáciu ako root!</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="191"/>
         <source>Unable to get exclusive lock</source>
-        <translation>No se pudo obtener el bloqueo exclusivo</translation>
+        <translation>Nie je možné získať exkluzívny zámok</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="192"/>
         <source>Another package management application (like pamac or pacman), is already running. Please close that application first</source>
-        <translation>Otra aplicación de gestión de paquetes (como pamac o pacman) ya se está ejecutando. Por favor, cierre esa aplicación primero</translation>
+        <translation>Ďalšia aplikácia na správu balíčkov (ako pamac alebo pacman) už beží. Prosím, najskôr ukončite túto aplikáciu.</translation>
     </message>
 </context>
 </TS>
