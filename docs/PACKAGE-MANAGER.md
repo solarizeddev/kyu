@@ -79,13 +79,34 @@ announcements warn about) or one of our own (Kyu deleted its old one).
 
 ## Screens
 
-One window, `kyu-software` ("Software"), refusing to run as root. A toolbar
-with Back, the search field and the menu (Refresh databases, Software mode,
-Install a package file…, Preferences, About); a sidebar like System
-Settings: Featured, the categories, then "Your system": Installed, Updates,
-Pending (when something is queued), History, Maintenance. Banners above the
-content when they apply: pacman is running, offline (planning databases from
-…), restart required, news to read first.
+One window, `kyu-software` ("Software"), refusing to run as root. Sketched
+in three rounds with Fable: the "P" row of the design canvas (30 boards,
+light and dark). Layout, as decided there:
+
+- **No toolbar.** The sidebar's header holds the search field and the menu
+  (System Settings' layout); Back sits in a Details page's header.
+- **Sidebar** (release 1): Installed, Updates, Pending (always there, a count
+  when something is queued), History, Maintenance. Release 3 adds Featured
+  and the categories above them.
+- **Each list**: one row of filters with the selection's own action on the
+  right (Install, Remove…, or Remove from Pending), also in the row's context
+  menu; Enter or double-click opens Details. Columns, not chips: Package
+  (name and summary), Version, Source, Size, Reason, Pending.
+- **The bar at the bottom is the queue only**: "Pending: remove 1, install 2",
+  Clear, Review…; it never changes.
+- **The menu**: Check for Updates (F5), Install a Package File… (Ctrl+O),
+  Configure Kyu Software…, Keyboard Shortcuts…, About. Release 2 adds "Use the
+  AUR", release 3 "Software Mode"; no switch appears before it works.
+- **Banners** (KMessageWidget) above any view: another package manager is
+  running (the views frozen, Review… disabled), offline (removals still run;
+  installs wait), restart required, news to read first.
+- **Kyu's window** shows a step list (done, running, next as a hollow circle),
+  one sentence on what is happening and what each answer does, the password
+  moment, "pacman's list differs from the plan" before the answer, a failed
+  step (what ran, what is still in Pending, why), and Done with Launch.
+- **The Configure dialog** has Kyu's own settings only: the check interval
+  (the tray's setting, the same one) and the library filter. Package lists are
+  always refreshed before planning; there is no switch for that.
 
 1. **Featured and categories** (release 3, AppStream): a static, curated list
    shipped with Kyu (no download, never AUR names); categories from AppStream
@@ -95,10 +116,11 @@ content when they apply: pacman is running, offline (planning databases from
 2. **Installed**: All, Explicitly installed, Orphans, Foreign (AUR and local),
    Flatpak; sort by name, size, install date; "Hide library and developer
    packages".
-3. **Updates**: kyu-check's list as the card shows it (packages, AUR, Flatpak,
-   held back, news first), per-package **Ignore** (this time, or always:
-   IgnorePkg, shown with the pacman.conf line, through the window), and one
-   **Update** that runs kyu-update. No other update path.
+3. **Updates**: kyu-check's list as one tree grouped as the card's Details
+   (Packages, AUR, Flatpak), per-package **Ignore ▾** (This Time, or Always…:
+   a dialog with the risk in plain words and the IgnorePkg line it writes,
+   through the window; not for Flatpaks), and one **Update** that runs
+   kyu-update. No other update path.
 4. **Search**: packages (name and description), AUR (when on); filter
    Installed / Not installed; sort by relevance, name, repository, size, date,
    votes; "Hide library and developer packages".
@@ -177,6 +199,9 @@ again right before building.
 - **Calibration gate** before the checks ship: no Critical and under 5 %
   Warning on the 500 most popular AUR packages, and the CHAOS RAT (July
   2025) and "Atomic Arch" (June 2026) samples caught.
+- A Critical finding means no Build button at all: the dialog says why in
+  one sentence and links to reporting the package; there is no "build
+  anyway". Warnings make "Don't Build" the default.
 - A package the AUR no longer lists is refused. A compromised list: verify
   whether Arch publishes a machine-readable one; otherwise Kyu keeps one.
 
