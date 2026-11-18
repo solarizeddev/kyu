@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 
 upstream_url=https://github.com/CachyOS/packageinstaller.git
 pointer="> **This repository is the Manjaro build of CachyOS's package installer.** See [MANJARO.md](MANJARO.md) for what differs and how to build it."
+screenshot="![Package Installer for Manjaro](manjaro/screenshots/discover.png)"
 install=1
 ref=
 for arg in "$@"; do
@@ -27,11 +28,11 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-# README.md only differs by our pointer line: take upstream's, put the line back
+# README.md only differs by our pointer line and screenshot: take upstream's, put them back
 resolve_readme() {
     git diff --name-only --diff-filter=U | grep -qx README.md || return 0
     git checkout --theirs -- README.md
-    grep -qF "$pointer" README.md || printf '%s\n\n%s\n' "$pointer" "$(cat README.md)" > README.md
+    grep -qF "$pointer" README.md || printf '%s\n\n%s\n\n%s\n' "$pointer" "$screenshot" "$(cat README.md)" > README.md
     git add README.md
     [ -n "$(git diff --name-only --diff-filter=U)" ] || git commit --no-edit >/dev/null
 }

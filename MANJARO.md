@@ -9,6 +9,11 @@ Everything else is upstream's, and each upstream release is merged here.
 This tracks upstream's `fresh` branch until 2.0.0 is tagged, then its
 releases.
 
+![The Discover page on Manjaro KDE](manjaro/screenshots/discover.png)
+
+Screenshots are in `manjaro/screenshots/`; the ones in `screenshots/` are
+upstream's, of CachyOS.
+
 ## What differs from upstream
 
 | Where | What |

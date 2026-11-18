@@ -2,6 +2,8 @@
 
 > **This repository is the Manjaro build of CachyOS's package installer.** See [MANJARO.md](MANJARO.md) for what differs and how to build it.
 
+![Package Installer for Manjaro](manjaro/screenshots/discover.png)
+
 A small app store for CachyOS: browse, install, remove and update packages from
 the CachyOS and Arch repositories, build packages from the AUR, install
 Flatpak apps and add AppImage files to the menu.
