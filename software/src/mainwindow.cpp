@@ -1,4 +1,5 @@
 // Copyright (C) 2022-2025 Vladislav Nepogodin
+// Modified for Kyu (Manjaro branding and safety), 2026; see UPSTREAM.md.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,6 +39,8 @@
 #endif
 
 #include "mainwindow.hpp"
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <QProcess>
 #include "ui_mainwindow.h"
 
@@ -213,7 +216,8 @@ bool MainWindow::waitForPacmanLock() noexcept {
     static constexpr auto lock_path = "/var/lib/pacman/db.lck";
     while (fs::exists(lock_path)) {
         QMessageBox box(QMessageBox::Information, tr("Another package manager is working"),
-            tr("pamac or pacman is changing the system or refreshing its lists. Try again when it is done."),
+            tr("pamac or pacman is changing the system or refreshing its lists. Try again when it is done. "
+               "If it stays like this, Kyu's update explains a lock left behind."),
             QMessageBox::Retry | QMessageBox::Cancel, this);
         if (box.exec() != QMessageBox::Retry) {
             return false;
@@ -226,30 +230,48 @@ bool MainWindow::waitForPacmanLock() noexcept {
 // now would bring new libraries for the new package while the installed
 // programs keep the old ones: a partial upgrade, which breaks programs on
 // Manjaro and Arch (pamac's background refresh leaves systems like this).
+// Held packages (IgnorePkg, "[ignored]") do not count: they stay as they
+// are after an update too. -1: could not tell.
 int MainWindow::pendingUpdates() noexcept {
     QProcess pacman;
-    pacman.start(QStringLiteral("pacman"), {QStringLiteral("-Qqu")});
-    if (!pacman.waitForFinished(30000)) {
-        return 0;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
+    pacman.setProcessEnvironment(env);
+    pacman.start(QStringLiteral("pacman"), {QStringLiteral("-Qu")});
+    if (!pacman.waitForFinished(30000) || pacman.exitStatus() != QProcess::NormalExit) {
+        pacman.kill();
+        return -1;
     }
-    return static_cast<int>(QString::fromUtf8(pacman.readAllStandardOutput()).split('\n', Qt::SkipEmptyParts).size());
+    const QStringList lines = QString::fromUtf8(pacman.readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
+    if (pacman.exitCode() != 0 && !lines.isEmpty()) {
+        return -1;
+    }
+    return static_cast<int>(std::ranges::count_if(lines, [](const QString& line) { return !line.trimmed().endsWith(QLatin1String("[ignored]")); }));
 }
 
 // Kyu: the system update runs in Kyu's window (news first, keyrings first,
-// failures explained); plain pacman -Syu only without Kyu.
+// failures explained); plain pacman -Syu only without Kyu. Kyu's programs
+// next to this one (a build tree) first, then on PATH.
 bool MainWindow::startKyuUpdate() noexcept {
-    for (const auto& window : {QStringLiteral("kyu-window")}) {
-        if (!QStandardPaths::findExecutable(window).isEmpty() && QProcess::startDetached(window, {})) {
-            return true;
-        }
+    const auto find = [](const QString& name) {
+        const QString sibling = QCoreApplication::applicationDirPath() + QLatin1Char('/') + name;
+        return QFileInfo(sibling).isExecutable() ? sibling : QStandardPaths::findExecutable(name);
+    };
+    if (const QString window = find(QStringLiteral("kyu-window")); !window.isEmpty() && QProcess::startDetached(window, {})) {
+        return true;
     }
-    if (!QStandardPaths::findExecutable(QStringLiteral("kyu-update")).isEmpty()) {
-        if (QProcess::startDetached(QStringLiteral("konsole"), {QStringLiteral("-e"), QStringLiteral("kyu-update")})
-            || QProcess::startDetached(QStringLiteral("xdg-terminal-exec"), {QStringLiteral("kyu-update")})) {
-            return true;
-        }
+    if (const QString update = find(QStringLiteral("kyu-update")); !update.isEmpty()) {
+        return QProcess::startDetached(QStringLiteral("konsole"), {QStringLiteral("-e"), update})
+            || QProcess::startDetached(QStringLiteral("xdg-terminal-exec"), {update});
     }
     return false;
+}
+
+// Kyu: package names as pacman allows them, separated by spaces.
+bool MainWindow::validPackageNames(const QString& names) noexcept {
+    static const QRegularExpression name(QStringLiteral("^[a-z0-9@_+][a-z0-9@._+-]*$"));
+    const QStringList list = names.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    return !list.isEmpty() && std::ranges::all_of(list, [](const QString& n) { return name.match(n).hasMatch(); });
 }
 
 // Kyu: before installing (or removing), and before anything is shown as
@@ -259,9 +281,18 @@ bool MainWindow::readyToChange(bool installing) noexcept {
     if (!waitForPacmanLock()) {
         return false;
     }
+    // The system may have changed since the lists were read (an update in
+    // Kyu's window, pamac).
+    m_alpm_manager->refresh_alpm();
     const int pending = installing ? pendingUpdates() : 0;
     if (pending == 0) {
         return true;
+    }
+    if (pending < 0) {
+        return QMessageBox::question(this, tr("Updates unknown"),
+                   tr("Whether updates are waiting could not be checked (pacman -Qu failed). Installing while updates wait can break programs. Install anyway?"),
+                   QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
+            == QMessageBox::Yes;
     }
     QMessageBox box(QMessageBox::Information, tr("Update first"),
         (pending == 1 ? tr("An update is waiting.") : tr("%1 updates are waiting.").arg(pending)) + QLatin1Char(' ')
@@ -293,11 +324,16 @@ bool MainWindow::uninstall(const QString& names) noexcept {
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Uninstalling packages..."));
     displayOutput();
 
+    // Kyu: only package names reach the shell and pacman (no options).
+    if (!validPackageNames(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
     const auto& cmd_str = [&is_ok, names = names.toStdString()]() -> std::string {
         if (is_ok) {
-            return fmt::format("pkexec pacman -R --noconfirm {}", names);
+            return fmt::format("pkexec pacman -R --noconfirm -- {}", names);
         }
-        return fmt::format("pkexec pacman -R {}", names);
+        return fmt::format("pkexec pacman -R -- {}", names);
     }();
 
     return m_cmd.run(cmd_str.c_str());
@@ -1054,7 +1090,12 @@ bool MainWindow::install(const QString& names) noexcept {
 
     displayOutput();
 
-    const auto& cmd_str = QStringLiteral("pkexec pacman -S ") + names;
+    // Kyu: only package names reach the shell and pacman (no options).
+    if (!validPackageNames(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
+    const auto& cmd_str = QStringLiteral("pkexec pacman -S -- ") + names;
     return m_cmd.run(cmd_str);
 }
 
@@ -1986,12 +2027,8 @@ void MainWindow::buildChangeList(QTreeWidgetItem* item) noexcept {
             return !items.isEmpty() && items.at(0)->text(TreeCol::Status) == QLatin1String("upgradable");
         });
         m_ui->pushInstall->setText(tr("Install"));
-        if (anyUpgradable) {
-            m_ui->pushInstall->setEnabled(false);
-            m_ui->pushInstall->setToolTip(tr("Updates are installed with the whole system: Upgrade All"));
-        } else {
-            m_ui->pushInstall->setToolTip(QString());
-        }
+        m_ui->pushInstall->setEnabled(!m_change_list.isEmpty() && !anyUpgradable);
+        m_ui->pushInstall->setToolTip(anyUpgradable ? tr("Updates are installed with the whole system: Upgrade All") : QString());
     } else {  // for Flatpaks allow selection only of installed or not installed items so one clicks on an installed item only installed items should be displayed and the other way round
         m_ui->pushInstall->setText(tr("Install"));
         if (item->text(FlatCol::Status) == QLatin1String("installed")) {
@@ -2247,6 +2284,9 @@ void MainWindow::on_push_remove_unused() noexcept {
 }
 
 void MainWindow::on_push_remove_orphan() noexcept {
+    if (!readyToChange(false)) {
+        return;
+    }
     const auto names = m_cmd.getCmdOut("pacman -Qdtq | tr '\\n' ' '");
     QMessageBox::warning(this, tr("Warning"), tr("Potentially dangerous operation.\nPlease make sure you check carefully the list of packages to be removed."));
     showOutput();

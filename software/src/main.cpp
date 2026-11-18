@@ -23,6 +23,7 @@
  * along with mx-packageinstaller.  If not, see <http://www.gnu.org/licenses/>.
  **********************************************************************/
 // Copyright (C) 2022-2025 Vladislav Nepogodin
+// Modified for Kyu (Manjaro branding and safety), 2026; see UPSTREAM.md.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

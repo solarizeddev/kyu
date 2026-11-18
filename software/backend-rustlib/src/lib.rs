@@ -1,3 +1,4 @@
+// Modified for Kyu (internal names), 2026; see UPSTREAM.md.
 // Copyright (C) 2025 Vladislav Nepogodin
 //
 // This program is free software; you can redistribute it and/or modify

@@ -31,6 +31,7 @@ depends=(
     pacman
     pacman-contrib
     polkit
+    socat
     qt6-base
     sudo
     systemd

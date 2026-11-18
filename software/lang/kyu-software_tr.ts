@@ -5,9 +5,10 @@
     <name>MainWindow</name>
     <message>
         <location filename="../src/mainwindow.ui" line="20"/>
-        <location filename="../src/mainwindow.cpp" line="88"/>
+        <location filename="../src/mainwindow.cpp" line="84"/>
+        <location filename="../src/mainwindow.cpp" line="99"/>
         <source>Kyu Software</source>
-        <translation>CachyOS Paket Kurucusu</translation>
+        <translation>Kyu Software</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="57"/>
@@ -16,20 +17,20 @@
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="83"/>
-        <location filename="../src/mainwindow.cpp" line="118"/>
+        <location filename="../src/mainwindow.cpp" line="128"/>
         <source>Package</source>
         <translation>Paket</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="88"/>
-        <location filename="../src/mainwindow.cpp" line="118"/>
+        <location filename="../src/mainwindow.cpp" line="128"/>
         <source>Info</source>
         <translation>Bilgi</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="93"/>
         <location filename="../src/mainwindow.ui" line="250"/>
-        <location filename="../src/mainwindow.cpp" line="118"/>
+        <location filename="../src/mainwindow.cpp" line="128"/>
         <source>Description</source>
         <translation>Açıklama</translation>
     </message>
@@ -59,29 +60,29 @@
     <message>
         <location filename="../src/mainwindow.ui" line="177"/>
         <location filename="../src/mainwindow.ui" line="181"/>
-        <location filename="../src/mainwindow.cpp" line="1751"/>
+        <location filename="../src/mainwindow.cpp" line="1939"/>
         <source>All packages</source>
         <translation>Tüm paketler</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="186"/>
-        <location filename="../src/mainwindow.cpp" line="1764"/>
+        <location filename="../src/mainwindow.cpp" line="1953"/>
         <source>Installed</source>
         <translation>Kurulu</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="191"/>
-        <location filename="../src/mainwindow.cpp" line="1762"/>
+        <location filename="../src/mainwindow.cpp" line="1951"/>
         <source>Upgradable</source>
         <translation>Güncellenebilir</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="196"/>
         <location filename="../src/mainwindow.ui" line="575"/>
-        <location filename="../src/mainwindow.cpp" line="1736"/>
-        <location filename="../src/mainwindow.cpp" line="1766"/>
-        <location filename="../src/mainwindow.cpp" line="1836"/>
-        <location filename="../src/mainwindow.cpp" line="1837"/>
+        <location filename="../src/mainwindow.cpp" line="1922"/>
+        <location filename="../src/mainwindow.cpp" line="1955"/>
+        <location filename="../src/mainwindow.cpp" line="2041"/>
+        <location filename="../src/mainwindow.cpp" line="2042"/>
         <source>Not installed</source>
         <translation>Kurulu değil</translation>
     </message>
@@ -151,39 +152,39 @@
     <message>
         <location filename="../src/mainwindow.ui" line="541"/>
         <location filename="../src/mainwindow.ui" line="545"/>
-        <location filename="../src/mainwindow.cpp" line="1718"/>
+        <location filename="../src/mainwindow.cpp" line="1901"/>
         <source>All apps</source>
         <translation>Tüm uygulamalar</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="550"/>
-        <location filename="../src/mainwindow.cpp" line="1722"/>
+        <location filename="../src/mainwindow.cpp" line="1906"/>
         <source>All runtimes</source>
         <translation>Tüm çalışma zamanları</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="555"/>
-        <location filename="../src/mainwindow.cpp" line="1726"/>
+        <location filename="../src/mainwindow.cpp" line="1911"/>
         <source>All available</source>
         <translation>Tüm mevcut</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="560"/>
-        <location filename="../src/mainwindow.cpp" line="1716"/>
+        <location filename="../src/mainwindow.cpp" line="1899"/>
         <source>Installed apps</source>
         <translation>Kurulu uygulamalar</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="565"/>
-        <location filename="../src/mainwindow.cpp" line="1714"/>
+        <location filename="../src/mainwindow.cpp" line="1897"/>
         <source>Installed runtimes</source>
         <translation>Kurulu çalışma zamanları</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="570"/>
-        <location filename="../src/mainwindow.cpp" line="1734"/>
-        <location filename="../src/mainwindow.cpp" line="1831"/>
-        <location filename="../src/mainwindow.cpp" line="1832"/>
+        <location filename="../src/mainwindow.cpp" line="1920"/>
+        <location filename="../src/mainwindow.cpp" line="2035"/>
+        <location filename="../src/mainwindow.cpp" line="2036"/>
         <source>All installed</source>
         <translation>Hepsi kurulu</translation>
     </message>
@@ -245,8 +246,8 @@
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="877"/>
-        <location filename="../src/mainwindow.cpp" line="1588"/>
-        <location filename="../src/mainwindow.cpp" line="1676"/>
+        <location filename="../src/mainwindow.cpp" line="1768"/>
+        <location filename="../src/mainwindow.cpp" line="1859"/>
         <source>Console Output</source>
         <translation>Konsol Çıktısı</translation>
     </message>
@@ -302,10 +303,10 @@
     </message>
     <message>
         <location filename="../src/mainwindow.ui" line="1008"/>
-        <location filename="../src/mainwindow.cpp" line="905"/>
-        <location filename="../src/mainwindow.cpp" line="1827"/>
-        <location filename="../src/mainwindow.cpp" line="1829"/>
-        <location filename="../src/mainwindow.cpp" line="2042"/>
+        <location filename="../src/mainwindow.cpp" line="1041"/>
+        <location filename="../src/mainwindow.cpp" line="2029"/>
+        <location filename="../src/mainwindow.cpp" line="2033"/>
+        <location filename="../src/mainwindow.cpp" line="2263"/>
         <source>Install</source>
         <translation>Kur</translation>
     </message>
@@ -330,278 +331,338 @@
         <translation>Alt+C</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="191"/>
+        <location filename="../src/mainwindow.cpp" line="324"/>
         <source>Uninstalling packages...</source>
         <translation>Paketler kaldırılıyor...</translation>
     </message>
     <message>
-        <source>Refreshing sources...</source>
-        <translation type="vanished">Kaynaklar yenileniyor...</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1437"/>
-        <location filename="../src/mainwindow.cpp" line="1464"/>
-        <location filename="../src/mainwindow.cpp" line="1474"/>
-        <location filename="../src/mainwindow.cpp" line="1564"/>
-        <location filename="../src/mainwindow.cpp" line="1580"/>
-        <location filename="../src/mainwindow.cpp" line="1887"/>
-        <location filename="../src/mainwindow.cpp" line="1941"/>
-        <location filename="../src/mainwindow.cpp" line="1967"/>
-        <location filename="../src/mainwindow.cpp" line="2059"/>
-        <location filename="../src/mainwindow.cpp" line="2078"/>
+        <location filename="../src/mainwindow.cpp" line="329"/>
+        <location filename="../src/mainwindow.cpp" line="1095"/>
+        <location filename="../src/mainwindow.cpp" line="1614"/>
+        <location filename="../src/mainwindow.cpp" line="1641"/>
+        <location filename="../src/mainwindow.cpp" line="1651"/>
+        <location filename="../src/mainwindow.cpp" line="1741"/>
+        <location filename="../src/mainwindow.cpp" line="1758"/>
+        <location filename="../src/mainwindow.cpp" line="2103"/>
+        <location filename="../src/mainwindow.cpp" line="2157"/>
+        <location filename="../src/mainwindow.cpp" line="2184"/>
+        <location filename="../src/mainwindow.cpp" line="2281"/>
+        <location filename="../src/mainwindow.cpp" line="2304"/>
         <source>Error</source>
         <translation>Hata</translation>
     </message>
     <message>
-        <source>There was a problem updating sources. Some sources may not have provided updates. For more info check: </source>
-        <translation type="vanished">Kaynaklar güncellenirken bir sorun oluştu. Bazı kaynaklar güncelleme sağlamamış olabilir. Daha fazla bilgi için kontrol edin: </translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="394"/>
-        <source>Unable to fetch pkglist. Timeout!</source>
-        <translation>Paket listesi alınamadı. Zaman aşımı!</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="485"/>
+        <location filename="../src/mainwindow.cpp" line="605"/>
         <source>Cancel</source>
         <translation>İptal</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="492"/>
+        <location filename="../src/mainwindow.cpp" line="612"/>
         <source>Please wait...</source>
         <translation>Lütfen bekleyin...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="677"/>
-        <location filename="../src/mainwindow.cpp" line="694"/>
+        <location filename="../src/mainwindow.cpp" line="803"/>
+        <location filename="../src/mainwindow.cpp" line="820"/>
         <source>Version </source>
         <translation>Sürüm </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="688"/>
+        <location filename="../src/mainwindow.cpp" line="814"/>
         <source>Latest version </source>
         <translation>En son sürüm </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="688"/>
+        <location filename="../src/mainwindow.cpp" line="814"/>
         <source> already installed</source>
         <translation> zaten kurulu</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="694"/>
+        <location filename="../src/mainwindow.cpp" line="820"/>
         <source> installed</source>
         <translation> kurulu</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="800"/>
-        <source>CachyOS includes this repository of flatpaks for the users&apos; convenience only, and is not responsible for the functionality of the individual flatpaks themselves. For more, consult flatpaks in the Wiki.</source>
-        <translation>CachyOS, bu Flatpak deposunu yalnızca kullanıcı kolaylığı için sunar ve tek tek Flatpaklerin işlevselliğinden sorumlu değildir. Daha fazla bilgi için Vikideki Flatpakler sayfasına bakın.</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="807"/>
-        <location filename="../src/mainwindow.cpp" line="2066"/>
+        <location filename="../src/mainwindow.cpp" line="938"/>
+        <location filename="../src/mainwindow.cpp" line="2291"/>
         <source>Warning</source>
         <translation>Uyarı</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="811"/>
+        <location filename="../src/mainwindow.cpp" line="941"/>
         <source>Do not show this message again</source>
         <translation>Bu mesajı bir daha gösterme</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="903"/>
+        <location filename="../src/mainwindow.cpp" line="1038"/>
         <source>Remove</source>
         <translation>Kaldır</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="917"/>
+        <location filename="../src/mainwindow.cpp" line="1054"/>
         <source>The following packages were selected. Click Show Details for list of changes.</source>
         <translation>Aşağıdaki paketler seçildi. Değişiklik listesini görmek için Ayrıntıları Göstere tıklayın.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="942"/>
+        <location filename="../src/mainwindow.cpp" line="1082"/>
         <source>Installing packages...</source>
         <translation>Paketler kuruluyor...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="994"/>
+        <location filename="../src/mainwindow.cpp" line="1140"/>
         <source>Installing </source>
         <translation>Kuruluyor </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1070"/>
-        <source>Downloading package info...</source>
-        <translation>Paket bilgisi indiriliyor...</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="1316"/>
+        <location filename="../src/mainwindow.cpp" line="1471"/>
         <source>Packages to be installed: </source>
         <translation>Kurulacak paketler: </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1317"/>
-        <location filename="../src/mainwindow.cpp" line="1336"/>
+        <location filename="../src/mainwindow.cpp" line="1473"/>
+        <location filename="../src/mainwindow.cpp" line="1492"/>
         <source>Package info</source>
         <translation>Paket bilgisi</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1433"/>
-        <location filename="../src/mainwindow.cpp" line="1446"/>
-        <location filename="../src/mainwindow.cpp" line="1460"/>
-        <location filename="../src/mainwindow.cpp" line="1471"/>
-        <location filename="../src/mainwindow.cpp" line="1541"/>
-        <location filename="../src/mainwindow.cpp" line="1561"/>
-        <location filename="../src/mainwindow.cpp" line="1884"/>
-        <location filename="../src/mainwindow.cpp" line="1935"/>
-        <location filename="../src/mainwindow.cpp" line="1961"/>
-        <location filename="../src/mainwindow.cpp" line="2055"/>
+        <location filename="../src/mainwindow.cpp" line="1610"/>
+        <location filename="../src/mainwindow.cpp" line="1623"/>
+        <location filename="../src/mainwindow.cpp" line="1637"/>
+        <location filename="../src/mainwindow.cpp" line="1648"/>
+        <location filename="../src/mainwindow.cpp" line="1717"/>
+        <location filename="../src/mainwindow.cpp" line="1738"/>
+        <location filename="../src/mainwindow.cpp" line="2100"/>
+        <location filename="../src/mainwindow.cpp" line="2151"/>
+        <location filename="../src/mainwindow.cpp" line="2178"/>
+        <location filename="../src/mainwindow.cpp" line="2277"/>
         <source>Done</source>
         <translation>Bitti</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1433"/>
-        <location filename="../src/mainwindow.cpp" line="1446"/>
-        <location filename="../src/mainwindow.cpp" line="1460"/>
-        <location filename="../src/mainwindow.cpp" line="1471"/>
-        <location filename="../src/mainwindow.cpp" line="1541"/>
-        <location filename="../src/mainwindow.cpp" line="1561"/>
-        <location filename="../src/mainwindow.cpp" line="1577"/>
-        <location filename="../src/mainwindow.cpp" line="1884"/>
-        <location filename="../src/mainwindow.cpp" line="1935"/>
-        <location filename="../src/mainwindow.cpp" line="1961"/>
-        <location filename="../src/mainwindow.cpp" line="2055"/>
-        <location filename="../src/mainwindow.cpp" line="2075"/>
+        <location filename="../src/mainwindow.cpp" line="1610"/>
+        <location filename="../src/mainwindow.cpp" line="1623"/>
+        <location filename="../src/mainwindow.cpp" line="1637"/>
+        <location filename="../src/mainwindow.cpp" line="1648"/>
+        <location filename="../src/mainwindow.cpp" line="1717"/>
+        <location filename="../src/mainwindow.cpp" line="1738"/>
+        <location filename="../src/mainwindow.cpp" line="1755"/>
+        <location filename="../src/mainwindow.cpp" line="2100"/>
+        <location filename="../src/mainwindow.cpp" line="2151"/>
+        <location filename="../src/mainwindow.cpp" line="2178"/>
+        <location filename="../src/mainwindow.cpp" line="2277"/>
+        <location filename="../src/mainwindow.cpp" line="2301"/>
         <source>Processing finished successfully.</source>
         <translation>İşleme başarıyla tamamlandı.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1437"/>
-        <location filename="../src/mainwindow.cpp" line="1464"/>
-        <location filename="../src/mainwindow.cpp" line="1474"/>
-        <location filename="../src/mainwindow.cpp" line="1887"/>
-        <location filename="../src/mainwindow.cpp" line="1941"/>
-        <location filename="../src/mainwindow.cpp" line="1967"/>
+        <location filename="../src/mainwindow.cpp" line="1614"/>
+        <location filename="../src/mainwindow.cpp" line="1641"/>
+        <location filename="../src/mainwindow.cpp" line="1651"/>
+        <location filename="../src/mainwindow.cpp" line="2103"/>
+        <location filename="../src/mainwindow.cpp" line="2157"/>
+        <location filename="../src/mainwindow.cpp" line="2184"/>
         <source>Problem detected while installing, please inspect the console output.</source>
         <translation>Kurulumda bir problemle karşılaşıldı, lütfen konsol çıktısına göz atın.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1482"/>
+        <location filename="../src/mainwindow.cpp" line="1659"/>
         <source>About %1</source>
         <translation>Hakkında %1</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1483"/>
+        <location filename="../src/mainwindow.cpp" line="1660"/>
         <source>Version: </source>
         <translation>Sürüm: </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1483"/>
-        <source>Package Installer for CachyOS</source>
-        <translation>CachyOS için Paket Kurucu</translation>
+        <location filename="../src/mainwindow.cpp" line="84"/>
+        <source>Cannot initialize ALPM library</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1483"/>
-        <source>Copyright (c) CachyOS</source>
-        <translation>Telif Hakkı (c) CachyOS</translation>
+        <location filename="../src/mainwindow.cpp" line="218"/>
+        <source>Another package manager is working</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="677"/>
+        <location filename="../src/mainwindow.cpp" line="219"/>
+        <source>pamac or pacman is changing the system or refreshing its lists. Try again when it is done. If it stays like this, Kyu&apos;s update explains a lock left behind.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="292"/>
+        <source>Updates unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="293"/>
+        <source>Whether updates are waiting could not be checked (pacman -Qu failed). Installing while updates wait can break programs. Install anyway?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="297"/>
+        <source>Update first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="298"/>
+        <source>An update is waiting.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="298"/>
+        <source>%1 updates are waiting.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="299"/>
+        <source>Installing now would mix new and old libraries, which can break programs. Update the system first, then install.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="301"/>
+        <source>Update Now…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="329"/>
+        <location filename="../src/mainwindow.cpp" line="1095"/>
+        <source>Not a package name: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="803"/>
         <source> in repo</source>
         <translation> depoda</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="679"/>
+        <location filename="../src/mainwindow.cpp" line="805"/>
         <source>Not available in repo</source>
         <translation>Depoda mevcut değil</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1564"/>
+        <location filename="../src/mainwindow.cpp" line="931"/>
+        <source>Flathub is a repository of flatpaks run by its own community; Kyu adds it for your convenience and is not responsible for the individual flatpaks themselves.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1216"/>
+        <source>Fetching infomation about packages...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1660"/>
+        <source>Install and remove software on Manjaro and Arch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1660"/>
+        <source>Free software under the GNU GPL v3, based on the MX Linux package installer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1741"/>
         <source>We encountered a problem uninstalling, please check output</source>
         <translation>Kaldırma sırasında bir hatayla karşılaştık, lütfen çıktıyı kontrol edin</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1577"/>
-        <location filename="../src/mainwindow.cpp" line="2075"/>
+        <location filename="../src/mainwindow.cpp" line="1755"/>
+        <location filename="../src/mainwindow.cpp" line="2301"/>
         <source>Success</source>
         <translation>Başarılı</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1580"/>
-        <location filename="../src/mainwindow.cpp" line="2078"/>
+        <location filename="../src/mainwindow.cpp" line="1758"/>
+        <location filename="../src/mainwindow.cpp" line="2304"/>
         <source>We encountered a problem uninstalling the program</source>
         <translation>Programı kaldırırken bir hatayla karşılaştık</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1645"/>
-        <location filename="../src/mainwindow.cpp" line="1658"/>
+        <location filename="../src/mainwindow.cpp" line="1828"/>
+        <location filename="../src/mainwindow.cpp" line="1841"/>
         <source>Flatpak not installed</source>
         <translation>Flatpak kurulu değil</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1645"/>
+        <location filename="../src/mainwindow.cpp" line="1828"/>
         <source>Flatpak is not currently installed.
 OK to go ahead and install it?</source>
         <translation>Flatpak şu anda kurulu değil.
 Şimdi kurmaya tamam mısınız?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1658"/>
+        <location filename="../src/mainwindow.cpp" line="1841"/>
         <source>Flatpak was not installed</source>
         <translation>Flatpak kurulu değil</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1667"/>
+        <location filename="../src/mainwindow.cpp" line="1850"/>
         <source>Flathub remote failed</source>
         <translation>Flathub uzak sunucusuna bağlanılamadı</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1667"/>
+        <location filename="../src/mainwindow.cpp" line="1850"/>
         <source>Flathub remote could not be added</source>
         <translation>Flathub uzak sunucusu eklenemedi</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1680"/>
+        <location filename="../src/mainwindow.cpp" line="1863"/>
         <source>Needs re-login</source>
         <translation>Yeniden giriş gerektiriyor</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1680"/>
+        <location filename="../src/mainwindow.cpp" line="1863"/>
         <source>You might need to logout/login to see installed items in the menu</source>
         <translation>Kurulu ögeleri listede görebilmek için yeniden giriş yapmanız gerekebilir</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1827"/>
-        <source>Upgrade</source>
-        <translation>Güncelle</translation>
+        <location filename="../src/mainwindow.cpp" line="2031"/>
+        <source>Updates are installed with the whole system: Upgrade All</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1910"/>
+        <location filename="../src/mainwindow.cpp" line="2082"/>
+        <source>Updating</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="2083"/>
+        <source>The update runs in Kyu&apos;s window. When it is done, press Refresh list here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="2091"/>
+        <source>Upgrading system...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="2127"/>
+        <source>Process still running, quitting might leave the system in an unstable state.&lt;p&gt;&lt;b&gt;Are you sure you want to quit Kyu Software?&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="2126"/>
         <source>Quit?</source>
         <translation>Çık?</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1911"/>
-        <source>Process still running, quitting might leave the system in an unstable state.&lt;p&gt;&lt;b&gt;Are you sure you want to exit CachyOS Package Installer?&lt;/b&gt;</source>
-        <translation>İşlem hâlâ devam ediyor, çıkmak sistemi kararsız bir hâlde bırakabilir.&lt;p&gt;&lt;b&gt;CachyOS Paket Kurucusundan çıkmak istediğinize emin misiniz?&lt;/b&gt;</translation>
-    </message>
-    <message>
-        <location filename="../src/mainwindow.cpp" line="2000"/>
-        <location filename="../src/mainwindow.cpp" line="2010"/>
+        <location filename="../src/mainwindow.cpp" line="2217"/>
+        <location filename="../src/mainwindow.cpp" line="2227"/>
         <source>More &amp;info...</source>
         <translation>Daha fazla &amp;bilgi...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="2040"/>
+        <location filename="../src/mainwindow.cpp" line="2261"/>
         <source>Reinstall</source>
         <translation>Yeniden kur</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="2059"/>
+        <location filename="../src/mainwindow.cpp" line="2281"/>
         <source>Problem detected during last operation, please inspect the console output.</source>
         <translation>Son operasyon sırasında problem tespit edildi, lütfen konsol çıktısına göz atın.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="2066"/>
+        <location filename="../src/mainwindow.cpp" line="2291"/>
         <source>Potentially dangerous operation.
 Please make sure you check carefully the list of packages to be removed.</source>
         <translation>Muhtemelen riskli operasyon.
@@ -611,82 +672,82 @@ Lütfen kaldırılacak olan paketler listesini dikkatlice kontrol ettiğinizden 
 <context>
     <name>ManageRemotes</name>
     <message>
-        <location filename="../src/remotes.cpp" line="28"/>
+        <location filename="../src/remotes.cpp" line="34"/>
         <source>Manage Flatpak Remotes</source>
         <translation>Flatpak Uzak Sunucularını Yönet</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="37"/>
+        <location filename="../src/remotes.cpp" line="39"/>
         <source>For all users</source>
         <translation>Tüm kullanıcılar için</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="38"/>
+        <location filename="../src/remotes.cpp" line="40"/>
         <source>For current user</source>
         <translation>Şu anki kullanıcı için</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="44"/>
+        <location filename="../src/remotes.cpp" line="43"/>
         <source>enter Flatpak remote URL</source>
         <translation>Flatpak uzak sunucusu URL adresi</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="47"/>
+        <location filename="../src/remotes.cpp" line="45"/>
         <source>enter Flatpakref location to install app</source>
         <translation>kurulacak uygulamanın Flatpakref konumunu girin</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="49"/>
+        <location filename="../src/remotes.cpp" line="47"/>
         <source>Add or remove flatpak remotes (repos), or install apps using flatpakref URL or path</source>
         <translation>Flatpak uzak sunucusu (deposu) ekle veya kaldır, ya da bir flatpakref URL adresi veya yoluyla kur</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="58"/>
+        <location filename="../src/remotes.cpp" line="56"/>
         <source>Remove remote</source>
         <translation>Uzak sunucuyu kaldır</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="63"/>
+        <location filename="../src/remotes.cpp" line="61"/>
         <source>Add remote</source>
         <translation>Uzak sunucu ekle</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="68"/>
+        <location filename="../src/remotes.cpp" line="66"/>
         <source>Install app</source>
         <translation>Uygulama kur</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="73"/>
+        <location filename="../src/remotes.cpp" line="71"/>
         <source>Close</source>
         <translation>Kapat</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="89"/>
+        <location filename="../src/remotes.cpp" line="87"/>
         <source>Not removable</source>
         <translation>Kaldırılamaz</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="89"/>
+        <location filename="../src/remotes.cpp" line="88"/>
         <source>Flathub is the main Flatpak remote and won&apos;t be removed</source>
         <translation>Flathub ana Flatpak deposudur ve kaldırılamaz</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="104"/>
+        <location filename="../src/remotes.cpp" line="107"/>
         <source>Error adding remote</source>
         <translation>Uzak sunucuyu eklerken hata</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="104"/>
+        <location filename="../src/remotes.cpp" line="108"/>
         <source>Could not add remote - command returned an error. Please double-check the remote address and try again</source>
         <translation>Uzak sunucu eklenemedi - komut bir hata döndürdü. Lütfen uzak sunucu adresini iki kez kontrol edin ve tekrar deneyin</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="108"/>
+        <location filename="../src/remotes.cpp" line="112"/>
         <source>Success</source>
         <translation>Başarılı</translation>
     </message>
     <message>
-        <location filename="../src/remotes.cpp" line="108"/>
+        <location filename="../src/remotes.cpp" line="112"/>
         <source>Remote added successfully</source>
         <translation>Uzak sunucu başarıyla eklendi</translation>
     </message>
@@ -704,19 +765,19 @@ Lütfen kaldırılacak olan paketler listesini dikkatlice kontrol ettiğinizden 
         <translation>İptal</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="152"/>
-        <location filename="../src/main.cpp" line="170"/>
-        <location filename="../src/main.cpp" line="180"/>
+        <location filename="../src/main.cpp" line="161"/>
+        <location filename="../src/main.cpp" line="169"/>
+        <location filename="../src/main.cpp" line="177"/>
         <source>Error</source>
         <translation>Hata</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="153"/>
+        <location filename="../src/main.cpp" line="162"/>
         <source>Instance of the program is already running! Please close it first</source>
         <translation>Uygulama zaten çalışıyor! Lütfen önce kapatın!</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="171"/>
+        <location filename="../src/main.cpp" line="170"/>
         <source>No db found!
 Please run `pacman -Sy` to update DB!
 This is needed for the app to work properly</source>
@@ -725,33 +786,19 @@ Veritabanını güncellemek için lütfen `pacman -Sy` komutunu çalıştırın!
 Bu, uygulamanın düzgün çalışması için gerekli</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="181"/>
+        <location filename="../src/main.cpp" line="178"/>
         <source>You seem to be logged in as root, please log out and log in as normal user to use this program.</source>
         <translation>Kök kullanıcısı (root) olarak giriş yapmış görünüyorsunuz, bu programı kullanmak için lütfen normal kullanıcı olarak giriş yapın.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="187"/>
+        <location filename="../src/main.cpp" line="184"/>
         <source>Unable to run the app</source>
         <translation>Uygulama çalıştırılamadı</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="188"/>
+        <location filename="../src/main.cpp" line="185"/>
         <source>Please don&apos;t run that application as root user!</source>
         <translation>Lütfen bu uygulamayı kök kullanıcı (root) olarak çalıştırmayın!</translation>
-    </message>
-    <message>
-        <source>Please run that application as root user!</source>
-        <translation type="vanished">Lütfen bu uygulamayı kök kullanıcısı (root) olarak çalıştırın!</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="196"/>
-        <source>Unable to get exclusive lock</source>
-        <translation>Özel kilit alınamadı</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="197"/>
-        <source>Another package management application (like pamac or pacman), is already running. Please close that application first</source>
-        <translation>Başka bir paket yönetimi uygulaması (pamac veya pacman gibi) zaten çalışıyor. Lütfen önce o uygulamayı kapatın</translation>
     </message>
 </context>
 </TS>
