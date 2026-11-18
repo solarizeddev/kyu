@@ -65,8 +65,28 @@ set(KYU_APP_ID "io.github.solarizeddev.kyu")
 set(KYU_SYSTEMD_USER_UNIT_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user"
     CACHE PATH "Where the systemd user units are installed")
 
+# Translations (translations/kyu_*.ts): Kyu's own words. lrelease builds the
+# .qm files when Qt's Linguist tools are there; "kyu-lupdate" refreshes the
+# .ts files from the sources.
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+file(GLOB KYU_TS_FILES ${CMAKE_SOURCE_DIR}/translations/kyu_*.ts)
+set(KYU_QM_DIR ${CMAKE_BINARY_DIR}/translations)
+set(KYU_TRANSLATIONS_DIR ${CMAKE_INSTALL_FULL_DATADIR}/kyu/translations)
+
 add_subdirectory(src)
 add_subdirectory(data)
+if(Qt6LinguistTools_FOUND AND KYU_TS_FILES)
+    qt_add_lrelease(kyucore TS_FILES ${KYU_TS_FILES} QM_FILES_OUTPUT_VARIABLE KYU_QM_FILES OPTIONS -silent)
+    set_source_files_properties(${KYU_TS_FILES} PROPERTIES OUTPUT_LOCATION ${KYU_QM_DIR})
+    install(FILES ${KYU_QM_FILES} DESTINATION ${CMAKE_INSTALL_DATADIR}/kyu/translations)
+    add_custom_target(kyu-lupdate
+        COMMAND Qt6::lupdate -tr-function-alias tr+=numbered -locations relative -no-obsolete
+                ${CMAKE_SOURCE_DIR}/src -ts ${KYU_TS_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Refreshing translations/kyu_*.ts from the sources")
+elseif(KYU_TS_FILES)
+    message(WARNING "Qt6 LinguistTools not found: translations are not built (Kyu stays English)")
+endif()
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
