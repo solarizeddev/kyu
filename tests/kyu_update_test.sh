@@ -757,5 +757,14 @@ d=$work/applyfirstno
 has "$d/out" 'Nothing was changed.' applyfirstno
 [ ! -e "$d/pacman-args" ] && [ ! -e "$d/install-args" ] || fail "applyfirstno: pacman ran"
 
+echo "apply: the plan shown differs from pacman's now: said and asked before anything runs"
+prepare applyexpect; queue "$work/applyexpect/q.json" install:gimp
+printf '{"steps":[{"packages":[{"name":"gimp"},{"name":"babl"}]}]}' >"$work/applyexpect/shown.json"
+runtty applyexpect 'n\n|\n' --apply "$work/applyexpect/q.json" --expect "$work/applyexpect/shown.json"
+d=$work/applyexpect
+has "$d/out" "pacman's list differs from the plan" applyexpect
+has "$d/out" 'no longer: babl' applyexpect
+[ ! -e "$d/install-args" ] || fail "applyexpect: installed after no"
+
 [ $fails -eq 0 ] && echo "all kyu-update tests passed"
 [ $fails -eq 0 ]

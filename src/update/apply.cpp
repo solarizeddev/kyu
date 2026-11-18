@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
+#include <QTemporaryDir>
 #include <QThread>
 
 #include <cstdio>
@@ -192,6 +193,47 @@ ApplyStart startApply(ApplyContext &ctx, const Kyu::Queue &queue, Kyu::Plan &pla
         out.bad(Kyu::I18n::tr("Installing needs the network. Removing can go ahead without it."));
         return ApplyStart::Blocked;
     }
+    // What pacman will do now, against the plan the person saw: said, and
+    // asked, before anything runs.
+    if (!ctx.expectPath.isEmpty()) {
+        QFile f(ctx.expectPath);
+        const QJsonObject expected = f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
+        QSet<QString> before, now;
+        for (const QJsonValue &step : expected.value(QStringLiteral("steps")).toArray()) {
+            for (const QJsonValue &p : step.toObject().value(QStringLiteral("packages")).toArray()) {
+                before.insert(p.toObject().value(QStringLiteral("name")).toString());
+            }
+        }
+        for (const Kyu::PlanStep &step : std::as_const(plan.steps)) {
+            for (const Kyu::PlannedPackage &p : step.packages) {
+                now.insert(p.name);
+            }
+        }
+        QStringList added = QStringList(now.cbegin(), now.cend()), gone = QStringList(before.cbegin(), before.cend());
+        added.removeIf([&before](const QString &n) {
+            return before.contains(n);
+        });
+        gone.removeIf([&now](const QString &n) {
+            return now.contains(n);
+        });
+        added.sort();
+        gone.sort();
+        if (!added.isEmpty() || !gone.isEmpty()) {
+            out.warn(Kyu::I18n::tr("pacman's list differs from the plan (the package lists changed):"));
+            if (!added.isEmpty()) {
+                out.note(Kyu::I18n::tr("also: %1").arg(added.join(QStringLiteral(", "))));
+            }
+            if (!gone.isEmpty()) {
+                out.note(Kyu::I18n::tr("no longer: %1").arg(gone.join(QStringLiteral(", "))));
+            }
+            discardTypedAhead();
+            out.prompt(Kyu::I18n::tr("Continue with pacman's list? [y/N] "));
+            if (!isYes(readAnswer())) {
+                out.warn(Kyu::I18n::tr("Nothing was changed."));
+                return ApplyStart::Blocked;
+            }
+        }
+    }
     if (plan.updateFirst) {
         return ApplyStart::NeedsUpdate;
     }
@@ -206,69 +248,48 @@ int runSteps(ApplyContext &ctx, const Kyu::Queue &queue, const Kyu::Plan &plan)
         result.set({n.item}, QStringLiteral("dropped"));
     }
     const qsizetype total = plan.steps.size();
-    Kyu::SystemPlanEnvironment env;
-    const Kyu::PacmanTranslations translations = Kyu::PacmanTranslations::forEnvironment();
+    out.windowTitle(total == 1 ? Kyu::Plan::stepTitle(plan.steps.constFirst()) : Kyu::I18n::tr("Installing and removing"));
+    if (!waitForPacman(ctx)) {
+        out.warn(Kyu::I18n::tr("Stopped. Nothing was changed."));
+        return 4;
+    }
+    // All steps in one terminal session, chained: sudo asks for the password
+    // once, and a step answered no or failing ends the session.
+    QList<QStringList> commands;
+    QStringList headers, shownCommands;
     for (qsizetype i = 0; i < total; ++i) {
         const Kyu::PlanStep &step = plan.steps[i];
         const QString title = Kyu::Plan::stepTitle(step);
-        out.windowTitle(title);
-        out.blank();
-        out.heading(total > 1 ? Kyu::I18n::tr("Step %1 of %2: %3").arg(i + 1).arg(total).arg(title) : title);
-        if (!waitForPacman(ctx)) {
-            out.warn(Kyu::I18n::tr("Stopped before %1.").arg(title));
-            return 4;
-        }
-        // What pacman will do now, against the plan: said before it asks.
-        if (!step.packages.isEmpty()) {
-            QStringList dry = step.arguments;
-            dry.removeAll(QStringLiteral("--needed"));
-            const QString op = dry.takeFirst();
-            const Kyu::CommandResult now = env.run(ctx.pacman, QStringList{op.startsWith(QLatin1String("-R")) ? QStringLiteral("-Rs") : op, QStringLiteral("--print"),
-                                                                           QStringLiteral("--print-format"), QStringLiteral("%n %v")}
-                                                                   + dry);
-            QStringList planned, actual;
-            for (const Kyu::PlannedPackage &p : step.packages) {
-                planned.append(p.name);
-            }
-            for (const auto &[n, v] : Kyu::parseNameVersion(now.out)) {
-                actual.append(n);
-            }
-            QStringList added, gone;
-            for (const QString &n : std::as_const(actual)) {
-                if (!planned.contains(n)) {
-                    added.append(n);
-                }
-            }
-            for (const QString &n : std::as_const(planned)) {
-                if (!actual.contains(n)) {
-                    gone.append(n);
-                }
-            }
-            if (now.exitCode == 0 && (!added.isEmpty() || !gone.isEmpty())) {
-                out.warn(Kyu::I18n::tr("pacman's list differs from the plan (the package lists changed):"));
-                if (!added.isEmpty()) {
-                    out.note(Kyu::I18n::tr("also: %1").arg(added.join(QStringLiteral(", "))));
-                }
-                if (!gone.isEmpty()) {
-                    out.note(Kyu::I18n::tr("no longer: %1").arg(gone.join(QStringLiteral(", "))));
-                }
-                discardTypedAhead();
-                out.prompt(Kyu::I18n::tr("Continue with pacman's list? [y/N] "));
-                if (!isYes(readAnswer())) {
-                    result.set(step.items, QStringLiteral("stopped"));
-                    out.warn(Kyu::I18n::tr("Stopped. Nothing of this step was changed."));
-                    return 4;
-                }
-            }
-        }
-        out.step(Kyu::I18n::tr("pacman"), ctx.elevate + QStringLiteral(" pacman ") + shellJoin(step.arguments));
-        QStringList shown;
-        const int code = runWatched(QStringList{ctx.elevate, ctx.pacman} + step.arguments, QProcessEnvironment::systemEnvironment(), &shown);
+        const QString shown = ctx.elevate + QStringLiteral(" pacman ") + shellJoin(step.arguments);
+        shownCommands.append(shown);
+        commands.append(QStringList{ctx.elevate, ctx.pacman} + step.arguments);
+        headers.append(out.headingText(total > 1 ? Kyu::I18n::tr("Step %1 of %2: %3").arg(i + 1).arg(total).arg(title) : title)
+                       + out.stepText(Kyu::I18n::tr("pacman"), shown));
+    }
+    QStringList lines;
+    const QList<int> codes = runSession(commands, headers, true, &lines);
+
+    const Kyu::PacmanTranslations translations = Kyu::PacmanTranslations::forEnvironment();
+    for (qsizetype i = 0; i < total; ++i) {
+        const Kyu::PlanStep &step = plan.steps[i];
+        const int code = codes.value(i, -1);
+        const bool known = code >= 0;
         if (code == 0) {
             result.set(step.items, QStringLiteral("done"));
             continue;
         }
-        if (answeredNo(shown, code) || hungUp) {
+        // This step's own lines: after its step line.
+        QStringList shown = lines;
+        for (qsizetype n = lines.size() - 1; n >= 0; --n) {
+            if (lines.at(n).endsWith(shownCommands.at(i))) {
+                shown = lines.mid(n + 1);
+                break;
+            }
+        }
+        const QString title = Kyu::Plan::stepTitle(step);
+        const bool no = !known || answeredNo(shown, code) || hungUp;
+        out.blank();
+        if (no) {
             result.set(step.items, QStringLiteral("stopped"));
             out.warn(Kyu::I18n::tr("Stopped: %1 was not done.").arg(title));
         } else {
@@ -294,7 +315,7 @@ int runSteps(ApplyContext &ctx, const Kyu::Queue &queue, const Kyu::Plan &plan)
             }
             out.note(Kyu::I18n::tr("Not done, still in Pending: %1").arg(later.join(QStringLiteral("; "))), Tone::Dim);
         }
-        return answeredNo(shown, code) || hungUp ? 4 : 1;
+        return no ? 4 : 1;
     }
     out.blank();
     out.good(Kyu::I18n::tr("Done."));

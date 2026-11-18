@@ -16,6 +16,7 @@ struct ApplyContext {
     QString procDir = QStringLiteral("/proc");
     QString dbLock = QStringLiteral("/var/lib/pacman/db.lck");
     QString resultFile; // apply-result.json
+    QString expectPath; // the plan the person saw (--expect), compared before anything runs
     Kyu::PlanOptions plan;
 };
 
@@ -32,9 +33,10 @@ enum class ApplyStart { Run, NeedsUpdate, Nothing, Blocked };
 // Plans again, says what will happen; Blocked and Nothing say why.
 ApplyStart startApply(ApplyContext &ctx, const Kyu::Queue &queue, Kyu::Plan &plan);
 
-// Runs the plan's steps in Kyu's window, one pacman command each; stops at
-// the first answered no or failure. Writes the result file after every step.
-// 0 all done, 1 failed, 4 stopped.
+// Runs the plan's steps in Kyu's window, one pacman command each, all in one
+// terminal session (so sudo asks for the password once); stops at the first
+// answered no or failure. Writes the result file. 0 all done, 1 failed,
+// 4 stopped.
 int runSteps(ApplyContext &ctx, const Kyu::Queue &queue, const Kyu::Plan &plan);
 
 // After an update that installed the queue's packages in its own

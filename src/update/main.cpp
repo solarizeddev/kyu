@@ -94,32 +94,13 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
     // pacman's own question defaults to yes.
     bool orphansKept = false, cacheKept = false, flatpaksKept = false;
     bool stopped = false;
-    if (!h.orphans.isEmpty()) {
+    // Kyu's own question first, then the root parts in one terminal
+    // session, so sudo asks for the password once.
+    const QString cacheShown = QStringLiteral("%1 paccache -rk%2").arg(elevate).arg(Kyu::CacheVersionsKept);
+    bool cleanCache = false;
+    if (h.cacheWorthCleaning()) {
         out.blank();
-        const QString mode = h.orphansRecursive ? QStringLiteral("-Rs") : QStringLiteral("-R");
-        out.step(Kyu::I18n::tr("Orphans"), elevate + QStringLiteral(" pacman ") + mode + QLatin1Char(' ') + h.orphans.join(QLatin1Char(' ')));
-        //: "n" is the answer to pacman's question: keep it.
-        out.note(Kyu::I18n::tr("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
-        out.note(elevate + QStringLiteral(" pacman -D --asexplicit NAME"), Tone::Dim);
-        QStringList shown;
-        const int rc = runWatched(QStringList{elevate, QStringLiteral("pacman"), mode} + h.orphans, QProcessEnvironment::systemEnvironment(), &shown);
-        if (rc != 0) {
-            orphansKept = true;
-            // Answered no ("[Y/n] n", in any language) or Ctrl+C: kept, not failed.
-            static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));
-            const bool no = rc == 130 || (!shown.isEmpty() && shown.last().startsWith(QLatin1String("::")) && answered.match(shown.last()).hasMatch());
-            if (no) {
-                out.note(Kyu::I18n::tr("Orphans kept."), Tone::Dim);
-                stopped = rc == 130;
-            } else {
-                out.warn(Kyu::I18n::tr("The orphans were not removed (status %1), see above.").arg(rc));
-            }
-        }
-    }
-    if (!stopped && h.cacheWorthCleaning()) {
-        out.blank();
-        out.step(Kyu::I18n::tr("Cache"), Kyu::I18n::tr("%1, then %2")
-                                             .arg(QStringLiteral("%1 paccache -rk%2").arg(elevate).arg(Kyu::CacheVersionsKept), QStringLiteral("-ruk0")));
+        out.step(Kyu::I18n::tr("Cache"), Kyu::I18n::tr("%1, then %2").arg(cacheShown, QStringLiteral("-ruk0")));
         discardTypedAhead();
         //: Keep [y/N]: Kyu reads "y" as yes.
         out.prompt(Kyu::I18n::tr("Remove %1 from the package cache: older versions (the newest %2 of each stay) and packages no longer installed? [y/N] ")
@@ -128,17 +109,70 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
         const QString answer = readAnswer();
         // Ctrl+C: no, and the rest of the clean-up stops too.
         stopped = answerInterrupted || hungUp;
-        if (isYes(answer)) {
-            int rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-rk%1").arg(Kyu::CacheVersionsKept)});
-            if (rc == 0) {
-                rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-ruk0")});
-            }
+        cleanCache = !stopped && isYes(answer);
+        cacheKept = !cleanCache;
+    }
+    QList<QStringList> commands;
+    QStringList headers;
+    const QString mode = h.orphansRecursive ? QStringLiteral("-Rs") : QStringLiteral("-R");
+    const QString orphansShown = elevate + QStringLiteral(" pacman ") + mode + QLatin1Char(' ') + h.orphans.join(QLatin1Char(' '));
+    if (!stopped && !h.orphans.isEmpty()) {
+        commands.append(QStringList{elevate, QStringLiteral("pacman"), mode} + h.orphans);
+        headers.append(out.captured([&]() {
+            out.blank();
+            out.step(Kyu::I18n::tr("Orphans"), orphansShown);
+            //: "n" is the answer to pacman's question: keep it.
+            out.note(Kyu::I18n::tr("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
+            out.note(elevate + QStringLiteral(" pacman -D --asexplicit NAME"), Tone::Dim);
+        }));
+    }
+    if (cleanCache) {
+        commands.append({elevate, QStringLiteral("paccache"), QStringLiteral("-rk%1").arg(Kyu::CacheVersionsKept)});
+        headers.append(out.stepText(Kyu::I18n::tr("Cache"), cacheShown));
+        commands.append({elevate, QStringLiteral("paccache"), QStringLiteral("-ruk0")});
+        headers.append(QString());
+    }
+    if (!commands.isEmpty()) {
+        QStringList lines;
+        const QList<int> codes = runSession(commands, headers, false, &lines);
+        qsizetype next = 0;
+        if (!h.orphans.isEmpty() && !stopped) {
+            const int rc = codes.value(next++, -1);
             if (rc != 0) {
-                cacheKept = true;
-                out.warn(Kyu::I18n::tr("The package cache was not cleaned (status %1), see above.").arg(rc));
+                orphansKept = true;
+                // The orphans' own lines: from their step line to the cache's.
+                QStringList shown;
+                bool in = false;
+                for (const QString &l : std::as_const(lines)) {
+                    if (l.endsWith(orphansShown)) {
+                        in = true;
+                        shown.clear();
+                        continue;
+                    }
+                    if (in && l.endsWith(cacheShown)) {
+                        break;
+                    }
+                    if (in) {
+                        shown.append(l);
+                    }
+                }
+                // Answered no ("[Y/n] n", in any language) or Ctrl+C: kept, not failed.
+                static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));
+                const bool no = rc == 130 || rc < 0 || (!shown.isEmpty() && shown.last().startsWith(QLatin1String("::")) && answered.match(shown.last()).hasMatch());
+                if (no) {
+                    out.note(Kyu::I18n::tr("Orphans kept."), Tone::Dim);
+                    stopped = rc == 130;
+                } else {
+                    out.warn(Kyu::I18n::tr("The orphans were not removed (status %1), see above.").arg(rc));
+                }
             }
-        } else {
-            cacheKept = true;
+        }
+        if (cleanCache) {
+            const int first = codes.value(next, -1), second = codes.value(next + 1, -1);
+            if (first != 0 || second != 0) {
+                cacheKept = true;
+                out.warn(Kyu::I18n::tr("The package cache was not cleaned (status %1), see above.").arg(first != 0 ? first : second));
+            }
         }
     }
     if (!stopped && !h.unusedFlatpaks.isEmpty()) {
@@ -220,6 +254,8 @@ int main(int argc, char **argv)
                                   QStringLiteral("file"));
     QCommandLineOption applyOption(QStringLiteral("apply"), Kyu::I18n::tr("Install and remove what the queue in FILE asks for, step by step with pacman."),
                                    QStringLiteral("file"));
+    QCommandLineOption expectOption(QStringLiteral("expect"), Kyu::I18n::tr("With --apply: the plan shown before (from --plan), compared before anything runs."),
+                                    QStringLiteral("file"));
     QCommandLineOption cleanOnly(QStringLiteral("clean"), Kyu::I18n::tr("Only offer to clean up: orphan packages, the package cache, unused Flatpak runtimes."));
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
@@ -237,7 +273,7 @@ int main(int argc, char **argv)
                                  QStringLiteral("/usr/share/locale"));
     localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, planOption, applyOption, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, planOption, applyOption, expectOption, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     // A plan, for the app's preview: JSON only, nothing else on stdout.
@@ -436,6 +472,7 @@ int main(int argc, char **argv)
     applyContext.procDir = parser.value(procDir);
     applyContext.dbLock = parser.value(dbLock);
     applyContext.resultFile = Kyu::Paths::stateDir() + QStringLiteral("/apply-result.json");
+    applyContext.expectPath = parser.value(expectOption);
     if (parser.isSet(applyOption)) {
         out.header(Kyu::I18n::tr("Kyu · installing and removing"));
         out.blank();

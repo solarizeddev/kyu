@@ -567,4 +567,44 @@ void checkInBackground()
     check.setStandardErrorFile(QProcess::nullDevice());
     check.startDetached();
 }
+QList<int> runSession(const QList<QStringList> &commands, const QStringList &headers, bool stopOnFailure, QStringList *lines)
+{
+    QTemporaryDir recording(recordingTemplate());
+    const auto statusFile = [&recording](qsizetype i) {
+        return recording.filePath(QStringLiteral("status-%1").arg(i));
+    };
+    QString shell;
+    for (qsizetype i = 0; i < commands.size(); ++i) {
+        shell += QStringLiteral("printf %s %1; %2; r=$?; echo $r >%3; ").arg(shellJoin({headers.value(i)}), shellJoin(inhibited(commands.at(i))), shellJoin({statusFile(i)}));
+        if (stopOnFailure) {
+            shell += QStringLiteral("[ $r -eq 0 ] || exit $r; ");
+        }
+    }
+    shell += QStringLiteral("exit 0");
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/sh"));
+    const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
+    const QString typescript = recording.filePath(QStringLiteral("typescript"));
+    if (!script.isEmpty() && recording.isValid() && stdinIsTerminal()) {
+        runInTerminal(script, {QStringLiteral("-q"), QStringLiteral("-e"), QStringLiteral("-f"), QStringLiteral("-c"), shell, typescript}, env, typescript);
+        QFile ts(typescript);
+        if (lines && ts.open(QIODevice::ReadOnly)) {
+            for (const QString &l : Kyu::terminalLines(ts.readAll())) {
+                if (!l.trimmed().isEmpty() && !l.startsWith(QLatin1String("Script "))) {
+                    lines->append(l.trimmed());
+                }
+            }
+        }
+    } else {
+        runInTerminal(QStringLiteral("/bin/sh"), {QStringLiteral("-c"), shell}, env);
+    }
+    QList<int> codes;
+    for (qsizetype i = 0; i < commands.size(); ++i) {
+        QFile status(statusFile(i));
+        bool known = false;
+        const int code = status.open(QIODevice::ReadOnly) ? status.readAll().trimmed().toInt(&known) : -1;
+        codes.append(known ? code : -1);
+    }
+    return codes;
+}
 }

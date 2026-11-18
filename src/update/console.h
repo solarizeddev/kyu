@@ -144,6 +144,26 @@ public:
     }
     // A blank line and step(), as text for a shell to print later (between
     // two commands that run in one go).
+    // What f prints, as text for a shell to print later.
+    template<typename F>
+    QString captured(F f)
+    {
+        m_capture.emplace();
+        f();
+        QString result = *m_capture;
+        m_capture.reset();
+        return result;
+    }
+    // A blank line and heading(), as text for a shell to print later.
+    QString headingText(const QString &text)
+    {
+        m_capture.emplace();
+        blank();
+        heading(text);
+        QString result = *m_capture;
+        m_capture.reset();
+        return result;
+    }
     QString stepText(const QString &name, const QString &detail)
     {
         m_capture.emplace();
@@ -298,6 +318,14 @@ QStringList inhibited(const QStringList &command);
 QString recordingTemplate();
 int runWatched(const QStringList &command, QProcessEnvironment env = QProcessEnvironment::systemEnvironment(), QStringList *shown = nullptr);
 QString shellJoin(const QStringList &args);
+
+// Commands run one after another in one terminal session (util-linux
+// `script`, watched for questions): sudo asks for the password once, as it
+// remembers it per terminal. headers[i] is printed before commands[i] (text
+// from Out::headingText/stepText). With stopOnFailure, a failing command
+// ends the session. Returns each command's status, -1 for one that did not
+// run; lines (if given) gets what the session showed, as plain lines.
+QList<int> runSession(const QList<QStringList> &commands, const QStringList &headers, bool stopOnFailure, QStringList *lines = nullptr);
 bool runPacdiff(Out &out, const QString &elevate);
 QString checkBinary();
 void checkInBackground();
