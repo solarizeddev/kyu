@@ -21,6 +21,11 @@
 namespace Kyu
 {
 #ifndef KYU_HAVE_FLATPAK
+QStringList unusedFlatpakRefs()
+{
+    return {};
+}
+
 FlatpakResult checkFlatpak(int)
 {
     FlatpakResult result;
@@ -138,6 +143,29 @@ FlatpakResult checkFlatpak(int timeoutSeconds)
     result.ok = errors.isEmpty();
     result.error = errors.join(QLatin1Char('\n'));
     return result;
+}
+
+QStringList unusedFlatpakRefs()
+{
+    QStringList refs;
+    QStringList errors;
+    for (FlatpakInstallation *installation : flatpakInstallations(errors)) {
+        GError *error = nullptr;
+        // With options: the same rules as the command line (pinned runtimes
+        // and end-of-life rebases are kept), from libflatpak 1.13.
+        GPtrArray *unused = flatpak_installation_list_unused_refs_with_options(installation, nullptr, nullptr, nullptr, nullptr, &error);
+        if (unused) {
+            for (guint i = 0; i < unused->len; ++i) {
+                auto *ref = FLATPAK_REF(g_ptr_array_index(unused, i));
+                refs.append(QString::fromUtf8(flatpak_ref_get_name(ref)) + QStringLiteral("//") + QString::fromUtf8(flatpak_ref_get_branch(ref)));
+            }
+            g_ptr_array_unref(unused);
+        }
+        g_clear_error(&error);
+        g_object_unref(installation);
+    }
+    refs.removeDuplicates();
+    return refs;
 }
 #endif
 }

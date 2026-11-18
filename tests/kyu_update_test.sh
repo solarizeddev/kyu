@@ -23,7 +23,7 @@ run() {
     name=$1; input=$2; shift 2
     d="$work/$name"
     fake_system "$d"
-    printf "$input" | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+    printf "$input" | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
         timeout 30 "$bin/kyu-update" --no-wait $(fake_args "$d") "$@" >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -282,7 +282,7 @@ runtty() {
     fake_system "$d"
     # shellcheck disable=SC2046
     : >"$d/out"
-    (IFS='|'; for a in $input; do idle "$d/out"; printf '%b' "$a"; done; idle "$d/out"; sleep 1) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+    (IFS='|'; for a in $input; do idle "$d/out"; printf '%b' "$a"; done; idle "$d/out"; sleep 1) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
         timeout 30 script -q -e -c "$bin/kyu-update $(fake_args "$d") $*" /dev/null >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -297,7 +297,7 @@ fake_system "$d"
     while [ ! -s "$d/state/kyu/waiting" ] && [ $n -lt 40 ]; do sleep 0.25; n=$((n + 1)); done
     cp "$d/state/kyu/waiting" "$d/seen" 2>/dev/null
     printf 'y\n'; idle "$d/out"; sleep 1
-) | env PATH="$here/update:$PATH" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
     timeout 30 script -q -e -c "$bin/kyu-update --no-wait $(fake_args "$d")" /dev/null >"$d/out" 2>&1
 [ "$(cat "$d/seen" 2>/dev/null)" = 'Proceed with installation? [Y/n]' ] || fail "waiting: noted '$(cat "$d/seen" 2>/dev/null)'"
 [ ! -e "$d/state/kyu/waiting" ] || fail "waiting: still noted after the update"
@@ -575,6 +575,46 @@ wait $first
 [ "$merging" = 3 ] || fail "--merge during an update: exit $merging, expected 3"
 [ "$second" = 3 ] || fail "second run: exit $second, expected 3"
 has "$work/second.out" 'An update is already running' second
+
+echo "housekeeping: after a whole update, what can go is listed, [c] cleans each part with its own question"
+KYU_FAKE_ORPHANS="gtk2 libfoo base" KYU_FAKE_ORPHAN_DEPS="libbar" KYU_FAKE_CACHE=big KYU_TEST_UNUSED_FLATPAKS="org.kde.Platform//6.8" runtty clean 'y\n|c\n|y\n|y\n|y\n|\n'
+d=$work/clean
+has "$d/out" 'Can be cleaned up, if you like:' clean
+# base is never offered, whatever its install reason.
+has "$d/out" '2 orphan packages: gtk2, libfoo (3 packages with what only they need)' clean
+has "$d/out" 'of older and removed packages in the package cache' clean
+has "$d/out" '1 Flatpak runtime no app uses' clean
+has "$d/out" '[c] clean up' clean
+[ "$(cat "$d/remove-args" 2>/dev/null)" = '-Rs gtk2 libfoo' ] || fail "clean: pacman got '$(cat "$d/remove-args" 2>/dev/null)'"
+[ "$(cat "$d/paccache-args" 2>/dev/null | tr '\n' ' ')" = '-rk3 -ruk0 ' ] || fail "clean: paccache got '$(cat "$d/paccache-args" 2>/dev/null)'"
+[ "$(cat "$d/flatpak-unused-args" 2>/dev/null)" = 'uninstall --unused' ] || fail "clean: flatpak got '$(cat "$d/flatpak-unused-args" 2>/dev/null)'"
+has "$d/out" 'sudo pacman -D --asexplicit NAME' clean
+# The fake runtime stays listed (the test's answer does not change): the rest is gone.
+hasnt "$d/out" 'Orphans not removed' clean
+
+echo "housekeeping: the cache answered n is kept; orphans answered n are kept, said plainly"
+KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_CACHE=big runtty cleanno 'y\n|c\n|n\n|n\n|\n'
+d=$work/cleanno
+has "$d/out" 'Orphans not removed (status 1), see above.' cleanno
+[ ! -e "$d/paccache-args" ] || fail "cleanno: paccache ran"
+has "$d/out" '[c] clean up' cleanno
+
+echo "housekeeping: nothing shown after a failed update, nor when there is nothing"
+KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_MODE=midfail runtty cleanfail 'y\n|\n'
+hasnt "$work/cleanfail/out" 'Can be cleaned up' cleanfail
+hasnt "$work/cleanfail/out" '[c] clean up' cleanfail
+runtty cleannone 'y\n|\n'
+hasnt "$work/cleannone/out" 'Can be cleaned up' cleannone
+
+echo "housekeeping: kyu-update --clean on its own"
+KYU_FAKE_CACHE=big runtty cleanonly 'c\n|y\n|\n' --clean
+d=$work/cleanonly
+has "$d/out" 'Kyu · clean up' cleanonly
+[ "$(cat "$d/paccache-args" 2>/dev/null | tr '\n' ' ')" = '-rk3 -ruk0 ' ] || fail "cleanonly: paccache got '$(cat "$d/paccache-args" 2>/dev/null)'"
+has "$d/out" 'Cleaned up.' cleanonly
+[ ! -e "$d/pacman-ran" ] || fail "cleanonly: the update ran"
+runtty cleanonlynone '\n' --clean
+has "$work/cleanonlynone/out" 'Nothing to clean up.' cleanonlynone
 
 [ $fails -eq 0 ] && echo "all kyu-update tests passed"
 [ $fails -eq 0 ]

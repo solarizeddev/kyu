@@ -1,7 +1,16 @@
 #!/bin/sh
 # Stands in for flatpak in tests/kyu_update_test.sh. KYU_FAKE_FLATPAK:
 # (unset) updates; ask: asks, as flatpak does, and stops on "n"; nothing:
-# finds nothing to update (a remote gone: a warning, exit 0).
+# finds nothing to update (a remote gone: a warning, exit 0). Also
+# "uninstall --unused" (housekeeping), asking as flatpak does.
+if [ "$1 $2" = "uninstall --unused" ]; then
+    echo "$*" >"$KYU_FAKE_DIR/flatpak-unused-args"
+    printf 'Proceed with these changes to the system installation? [Y/n]: '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+    echo "Uninstall complete."
+    exit 0
+fi
 [ "$1" = update ] || { echo "fake flatpak: unexpected arguments: $*" >&2; exit 2; }
 touch "$KYU_FAKE_DIR/flatpak-ran"
 echo "Looking for updates…"

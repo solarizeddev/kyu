@@ -13,6 +13,7 @@
 
 #include "aftercare.h"
 #include "failure.h"
+#include "housekeeping.h"
 #include "failuretext.h"
 #include "aur.h"
 #include "keyrings.h"
@@ -31,6 +32,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QJsonArray>
+#include <QLocale>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLockFile>
@@ -807,6 +809,79 @@ void checkInBackground()
 }
 }
 
+// "Can be cleaned up:" and a line per part that qualifies (housekeeping.h).
+void printHousekeeping(Out &out, const Kyu::Housekeeping &h)
+{
+    out.blank();
+    out.heading(QStringLiteral("Can be cleaned up, if you like:"));
+    if (!h.orphans.isEmpty()) {
+        QString line = QStringLiteral("%1: %2").arg(plural(h.orphans.size(), QStringLiteral("orphan package"), QStringLiteral("orphan packages")),
+                                                    h.orphans.join(QStringLiteral(", ")));
+        // pacman -Rs also takes what only they need: said here, not first at its question.
+        if (h.orphanRemovals.size() > h.orphans.size()) {
+            line += QStringLiteral(" (%1 packages with what only they need)").arg(h.orphanRemovals.size());
+        }
+        out.note(line);
+    }
+    if (h.cacheWorthCleaning()) {
+        out.note(QStringLiteral("%1 of older and removed packages in the package cache").arg(QLocale().formattedDataSize(h.cacheBytes, 1)));
+    }
+    if (!h.unusedFlatpaks.isEmpty()) {
+        out.note(plural(h.unusedFlatpaks.size(), QStringLiteral("Flatpak runtime no app uses"), QStringLiteral("Flatpak runtimes no app uses")));
+    }
+}
+
+// [c]: each part on its own, each confirmed (pacman's and flatpak's own
+// questions; Kyu's for the cache). A part that fails says so; the update's
+// verdict stays what it was. What is left afterwards.
+Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeeping &h)
+{
+    if (!h.orphans.isEmpty()) {
+        out.blank();
+        out.step(QStringLiteral("Orphans"), elevate + QStringLiteral(" pacman -Rs ") + h.orphans.join(QLatin1Char(' ')));
+        out.note(QStringLiteral("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
+        out.note(QStringLiteral("sudo pacman -D --asexplicit NAME"), Tone::Dim);
+        const int rc = runWatched(QStringList{elevate, QStringLiteral("pacman"), QStringLiteral("-Rs")} + h.orphans);
+        if (rc != 0) {
+            // Answered n, or failed: pacman said which.
+            out.warn(QStringLiteral("Orphans not removed (status %1), see above.").arg(rc));
+        }
+    }
+    if (h.cacheWorthCleaning()) {
+        out.blank();
+        out.step(QStringLiteral("Cache"), QStringLiteral("%1 paccache -rk%2, then -ruk0").arg(elevate).arg(Kyu::CacheVersionsKept));
+        discardTypedAhead();
+        out.prompt(QStringLiteral("Remove %1 from the package cache: older versions (the newest %2 of each stay) and packages no longer installed? [y/N] ")
+                       .arg(QLocale().formattedDataSize(h.cacheBytes, 1))
+                       .arg(Kyu::CacheVersionsKept));
+        if (readAnswer() == QLatin1String("y")) {
+            int rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-rk%1").arg(Kyu::CacheVersionsKept)});
+            if (rc == 0) {
+                rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-ruk0")});
+            }
+            if (rc != 0) {
+                out.warn(QStringLiteral("The package cache was not cleaned (status %1), see above.").arg(rc));
+            }
+        }
+    }
+    if (!h.unusedFlatpaks.isEmpty()) {
+        out.blank();
+        out.step(QStringLiteral("Flatpak"), QStringLiteral("flatpak uninstall --unused"));
+        const int rc = runWatched({QStringLiteral("flatpak"), QStringLiteral("uninstall"), QStringLiteral("--unused")});
+        if (rc != 0) {
+            out.warn(QStringLiteral("The unused runtimes were not removed (status %1), see above.").arg(rc));
+        }
+    }
+    const Kyu::Housekeeping left = Kyu::readHousekeeping();
+    if (!left.any()) {
+        out.blank();
+        out.good(QStringLiteral("Cleaned up."));
+    } else {
+        printHousekeeping(out, left);
+    }
+    return left;
+}
+
 int main(int argc, char **argv)
 {
     // The terminal's character set, from the environment: asked before Qt
@@ -847,6 +922,7 @@ int main(int argc, char **argv)
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the configuration files the last update left (pacdiff)."));
+    QCommandLineOption cleanOnly(QStringLiteral("clean"), QStringLiteral("Only offer to clean up: orphan packages, the package cache, unused Flatpak runtimes."));
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
     lockWait.setFlags(QCommandLineOption::HiddenFromHelp);
@@ -863,7 +939,7 @@ int main(int argc, char **argv)
                                  QStringLiteral("/usr/share/locale"));
     localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
     Out out(utf8);
@@ -892,6 +968,7 @@ int main(int argc, char **argv)
         QString fixShown; // how the fix is said, when the command itself is long
         QStringList again; // ... with these options added
         std::function<bool()> fixAllowed; // checked when [f] is pressed
+        Kyu::Housekeeping house; // [c]: what can be cleaned up
     };
 
     // The end: the lock goes first (the tray's card stops saying "Updating"),
@@ -921,6 +998,9 @@ int main(int argc, char **argv)
             }
             if (!k.configs.isEmpty()) {
                 offer.append(QStringLiteral("[m] merge"));
+            }
+            if (k.house.any()) {
+                offer.append(QStringLiteral("[c] clean up"));
             }
             offer.append(QStringLiteral("[Enter] close"));
             out.blank();
@@ -971,6 +1051,8 @@ int main(int argc, char **argv)
                 if (left.isEmpty()) {
                     out.good(QStringLiteral("Configuration files merged."));
                 }
+            } else if (answer == QLatin1String("c") && k.house.any()) {
+                k.house = cleanUp(out, elevate, k.house);
             } else if (answer == QLatin1String("f") && !k.fix.isEmpty()) {
                 if (k.fixAllowed && !k.fixAllowed()) {
                     continue;
@@ -1025,12 +1107,26 @@ int main(int argc, char **argv)
     {
         QSaveFile activity(activityPath);
         if (activity.open(QIODevice::WriteOnly)) {
-            activity.write(parser.isSet(mergeOnly) ? "merge\n" : "update\n");
+            activity.write(parser.isSet(mergeOnly) ? "merge\n" : parser.isSet(cleanOnly) ? "clean\n" : "update\n");
             activity.commit();
         }
     }
     // Nor is any question waiting yet (a file left by a killed run).
     Kyu::setWaiting(QString());
+
+    // --- Clean up only (kyu-update --clean) --------------------------------------
+    if (parser.isSet(cleanOnly)) {
+        out.header(QStringLiteral("Kyu · clean up"));
+        out.blank();
+        Keys keys;
+        keys.house = Kyu::readHousekeeping();
+        if (!keys.house.any()) {
+            out.good(QStringLiteral("Nothing to clean up."));
+        } else {
+            printHousekeeping(out, keys.house);
+        }
+        return finish(0, keys);
+    }
 
     // --- Configuration files only (the card's Merge…) ----------------------------
     if (parser.isSet(mergeOnly)) {
@@ -1917,6 +2013,16 @@ int main(int argc, char **argv)
                           programs.size() == 1 ? QStringLiteral("it") : QStringLiteral("them")));
     }
 
+    const int code = pacmanExit > 0 ? pacmanExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
+    // After a whole update only: what can be cleaned up, as lines and a key
+    // (never a question before the verdict; never on its own).
+    if (code == 0 && !stoppedOnPurpose) {
+        keys.house = Kyu::readHousekeeping();
+        if (keys.house.any()) {
+            printHousekeeping(out, keys.house);
+        }
+    }
+
     QJsonObject record = recordOf(now, programs, aurExit, aurFailed);
     // The card and the tray do not call a stop a failure.
     if (stoppedOnPurpose) {
@@ -1937,6 +2043,5 @@ int main(int argc, char **argv)
         checkInBackground();
     }
 
-    const int code = pacmanExit > 0 ? pacmanExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
     return finish(code, keys);
 }

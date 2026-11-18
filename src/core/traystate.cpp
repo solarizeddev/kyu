@@ -168,7 +168,9 @@ TrayView trayView(const TrayInput &in)
 
     if (in.updating) {
         v.mark = TrayMark::Updating;
-        v.tooltip = in.activity == QLatin1String("merge") ? QStringLiteral("Merging configuration files") : QStringLiteral("Updating");
+        v.tooltip = in.activity == QLatin1String("merge") ? QStringLiteral("Merging configuration files")
+            : in.activity == QLatin1String("clean")       ? QStringLiteral("Cleaning up")
+                                                          : QStringLiteral("Updating");
     } else if (lastFailed) {
         v.mark = TrayMark::Error;
         v.iconName = QStringLiteral("update-high");
@@ -404,7 +406,7 @@ CardView cardView(const TrayInput &in)
         } else {
             c.kind = CardView::Kind::Updating;
             c.icon = QStringLiteral("system-upgrade");
-            c.heading = QStringLiteral("Updating…");
+            c.heading = in.activity == QLatin1String("clean") ? QStringLiteral("Cleaning up…") : QStringLiteral("Updating…");
             c.detail = QStringLiteral("Running in the Kyu window.");
         }
         c.busy = true;

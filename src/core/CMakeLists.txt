@@ -18,6 +18,7 @@ add_library(kyucore STATIC
     waiting.cpp
     notices.cpp
     launch.cpp
+    housekeeping.cpp
 )
 target_include_directories(kyucore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(kyucore PUBLIC Qt6::Core Qt6::Network)

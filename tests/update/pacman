@@ -43,6 +43,29 @@ case "$*" in
     echo "[$(now)] [ALPM] transaction completed" >>"$log"
     touch "$KYU_FAKE_DIR/keyring-upgraded"
     exit 0 ;;
+-Qtdq)
+    # Orphans: KYU_FAKE_ORPHANS, until removed (-Rs).
+    [ -n "${KYU_FAKE_ORPHANS:-}" ] && [ ! -e "$KYU_FAKE_DIR/orphans-removed" ] || exit 1
+    for o in $KYU_FAKE_ORPHANS; do echo "$o"; done
+    exit 0 ;;
+"-Rs --print --print-format %n "*)
+    # What -Rs would remove: the targets and KYU_FAKE_ORPHAN_DEPS.
+    shift 4
+    for o in "$@" ${KYU_FAKE_ORPHAN_DEPS:-}; do echo "$o"; done
+    exit 0 ;;
+"-Rs "*)
+    echo "$*" >"$KYU_FAKE_DIR/remove-args"
+    shift
+    echo "checking dependencies..."
+    echo ""
+    echo "Packages ($#) $*"
+    echo ""
+    printf ':: Do you want to remove these packages? [Y/n] '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+    for o in "$@"; do echo "removing $o..."; done
+    touch "$KYU_FAKE_DIR/orphans-removed"
+    exit 0 ;;
 -Syu | -Syyu | -Su) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
 *) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;
 esac

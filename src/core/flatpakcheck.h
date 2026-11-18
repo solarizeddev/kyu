@@ -10,4 +10,9 @@ namespace Kyu
 // Gives up after timeoutSeconds (a remote that does not answer must not
 // hold up every later check).
 FlatpakResult checkFlatpak(int timeoutSeconds = 120);
+
+// Runtimes and extensions no installed app uses, as `flatpak uninstall
+// --unused` would remove them (pinned and still-needed ones kept), in every
+// installation in use: "org.kde.Platform//6.8". Empty without libflatpak.
+QStringList unusedFlatpakRefs();
 }
