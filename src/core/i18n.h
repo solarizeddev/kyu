@@ -21,6 +21,8 @@ QString numbered(const char *many, const char *one, qsizetype n);
 
 // Installs the translations for the user's language: Kyu's (kyu_LANG.qm,
 // from KYU_TRANSLATIONS_DIR, the build tree or the installed share/kyu/translations)
-// and Qt's own (dialog buttons). None for English. Returns whether Kyu's loaded.
+// and Qt's own (dialog buttons). None for English, nor under the C locale:
+// LC_ALL=C.UTF-8 stays English whatever LANGUAGE says, as with gettext.
+// Returns whether Kyu's loaded.
 bool loadTranslations();
 }

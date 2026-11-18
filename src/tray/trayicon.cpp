@@ -2,6 +2,7 @@
 
 #include "aftercare.h"
 #include "badge.h"
+#include "i18n.h"
 #include "launch.h"
 #include "news.h"
 #include "paths.h"
@@ -54,18 +55,18 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     , m_menu(new QMenu)
     , m_updatesMemory(Kyu::readUpdatesMemory(Kyu::Paths::stateDir() + QStringLiteral("/updates-notified.json")))
 {
-    auto *show = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-update")), QStringLiteral("Show updates"));
+    auto *show = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-update")), Kyu::I18n::tr("Show updates"));
     connect(show, &QAction::triggered, this, [this] {
         Q_EMIT cardRequested(QString());
     });
-    m_checkAction = m_menu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), QStringLiteral("Check for updates now"));
+    m_checkAction = m_menu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), Kyu::I18n::tr("Check for updates now"));
     connect(m_checkAction, &QAction::triggered, this, &TrayIcon::checkRequested);
 
 #ifdef KYU_HAVE_KSNI
     m_item = new KStatusNotifierItem(QStringLiteral("kyu"), this);
     m_item->setCategory(KStatusNotifierItem::SystemServices);
     m_item->setTitle(QStringLiteral("Kyu"));
-    m_item->setToolTipTitle(QStringLiteral("Updates"));
+    m_item->setToolTipTitle(Kyu::I18n::tr("Updates"));
     m_item->setContextMenu(m_menu); // takes ownership; adds Quit
     // No associated window: a click asks for the card, a separate process.
     connect(m_item, &KStatusNotifierItem::activateRequested, this, [this] {
@@ -73,7 +74,7 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     });
 #else
     m_menu->addSeparator();
-    m_menu->addAction(QIcon::fromTheme(QStringLiteral("application-exit")), QStringLiteral("Quit"), qApp, &QCoreApplication::quit);
+    m_menu->addAction(QIcon::fromTheme(QStringLiteral("application-exit")), Kyu::I18n::tr("Quit"), qApp, &QCoreApplication::quit);
     m_item = new QSystemTrayIcon(this);
     m_item->setContextMenu(m_menu);
     connect(this, &QObject::destroyed, m_menu, &QObject::deleteLater);
@@ -215,17 +216,17 @@ void TrayIcon::notifyNews(const QString &key, const QString &title, const QStrin
     notification->setComponentName(QStringLiteral("kyu"));
     notification->setIconName(QStringLiteral("update-medium"));
     // As the card's "Read first: …": what to do, then which announcement.
-    notification->setTitle(QStringLiteral("Read before updating"));
+    notification->setTitle(Kyu::I18n::tr("Read before updating"));
     notification->setText(title.toHtmlEscaped());
     if (!link.isEmpty()) {
-        connect(notification->addAction(QStringLiteral("Read")), &KNotificationAction::activated, this, [key, link]() {
+        connect(notification->addAction(Kyu::I18n::tr("Read")), &KNotificationAction::activated, this, [key, link]() {
             // Read once it opened (as from the card).
             if (QDesktopServices::openUrl(QUrl(link))) {
                 Kyu::markNewsSeen({key});
             }
         });
     }
-    connect(notification->addDefaultAction(QStringLiteral("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
+    connect(notification->addDefaultAction(Kyu::I18n::tr("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
         Q_EMIT cardRequested(notification->xdgActivationToken());
     });
     m_news = notification;
@@ -264,10 +265,10 @@ void TrayIcon::notifyUpdates(const Kyu::TrayInput &in)
     // Not kept in the history: the tray shows the updates, and a list in
     // the history would go stale once they are installed.
     notification->setHint(QStringLiteral("transient"), true);
-    connect(notification->addAction(QStringLiteral("Update")), &KNotificationAction::activated, this, [notification]() {
+    connect(notification->addAction(Kyu::I18n::tr("Update")), &KNotificationAction::activated, this, [notification]() {
         Kyu::startUpdate({}, notification->xdgActivationToken());
     });
-    connect(notification->addDefaultAction(QStringLiteral("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
+    connect(notification->addDefaultAction(Kyu::I18n::tr("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
         Q_EMIT cardRequested(notification->xdgActivationToken());
     });
     m_updates = notification;

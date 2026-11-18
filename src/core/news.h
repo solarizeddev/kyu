@@ -31,6 +31,10 @@ NewsSource newsSourceFor(const QString &osReleasePath = QStringLiteral("/etc/os-
                          const QString &mirrorsConfPath = QStringLiteral("/etc/pacman-mirrors.conf"),
                          const QString &cpuArchitecture = QString());
 
+// A source's name as the state file has it (in English: "Arch Linux news")
+// in the user's language. Manjaro's category names stay as they are.
+QString newsSourceText(const QString &name);
+
 // When the last full system upgrade that completed started, from pacman.log:
 // a "[PACMAN] starting full system upgrade" line (or another frontend's tag) followed by "[ALPM]
 // transaction completed". An upgrade that failed or was stopped does not

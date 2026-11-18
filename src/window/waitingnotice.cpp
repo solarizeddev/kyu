@@ -1,6 +1,7 @@
 #include "waitingnotice.h"
 
 #include "activator.h"
+#include "i18n.h"
 #include "waiting.h"
 
 #include <QApplication>
@@ -47,14 +48,14 @@ void WaitingNotice::look()
     auto *notification = new KNotification(QStringLiteral("waitingForYou"), KNotification::Persistent);
     notification->setComponentName(QStringLiteral("kyu"));
     notification->setIconName(QStringLiteral("system-software-update"));
-    notification->setTitle(QStringLiteral("The update is waiting for you"));
+    notification->setTitle(Kyu::I18n::tr("The update is waiting for you"));
     notification->setText(text);
     notification->setUrgency(KNotification::HighUrgency);
     const auto show = [this, notification]() {
         m_activator->Activate(notification->xdgActivationToken());
     };
-    connect(notification->addDefaultAction(QStringLiteral("Show")), &KNotificationAction::activated, this, show);
-    connect(notification->addAction(QStringLiteral("Show")), &KNotificationAction::activated, this, show);
+    connect(notification->addDefaultAction(Kyu::I18n::tr("Show")), &KNotificationAction::activated, this, show);
+    connect(notification->addAction(Kyu::I18n::tr("Show")), &KNotificationAction::activated, this, show);
     m_notification = notification;
     notification->sendEvent();
 #endif

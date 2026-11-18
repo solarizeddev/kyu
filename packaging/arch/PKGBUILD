@@ -35,7 +35,7 @@ depends=(
     systemd
     util-linux
 )
-makedepends=(cmake ninja)
+makedepends=(cmake ninja qt6-tools)
 provides=(kyu)
 conflicts=(kyu)
 

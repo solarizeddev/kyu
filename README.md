@@ -51,7 +51,7 @@ recognised as they are). Otherwise Kyu shows pacman's own last lines.
 ## Build
 
 ```bash
-sudo pacman -S --needed base-devel git cmake ninja qt6-base kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes knotifications konsole flatpak pacman-contrib
+sudo pacman -S --needed base-devel git cmake ninja qt6-base qt6-tools kstatusnotifieritem kwindowsystem kparts kcoreaddons kiconthemes knotifications konsole flatpak pacman-contrib
 ```
 
 ```bash
@@ -131,6 +131,28 @@ helper=yay
 ```
 
 "Check for updates" on the card asks the AUR right away.
+
+## Translations
+
+Kyu speaks the desktop's language where it has a translation (German so
+far), from `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` or `LANG`; English under the
+C locale. pacman's, sudo's and flatpak's lines stay as those programs print
+them. The translations are Qt Linguist files in `translations/`, built with
+the program when `qt6-tools` (lrelease) is installed.
+
+To add a language, say French: a file named like `kyu_de.ts` (an empty one
+is enough), then the `kyu-lupdate` target fills in Kyu's words:
+
+```bash
+printf '<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE TS>\n<TS version="2.1" language="fr_FR">\n</TS>\n' >translations/kyu_fr.ts
+cmake -S . -B build -G Ninja                  # picks up the new file
+cmake --build build --target kyu-lupdate      # Kyu's words into every .ts file
+/usr/lib/qt6/bin/linguist translations/kyu_fr.ts
+```
+
+Translate each message in Qt Linguist (or any .ts editor) and mark it done.
+Keep `%1`, `%n` and the keys in brackets (`[c]`, `[y/N]`): Kyu reads those
+letters. After Kyu's words change, `kyu-lupdate` refreshes every `.ts` file.
 
 ## Install
 

@@ -1,5 +1,7 @@
 #include "notices.h"
 
+#include "i18n.h"
+
 #include "news.h"
 
 #include <QDir>
@@ -20,7 +22,7 @@ QString listed(const QStringList &items)
     if (items.size() < 2) {
         return items.value(0);
     }
-    return QStringList(items.mid(0, items.size() - 1)).join(QStringLiteral(", ")) + QStringLiteral(" and ") + items.constLast();
+    return I18n::tr("%1 and %2").arg(QStringList(items.mid(0, items.size() - 1)).join(QStringLiteral(", ")), items.constLast());
 }
 
 bool unreadNews(const TrayInput &in)
@@ -52,7 +54,7 @@ QStringList notableUpdates(const UpdateState &state)
     }
     QStringList names;
     if (newKernel) {
-        names.append(QStringLiteral("the kernel"));
+        names.append(I18n::tr("the kernel"));
     }
     if (plasma) {
         names.append(QStringLiteral("Plasma"));
@@ -61,7 +63,7 @@ QStringList notableUpdates(const UpdateState &state)
         names.append(QStringLiteral("Mesa"));
     }
     if (nvidia) {
-        names.append(QStringLiteral("the NVIDIA driver"));
+        names.append(I18n::tr("the NVIDIA driver"));
     }
     if (systemd) {
         names.append(QStringLiteral("systemd"));
@@ -109,7 +111,7 @@ UpdatesNotice updatesNotice(const TrayInput &in, UpdatesMemory &memory)
     notice.title = updatesHeading(s);
     notice.text = updatesBreakdown(s);
     if (const QStringList notable = notableUpdates(s); !notable.isEmpty()) {
-        notice.text += QStringLiteral(" · including ") + listed(notable);
+        notice.text += QStringLiteral(" · ") + I18n::tr("including %1").arg(listed(notable));
     }
     return notice;
 }

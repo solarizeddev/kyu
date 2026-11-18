@@ -18,6 +18,7 @@
 // than open Konsole when Konsole's part is missing.
 
 #include "activator.h"
+#include "i18n.h"
 #include "paths.h"
 #include "waitingnotice.h"
 
@@ -134,10 +135,10 @@ protected:
             m_box = &box;
             box.setIcon(QMessageBox::Warning);
             box.setWindowTitle(QStringLiteral("Kyu"));
-            box.setText(QStringLiteral("Stop the update?"));
-            box.setInformativeText(QStringLiteral("The update is still running. Stopping it now can leave the system half updated."));
-            QPushButton *stop = box.addButton(QStringLiteral("Stop the update"), QMessageBox::DestructiveRole);
-            QPushButton *keep = box.addButton(QStringLiteral("Keep updating"), QMessageBox::RejectRole);
+            box.setText(Kyu::I18n::tr("Stop the update?"));
+            box.setInformativeText(Kyu::I18n::tr("The update is still running. Stopping it now can leave the system half updated."));
+            QPushButton *stop = box.addButton(Kyu::I18n::tr("Stop the update"), QMessageBox::DestructiveRole);
+            QPushButton *keep = box.addButton(Kyu::I18n::tr("Keep updating"), QMessageBox::RejectRole);
             box.setDefaultButton(keep);
             box.setEscapeButton(keep);
             box.exec();
@@ -176,6 +177,7 @@ private:
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    Kyu::loadTranslations();
     // Not "konsole": the part shows its tab bar only inside Konsole itself.
     QApplication::setApplicationName(QStringLiteral("kyu-window"));
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));

@@ -1,5 +1,7 @@
 #include "statustext.h"
 
+#include "i18n.h"
+
 #include <QLocale>
 #include <QRegularExpression>
 
@@ -20,7 +22,7 @@ QString when(const QDateTime &dt, const QDateTime &now)
         return time;
     }
     if (days == 1) {
-        return QStringLiteral("yesterday ") + time;
+        return I18n::tr("yesterday %1").arg(time);
     }
     if (days > 1 && days < 7) {
         return locale.dayName(local.date().dayOfWeek(), QLocale::ShortFormat) + QLatin1Char(' ') + time;
@@ -34,9 +36,9 @@ void addFailure(QStringList &lines, const QString &source, const SourceStatus &s
         return;
     }
     const QString firstLine = status.error.section(QLatin1Char('\n'), 0, 0);
-    QString line = QStringLiteral("%1 check failed at %2: %3").arg(source, when(status.checkedAt, now), firstLine);
+    QString line = I18n::tr("%1 check failed at %2: %3").arg(source, when(status.checkedAt, now), firstLine);
     if (status.lastSuccessAt.isValid()) {
-        line += QStringLiteral("; list from %1").arg(when(status.lastSuccessAt, now));
+        line += I18n::tr("; list from %1").arg(when(status.lastSuccessAt, now));
     }
     lines.append(line);
 }
@@ -62,25 +64,25 @@ QStringList statusLines(const std::optional<UpdateState> &state,
 {
     QStringList lines;
     if (!loadError.isEmpty()) {
-        lines.append(QStringLiteral("Cannot read the update list: %1").arg(loadError));
+        lines.append(I18n::tr("Cannot read the update list: %1").arg(loadError));
     }
     if (!state) {
-        lines.append(checking ? QStringLiteral("Checking for updates") : QStringLiteral("Not checked yet"));
+        lines.append(checking ? I18n::tr("Checking for updates") : I18n::tr("Not checked yet"));
         return lines;
     }
     lines.append(state->summary());
     if (checking) {
-        lines.append(QStringLiteral("Checking for updates"));
+        lines.append(I18n::tr("Checking for updates"));
     } else if (state->checkedAt.isValid()) {
-        lines.append(QStringLiteral("Checked %1").arg(when(state->checkedAt, now)));
+        lines.append(I18n::tr("Checked %1").arg(when(state->checkedAt, now)));
     }
     addFailure(lines, QStringLiteral("pacman"), state->pacman, now);
     addFailure(lines, QStringLiteral("Flatpak"), state->flatpak, now);
     // The AUR's site is down now and then: said only after a day without it.
     const SourceStatus &aur = state->aur;
     if (aur.checked && !aur.ok && (!aur.lastSuccessAt.isValid() || aur.lastSuccessAt.secsTo(now) > 24 * 3600)) {
-        lines.append(aur.lastSuccessAt.isValid() ? QStringLiteral("AUR not checked since %1: %2").arg(when(aur.lastSuccessAt, now), aur.error.section(QLatin1Char('\n'), 0, 0))
-                                                 : QStringLiteral("AUR check failed: %1").arg(aur.error.section(QLatin1Char('\n'), 0, 0)));
+        lines.append(aur.lastSuccessAt.isValid() ? I18n::tr("AUR not checked since %1: %2").arg(when(aur.lastSuccessAt, now), aur.error.section(QLatin1Char('\n'), 0, 0))
+                                                 : I18n::tr("AUR check failed: %1").arg(aur.error.section(QLatin1Char('\n'), 0, 0)));
     }
     return lines;
 }

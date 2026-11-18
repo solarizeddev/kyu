@@ -1,5 +1,7 @@
 #include "updatestate.h"
 
+#include "i18n.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -53,11 +55,10 @@ SourceStatus statusFromJson(const QJsonObject &o)
 
 QString updatesText(int count)
 {
-    // Placeholder until the strings go through KI18n.
     if (count == 0) {
-        return QStringLiteral("No updates");
+        return I18n::tr("No updates");
     }
-    return count == 1 ? QStringLiteral("1 update") : QStringLiteral("%1 updates").arg(count);
+    return numbered("%n updates", "1 update", count);
 }
 
 QList<std::pair<QString, int>> UpdateState::groups() const
