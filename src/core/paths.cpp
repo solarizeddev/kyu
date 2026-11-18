@@ -42,4 +42,9 @@ QString checkupDbDir()
 {
     return xdgDir("XDG_CACHE_HOME", QStringLiteral("/.cache")) + QStringLiteral("/kyu/checkup-db");
 }
+
+QString planDbDir()
+{
+    return xdgDir("XDG_CACHE_HOME", QStringLiteral("/.cache")) + QStringLiteral("/kyu/plan-db");
+}
 }
