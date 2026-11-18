@@ -52,6 +52,10 @@
 
 namespace KyuUpdate
 {
+// The width of the step names' column ("Packages   sudo pacman -Syu"): the
+// longest step name in the user's language, at least 10 (as in English).
+int stepWidth();
+
 enum class Tone { Plain, Dim, Info, Good, Warn, Bad };
 
 // Kyu's lines. Basic ANSI colours only, so the terminal's own colour scheme
@@ -89,12 +93,12 @@ public:
     void step(const QString &name, const QString &detail)
     {
         // Blue: green is for "done" only.
-        marked(sym("▸", ">"), name.leftJustified(10) + QLatin1Char(' ') + detail, Tone::Info);
+        marked(sym("▸", ">"), name.leftJustified(stepWidth()) + QLatin1Char(' ') + detail, Tone::Info);
     }
     // The same, for what happens without Kyu running anything.
     void quietStep(const QString &name, const QString &detail)
     {
-        print(sym("▸", ">") + QLatin1Char(' ') + name.leftJustified(10) + QLatin1Char(' ') + detail, Tone::Dim, false);
+        print(sym("▸", ">") + QLatin1Char(' ') + name.leftJustified(stepWidth()) + QLatin1Char(' ') + detail, Tone::Dim, false);
     }
     void good(const QString &text)
     {
@@ -253,6 +257,8 @@ void onAnswerInterrupt(int);
 extern volatile std::sig_atomic_t hungUp;
 void onHangup(int);
 QString readAnswer();
+// Yes to one of Kyu's [y/N] questions: y, yes, j or ja, in any case.
+bool isYes(const QString &answer);
 void noop(int);
 int runInTerminal(const QString &program, const QStringList &args, const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment(), const QString &watch = QString());
 struct Manager {

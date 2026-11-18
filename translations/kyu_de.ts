@@ -76,7 +76,7 @@
         <location line="+12"/>
         <location line="+73"/>
         <source>Package signatures could not be checked</source>
-        <translation>Paketsignaturen konnten nicht überprüft werden</translation>
+        <translation>Paketsignaturen konnten nicht geprüft werden</translation>
     </message>
     <message>
         <location line="-72"/>
@@ -91,7 +91,7 @@
     <message>
         <location line="+1"/>
         <source>Usually the keyring is older than the packages: updating the keyring first, then everything else, fixes it.</source>
-        <translation>Meist ist der Schlüsselbund älter als die Pakete: Zuerst den Schlüsselbund und danach alles andere zu aktualisieren, behebt das.</translation>
+        <translation>Meist ist der Schlüsselbund älter als die Pakete. Lösung: zuerst den Schlüsselbund, dann alles andere aktualisieren.</translation>
     </message>
     <message>
         <location line="+16"/>
@@ -101,12 +101,12 @@
     <message>
         <location line="+1"/>
         <source>A package in pacman&apos;s cache does not match its signature: the download was damaged or cut short, not the keyring.</source>
-        <translation>Ein Paket im Cache von pacman passt nicht zu seiner Signatur: Der Download wurde beschädigt oder abgebrochen; am Schlüsselbund liegt es nicht.</translation>
+        <translation>Ein Paket im pacman-Cache passt nicht zu seiner Signatur: Der Download wurde beschädigt oder abgebrochen; am Schlüsselbund liegt es nicht.</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>%1 in pacman&apos;s cache does not match its signature: the download was damaged or cut short, not the keyring.</source>
-        <translation>%1 im Cache von pacman passt nicht zur Signatur: Der Download wurde beschädigt oder abgebrochen; am Schlüsselbund liegt es nicht.</translation>
+        <translation>%1 im pacman-Cache passt nicht zu seiner Signatur: Der Download wurde beschädigt oder abgebrochen; am Schlüsselbund liegt es nicht.</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -140,7 +140,7 @@
     <message>
         <location line="+1"/>
         <source>pacman needs more free space than there is (in pacman&apos;s messages). Removing old package versions from pacman&apos;s cache often frees enough.</source>
-        <translation>pacman benötigt mehr freien Speicherplatz als vorhanden (siehe die Meldungen von pacman). Alte Paketversionen aus dem Cache von pacman zu entfernen, schafft oft genug Platz.</translation>
+        <translation>pacman benötigt mehr freien Speicherplatz als vorhanden (siehe die pacman-Meldungen). Das Entfernen alter Paketversionen aus dem pacman-Cache schafft oft genug Platz.</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -150,17 +150,17 @@
     <message>
         <location line="+1"/>
         <source>pacman cannot resolve the update&apos;s dependencies (in pacman&apos;s messages). This often involves a package from outside the repos, such as the AUR, or a package held back with IgnorePkg.</source>
-        <translation>pacman kann die Abhängigkeiten der Aktualisierung nicht auflösen (siehe die Meldungen von pacman). Oft ist ein Paket von außerhalb der Paketquellen beteiligt, etwa aus dem AUR, oder ein mit IgnorePkg zurückgehaltenes Paket.</translation>
+        <translation>pacman kann die Abhängigkeiten der Aktualisierung nicht auflösen (siehe die pacman-Meldungen). Oft ist ein Paket von außerhalb der Paketquellen beteiligt, etwa aus dem AUR, oder ein mit IgnorePkg zurückgehaltenes Paket.</translation>
     </message>
     <message>
         <location line="+3"/>
         <source>pacman&apos;s database is locked</source>
-        <translation>Die Datenbank von pacman ist gesperrt</translation>
+        <translation>Die pacman-Datenbank ist gesperrt</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Another package manager was using pacman&apos;s database.</source>
-        <translation>Eine andere Paketverwaltung hat die Datenbank von pacman verwendet.</translation>
+        <translation>Eine andere Paketverwaltung hat die pacman-Datenbank verwendet.</translation>
     </message>
     <message>
         <location filename="../src/core/aftercare.cpp" line="+191"/>
@@ -231,7 +231,7 @@
         <location line="+3"/>
         <location line="+5"/>
         <source>Checking for updates</source>
-        <translation>Suche nach Aktualisierungen</translation>
+        <translation>Wird auf Aktualisierungen geprüft</translation>
     </message>
     <message>
         <location line="-5"/>
@@ -296,7 +296,7 @@
     </message>
     <message>
         <location line="+9"/>
-        <location filename="../src/update/main.cpp" line="+2044"/>
+        <location filename="../src/update/main.cpp" line="+1300"/>
         <source>Restart required: %1</source>
         <translation>Neustart erforderlich: %1</translation>
     </message>
@@ -458,7 +458,7 @@
     <message>
         <location line="-74"/>
         <source>Could not check for updates</source>
-        <translation>Suche nach Aktualisierungen fehlgeschlagen</translation>
+        <translation>Prüfung auf Aktualisierungen fehlgeschlagen</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -509,7 +509,7 @@
     <message>
         <location line="+13"/>
         <source>%1 download</source>
-        <translation>%1 herunterzuladen</translation>
+        <translation>%1 Download</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -519,12 +519,12 @@
     <message>
         <location line="+5"/>
         <source>Could not check for updates · list from %1</source>
-        <translation>Suche nach Aktualisierungen fehlgeschlagen · Liste von %1</translation>
+        <translation>Prüfung auf Aktualisierungen fehlgeschlagen · Liste von %1</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Could not check for updates · the last list</source>
-        <translation>Suche nach Aktualisierungen fehlgeschlagen · die letzte Liste</translation>
+        <translation>Prüfung auf Aktualisierungen fehlgeschlagen · die letzte Liste</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -570,12 +570,12 @@
     <message>
         <location line="+2"/>
         <source>Your old file: %1</source>
-        <translation>Die alte Datei: %1</translation>
+        <translation>Bisherige Datei: %1</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>The package&apos;s version is in use now.</source>
-        <translation>Jetzt ist die Version des Pakets in Gebrauch.</translation>
+        <translation>Die Version aus dem Paket ist jetzt in Gebrauch.</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -590,13 +590,13 @@
     <message>
         <location line="+10"/>
         <source>Checking for updates…</source>
-        <translation>Suche nach Aktualisierungen …</translation>
+        <translation>Wird auf Aktualisierungen geprüft …</translation>
     </message>
     <message>
         <location line="+3"/>
         <location line="+13"/>
         <source>Check for Updates</source>
-        <translation>Nach Aktualisierungen suchen</translation>
+        <translation>Auf Aktualisierungen prüfen</translation>
     </message>
     <message>
         <location line="-7"/>
@@ -645,7 +645,7 @@
     <message>
         <location filename="../src/card/main.cpp" line="+125"/>
         <source>What is going on with updates, and the one thing to do next.</source>
-        <translation>Was bei den Aktualisierungen los ist, und der nächste Schritt.</translation>
+        <translation>Zeigt den Stand der Aktualisierungen und den nächsten Schritt.</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -673,9 +673,9 @@
         <translation>Mit --demo: Details geöffnet.</translation>
     </message>
     <message>
-        <location filename="../src/checker/main.cpp" line="+51"/>
+        <location filename="../src/checker/main.cpp" line="+53"/>
         <source>Checks for pending pacman, AUR and Flatpak updates and writes them to the Kyu state file.</source>
-        <translation>Sucht nach ausstehenden Aktualisierungen von pacman, AUR und Flatpak und schreibt sie in die Statusdatei von Kyu.</translation>
+        <translation>Prüft auf ausstehende Aktualisierungen von pacman, AUR und Flatpak und schreibt sie in die Kyu-Statusdatei.</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -706,12 +706,6 @@
         <location line="+2"/>
         <location line="+2"/>
         <location line="+8"/>
-        <location filename="../src/update/main.cpp" line="-947"/>
-        <location line="+1"/>
-        <location line="+2"/>
-        <location line="+2"/>
-        <location line="+1"/>
-        <location line="+19"/>
         <source>path</source>
         <translation>Pfad</translation>
     </message>
@@ -733,7 +727,7 @@
     <message>
         <location line="+1"/>
         <source>AUR helper (paru, yay, pamac), or none.</source>
-        <translation>AUR-Helfer (paru, yay, pamac) oder none.</translation>
+        <translation>AUR-Hilfsprogramm (paru, yay, pamac) oder „none“.</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -779,7 +773,7 @@
     <message>
         <location line="+2"/>
         <source>pacman log.</source>
-        <translation>Protokoll von pacman.</translation>
+        <translation>pacman-Protokoll.</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -802,30 +796,9 @@
         <translation>Datenbankkopie für checkupdates (Standard: %1).</translation>
     </message>
     <message>
-        <location line="+20"/>
-        <source>ignoring unreadable %1: %2</source>
-        <translation>nicht lesbare Datei %1 wird ignoriert: %2</translation>
-    </message>
-    <message>
-        <location line="+13"/>
-        <source>a check is already running (pid %1)</source>
-        <translation>eine Prüfung läuft bereits (PID %1)</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>a check is already running</source>
-        <translation>eine Prüfung läuft bereits</translation>
-    </message>
-    <message>
-        <location line="+36"/>
+        <location line="+71"/>
         <source>News</source>
         <translation>Neuigkeiten</translation>
-    </message>
-    <message>
-        <location line="+15"/>
-        <location line="+52"/>
-        <source>cannot write %1: %2</source>
-        <translation>%1 kann nicht geschrieben werden: %2</translation>
     </message>
     <message>
         <location filename="../src/tray/trayicon.cpp" line="-210"/>
@@ -837,7 +810,7 @@
     <message>
         <location line="-209"/>
         <source>Check for updates now</source>
-        <translation>Jetzt nach Aktualisierungen suchen</translation>
+        <translation>Jetzt auf Aktualisierungen prüfen</translation>
     </message>
     <message>
         <location line="+7"/>
@@ -860,12 +833,12 @@
         <translation>Lesen</translation>
     </message>
     <message>
-        <location filename="../src/update/main.cpp" line="-849"/>
+        <location filename="../src/update/console.h" line="+124"/>
         <source>Fix</source>
-        <translation>Abhilfe</translation>
+        <translation>Lösung</translation>
     </message>
     <message>
-        <location line="+538"/>
+        <location filename="../src/update/console.cpp" line="+429"/>
         <source>%1 s</source>
         <translation>%1 s</translation>
     </message>
@@ -903,10 +876,10 @@
     <message>
         <location line="+7"/>
         <source>pacdiff stopped (status %1).</source>
-        <translation>pacdiff wurde beendet (Status %1).</translation>
+        <translation>pacdiff ist abgebrochen (Status %1).</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location filename="../src/update/main.cpp" line="-1086"/>
         <source>Can be cleaned up, if you like:</source>
         <translation>Kann bei Bedarf aufgeräumt werden:</translation>
     </message>
@@ -943,12 +916,13 @@
         </translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location filename="../src/update/console.cpp" line="-534"/>
+        <location filename="../src/update/main.cpp" line="+16"/>
         <source>Orphans</source>
-        <translation>Waisen</translation>
+        <translation>Verwaist</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location filename="../src/update/main.cpp" line="+2"/>
         <source>Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:</source>
         <extracomment>&quot;n&quot; is the answer to pacman&apos;s question: keep it.</extracomment>
         <translation>Als Abhängigkeiten installiert und jetzt von nichts mehr benötigt. pacman fragt zuerst; um eines zu behalten, mit n antworten und Folgendes ausführen:</translation>
@@ -956,7 +930,7 @@
     <message>
         <location line="+10"/>
         <source>Orphans kept.</source>
-        <translation>Verwaiste Pakete behalten.</translation>
+        <translation>Die verwaisten Pakete bleiben installiert.</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -964,12 +938,13 @@
         <translation>Die verwaisten Pakete wurden nicht entfernt (Status %1), siehe oben.</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location filename="../src/update/console.cpp" line="+0"/>
+        <location filename="../src/update/main.cpp" line="+6"/>
         <source>Cache</source>
         <translation>Cache</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location filename="../src/update/main.cpp" line="+0"/>
         <source>%1, then %2</source>
         <translation>%1, dann %2</translation>
     </message>
@@ -997,7 +972,7 @@
     <message>
         <location line="+35"/>
         <source>Updates the system in this terminal: %1, then %2, then the AUR helper&apos;s update, with the news before and what is left to do after.</source>
-        <translation>Aktualisiert das System in diesem Terminal: %1, dann %2, dann die Aktualisierung des AUR-Helfers, mit den Neuigkeiten davor und dem, was danach noch zu tun ist.</translation>
+        <translation>Aktualisiert das System in diesem Terminal: %1, dann %2, dann die Aktualisierung des AUR-Hilfsprogramms, mit den Neuigkeiten davor und dem, was danach noch zu tun ist.</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -1015,28 +990,7 @@
         <translation>Alle Paketdatenbanken erneut herunterladen (pacman -Syyu), wie nach einem Wechsel der Spiegelserver.</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>kyu-check&apos;s state (testing).</source>
-        <translation>Zustand von kyu-check (zum Testen).</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>pacman&apos;s log (testing).</source>
-        <translation>Protokoll von pacman (zum Testen).</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>pacman&apos;s lock file (testing).</source>
-        <translation>Sperrdatei von pacman (zum Testen).</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <location line="+1"/>
-        <source>%1 (testing).</source>
-        <translation>%1 (zum Testen).</translation>
-    </message>
-    <message>
-        <location line="+2"/>
+        <location line="+9"/>
         <source>Only merge the configuration files the last update left (pacdiff).</source>
         <translation>Nur die Konfigurationsdateien der letzten Aktualisierung zusammenführen (pacdiff).</translation>
     </message>
@@ -1046,12 +1000,7 @@
         <translation>Nur das Aufräumen anbieten: verwaiste Pakete, Paket-Cache, unbenutzte Flatpak-Laufzeitumgebungen.</translation>
     </message>
     <message>
-        <location line="+16"/>
-        <source>pacman&apos;s hook directories (testing).</source>
-        <translation>Hook-Ordner von pacman (zum Testen).</translation>
-    </message>
-    <message>
-        <location line="+55"/>
+        <location line="+71"/>
         <source>[f] fix and try again</source>
         <extracomment>Keep the key in brackets as it is: Kyu reads that letter.</extracomment>
         <translation>[f] beheben und erneut versuchen</translation>
@@ -1106,7 +1055,7 @@
     <message>
         <location line="-91"/>
         <source>The fix failed (status %1); its messages are above.</source>
-        <translation>Die Abhilfe ist fehlgeschlagen (Status %1); ihre Meldungen stehen oben.</translation>
+        <translation>Die Behebung ist fehlgeschlagen (Status %1); die Meldungen stehen oben.</translation>
     </message>
     <message>
         <location line="+22"/>
@@ -1215,7 +1164,7 @@
         <location line="+2"/>
         <source>News to read first: continue? [y/N]</source>
         <extracomment>Keep [y/N]: Kyu reads &quot;y&quot; as yes.</extracomment>
-        <translation>Zuerst Neuigkeiten lesen: fortfahren? [y/N]</translation>
+        <translation>Ungelesene Neuigkeiten: Fortfahren? [y/N]</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -1227,7 +1176,7 @@
     <message>
         <location line="-274"/>
         <source>Waiting for %1 to finish. Press Ctrl+C to cancel.</source>
-        <translation>Warten, bis %1 fertig ist. Zum Abbrechen Strg+C drücken.</translation>
+        <translation>Es wird gewartet, bis %1 fertig ist. Zum Abbrechen Strg+C drücken.</translation>
     </message>
     <message>
         <location line="+65"/>
@@ -1237,22 +1186,22 @@
     <message>
         <location line="+17"/>
         <source>pacman&apos;s lock looks left over: %1 is running but idle.</source>
-        <translation>Die Sperre von pacman scheint übrig geblieben zu sein: %1 läuft, ist aber untätig.</translation>
+        <translation>Die pacman-Sperre ist offenbar verwaist: %1 läuft, ist aber untätig.</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>pacman&apos;s lock is there; Kyu cannot see other users&apos; programs to tell who has it.</source>
-        <translation>Die Sperre von pacman ist vorhanden; Kyu kann die Programme anderer Benutzer nicht sehen, um festzustellen, wer sie hält.</translation>
+        <translation>Die pacman-Sperre ist vorhanden; Kyu kann die Programme anderer Benutzer nicht sehen, um festzustellen, wer sie hält.</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>pacman&apos;s lock is left over from a stopped run; nothing is using it.</source>
-        <translation>Die Sperre von pacman ist von einem abgebrochenen Lauf übrig; nichts verwendet sie.</translation>
+        <translation>Die pacman-Sperre stammt von einem abgebrochenen Lauf; nichts verwendet sie.</translation>
     </message>
     <message>
         <location line="+6"/>
         <source>Fix (if no pacman is running)</source>
-        <translation>Abhilfe (wenn kein pacman läuft)</translation>
+        <translation>Lösung (wenn kein pacman läuft)</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -1281,12 +1230,13 @@
         <translation>(erneut)</translation>
     </message>
     <message>
-        <location line="+24"/>
+        <location filename="../src/update/console.cpp" line="+1"/>
+        <location filename="../src/update/main.cpp" line="+24"/>
         <source>Snapshot</source>
         <translation>Snapshot</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location filename="../src/update/main.cpp" line="+1"/>
         <source>%1 takes one first</source>
         <translation>%1 legt zuerst einen an</translation>
     </message>
@@ -1296,18 +1246,20 @@
         <translation>%1 legt einen vor den Schlüsselbunden und einen vor dem Rest an</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location filename="../src/update/console.cpp" line="-2"/>
+        <location filename="../src/update/main.cpp" line="+5"/>
         <source>Keyrings</source>
-        <translation>Schlüssel</translation>
+        <translation>Schlüsselbunde</translation>
     </message>
     <message>
-        <location line="+3"/>
+        <location line="+0"/>
+        <location filename="../src/update/main.cpp" line="+3"/>
         <location line="+2"/>
         <source>Packages</source>
         <translation>Pakete</translation>
     </message>
     <message>
-        <location line="+156"/>
+        <location filename="../src/update/main.cpp" line="+156"/>
         <source>%1 asks its own questions, and may ask for the password again.</source>
         <translation>%1 stellt eigene Fragen und fragt möglicherweise erneut nach dem Passwort.</translation>
     </message>
@@ -1376,12 +1328,12 @@
     <message>
         <location line="+22"/>
         <source>Check that the clock is right, then reload and refresh pacman&apos;s keys: %1, then %2 (slow). pacman&apos;s messages above name the key.</source>
-        <translation>Prüfen, ob die Uhrzeit stimmt, dann die Schlüssel von pacman neu laden und auffrischen: %1, dann %2 (langsam). Die Meldungen von pacman oben nennen den Schlüssel.</translation>
+        <translation>Prüfen, ob die Uhrzeit stimmt, dann die pacman-Schlüssel neu laden und auffrischen: %1, dann %2 (langsam). Die pacman-Meldungen oben nennen den Schlüssel.</translation>
     </message>
     <message>
         <location line="+3"/>
         <source>The new keyring itself could not be checked: the installed one is too old to trust it, which happens after a long gap.</source>
-        <translation>Der neue Schlüsselbund selbst konnte nicht überprüft werden: Der installierte ist zu alt, um ihm zu vertrauen; das kommt nach einer langen Pause vor.</translation>
+        <translation>Der neue Schlüsselbund selbst konnte nicht geprüft werden: Der installierte ist zu alt, um dem neuen zu vertrauen; das kommt nach einer langen Pause vor.</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1405,7 +1357,7 @@
     <message>
         <location line="+7"/>
         <source>The package lists are newer than the system: update before installing anything.</source>
-        <translation>Die Paketlisten sind neuer als das System: Vor jeder Installation aktualisieren.</translation>
+        <translation>Die Paketlisten sind neuer als das System: Vor dem Installieren weiterer Pakete erst aktualisieren.</translation>
     </message>
     <message>
         <location line="+22"/>
@@ -1445,7 +1397,7 @@
     <message>
         <location line="+7"/>
         <source>AUR packages not updated: %1 stopped (status %2), see above.</source>
-        <translation>AUR-Pakete nicht aktualisiert: %1 wurde beendet (Status %2), siehe oben.</translation>
+        <translation>AUR-Pakete nicht aktualisiert: %1 ist abgebrochen (Status %2), siehe oben.</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1476,8 +1428,8 @@
         <source>%1 still use old libraries: restart them.</source>
         <comment>%1 still uses old libraries: restart it.</comment>
         <translation>
-            <numerusform>%1 verwendet noch alte Bibliotheken: neu starten.</numerusform>
-            <numerusform>%1 verwenden noch alte Bibliotheken: neu starten.</numerusform>
+            <numerusform>%1 verwendet noch alte Bibliotheken und sollte neu gestartet werden.</numerusform>
+            <numerusform>%1 verwenden noch alte Bibliotheken und sollten neu gestartet werden.</numerusform>
         </translation>
     </message>
     <message>
