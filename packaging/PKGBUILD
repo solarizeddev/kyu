@@ -1,0 +1,30 @@
+# Builds and packages the checkout this file sits in (no source=(): the
+# working tree as it is), for testing on a real system.
+#   cd packaging && makepkg -sif
+#   sudo pacman -R packageinstaller-manjaro-git
+pkgname=packageinstaller-manjaro-git
+pkgver=1.6.2
+pkgrel=1
+pkgdesc="CachyOS's Qt package installer, for Manjaro: install and remove software, safely"
+arch=(x86_64)
+url='https://github.com/CachyOS/packageinstaller'
+license=(GPL-3.0-or-later)
+depends=(gcc-libs glibc pacman polkit qt6-base polkit-qt6 socat)
+makedepends=(cmake ninja rust git qt6-tools)
+optdepends=('flatpak: the Flatpak tab'
+            'qt6-translations: Qt'"'"'s own words in your language')
+provides=(packageinstaller-manjaro)
+conflicts=(packageinstaller-manjaro)
+
+_root=$(realpath "$startdir/..")
+
+build() {
+    cmake -C "$_root/cmake/Manjaro.cmake" -S "$_root" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}
