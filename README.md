@@ -1,3 +1,5 @@
+> This is the Manjaro build of CachyOS's package installer: see [MANJARO.md](MANJARO.md).
+
 # cachyos-packageinstaller
 Simple Software Application Package Installer.
 

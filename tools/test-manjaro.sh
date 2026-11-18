@@ -24,6 +24,9 @@ cd /src
 cmake -C cmake/Manjaro.cmake -S /src -B /tmp/pi-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr >/out/cmake.log 2>&1
 ninja -C /tmp/pi-build >/out/build.log 2>&1
 ninja -C /tmp/pi-build install >/out/install.log 2>&1
+# The upstream configuration (the PI_* defaults) still builds.
+cmake -S /src -B /tmp/pi-default -G Ninja -DCMAKE_BUILD_TYPE=Release >/out/cmake-default.log 2>&1
+ninja -C /tmp/pi-default >/out/build-default.log 2>&1
 for f in /usr/bin/packageinstaller-manjaro /usr/share/applications/packageinstaller-manjaro.desktop \
          /usr/share/packageinstaller-manjaro/pkglist.yaml /usr/share/doc/packageinstaller-manjaro/help.html; do
     [ -e "$f" ] || { echo "missing: $f"; exit 1; }

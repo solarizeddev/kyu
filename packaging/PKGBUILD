@@ -9,12 +9,16 @@ pkgdesc="CachyOS's Qt package installer, for Manjaro: install and remove softwar
 arch=(x86_64)
 url='https://github.com/CachyOS/packageinstaller'
 license=(GPL-3.0-or-later)
-depends=(gcc-libs glibc pacman polkit qt6-base polkit-qt6 socat)
-makedepends=(cmake ninja rust git qt6-tools)
+depends=(gcc-libs glibc pacman polkit qt6-base)
+makedepends=(cmake ninja rust git qt6-tools polkit-qt6)
 optdepends=('flatpak: the Flatpak tab'
+            'socat: the Flatpak tab'
             'qt6-translations: Qt'"'"'s own words in your language')
 provides=(packageinstaller-manjaro)
 conflicts=(packageinstaller-manjaro)
+# makepkg's LTO flags on top of upstream's own (-flto -fwhole-program) break
+# linking the Rust bridge (undefined rust::cxxbridge1::Error): upstream's flags only.
+options=(!lto)
 
 _root=$(realpath "$startdir/..")
 

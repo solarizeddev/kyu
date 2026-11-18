@@ -39,8 +39,10 @@ int pending_updates() {
         return -1;
     }
     const QStringList lines = QString::fromUtf8(pacman.readAllStandardOutput()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-    // pacman -Qu exits 1 when nothing is pending.
-    if (pacman.exitCode() != 0 && !lines.isEmpty()) {
+    const QString errors = QString::fromUtf8(pacman.readAllStandardError()).trimmed();
+    // pacman -Qu exits 1 when nothing is pending, and also on errors (a bad
+    // pacman.conf, an unreadable database): those say so on stderr.
+    if (pacman.exitCode() > 1 || (pacman.exitCode() == 1 && (!lines.isEmpty() || !errors.isEmpty()))) {
         return -1;
     }
     return static_cast<int>(std::ranges::count_if(lines, [](const QString& line) { return !line.trimmed().endsWith(QLatin1String("[ignored]")); }));

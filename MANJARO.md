@@ -18,7 +18,15 @@ All of it is in a short stack of commits on top of upstream's history:
 | This file, packaging, the test script | `MANJARO.md`, `packaging/PKGBUILD`, `tools/test-manjaro.sh` |
 
 No upstream file is renamed and no translation file is touched, so merges
-only conflict where upstream changes the same lines.
+only conflict where upstream changes the same lines. Upstream's translated
+texts are kept: the distribution's names replace "CachyOS" after
+translation (`pi::branded`).
+
+Without `cmake/Manjaro.cmake` the build carries upstream's names and texts,
+with these differences: the safety changes are always on, pacman's lock no
+longer stops the program from starting, the single-instance key and log
+file are named after `PI_APP_ID` (`cachyos-pi-lock`, `cachyos-pi.log`), and
+the desktop file name is set for Wayland.
 
 ## Build
 
@@ -29,7 +37,7 @@ ninja -C build
 ./build/packageinstaller-manjaro
 ```
 
-Or as a package: `cd packaging && makepkg -si`. The first build downloads
+Or as a package: `cd packaging && makepkg -sif` (`-f` builds again after your edits). The first build downloads
 fmt, spdlog, cpr, rapidyaml and Corrosion (CPM) and the Rust crates.
 
 ## Merging an upstream release

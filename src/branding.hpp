@@ -48,3 +48,24 @@
 #ifndef PI_UPDATE_NOTES_URL
 #define PI_UPDATE_NOTES_URL ""
 #endif
+
+#include <QString>
+
+namespace pi {
+
+// Built with upstream's own branding (no distribution configuration).
+inline bool is_upstream() {
+    return QStringLiteral(PI_DISTRO_NAME) == QLatin1String("CachyOS");
+}
+
+// Upstream's (translated) text with the distribution's names: the product
+// name first, then the distribution's. Keeps upstream's translations.
+inline QString branded(QString text) {
+    if (is_upstream()) {
+        return text;
+    }
+    return text.replace(QLatin1String("CachyOS Package Installer"), QStringLiteral(PI_PRODUCT_NAME))
+        .replace(QLatin1String("CachyOS"), QStringLiteral(PI_DISTRO_NAME));
+}
+
+}  // namespace pi

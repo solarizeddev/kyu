@@ -80,7 +80,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
         if (alpm_manager.has_value()) {
             m_alpm_manager = std::make_unique<alpm::AlpmManager>(std::move(*alpm_manager));
         } else {
-            QMessageBox::critical(this, QStringLiteral(PI_PRODUCT_NAME), tr("Cannot initialize ALPM library"));
+            QMessageBox::critical(this, pi::branded(tr("CachyOS Package Installer")), tr("Cannot initialize ALPM library"));
             return;
         }
     }
@@ -95,7 +95,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
     setWindowFlags(Qt::Window);  // for the close, min and max buttons
 
     // Set window title
-    this->setWindowTitle(QStringLiteral(PI_PRODUCT_NAME));
+    this->setWindowTitle(pi::branded(tr("CachyOS Package Installer")));
 
     setup();
 }
@@ -216,6 +216,11 @@ bool MainWindow::uninstall(const QString& names) noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
     m_ui->tabWidget->setCurrentWidget(m_ui->tabOutput);
 
+    // Only package names reach the shell command and pacman.
+    if (!pi::safety::valid_package_names(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
     // simulate install of selections and present for confirmation
     // if user selects cancel, break routine but return success to avoid error message
     bool is_ok{};
@@ -226,10 +231,6 @@ bool MainWindow::uninstall(const QString& names) noexcept {
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Uninstalling packages..."));
     displayOutput();
 
-    if (!pi::safety::valid_package_names(names)) {
-        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
-        return false;
-    }
     const auto& cmd_str = [&is_ok, names = names.toStdString()]() -> std::string {
         if (is_ok) {
             return fmt::format("pkexec pacman -R --noconfirm -- {}", names);
@@ -436,7 +437,7 @@ void MainWindow::fetch_net_pkglist() noexcept {
             return QString::fromStdString(std::move(pkglist_path));
         } else if (response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT) {
             spdlog::error("Unable to fetch pkglist. Timeout");
-            QMessageBox::warning(this, QStringLiteral(PI_PRODUCT_NAME), tr("Unable to fetch pkglist. Timeout!"));
+            QMessageBox::warning(this, pi::branded(tr("CachyOS Package Installer")), tr("Unable to fetch pkglist. Timeout!"));
         }
         return QStringLiteral(PI_PKGLIST_FILE);
     }();
@@ -856,10 +857,13 @@ void MainWindow::displayWarning(std::string_view repo) noexcept {
     using namespace std::string_view_literals;
     if (repo == "flatpaks"sv) {
         displayed = &m_warning_flatpaks;
-        msg       = tr("%1 includes this repository of flatpaks for the users' convenience only, and "
-                             "is not responsible for the functionality of the individual flatpaks themselves. "
-                             "For more, consult flatpaks in the Wiki.")
-                  .arg(QStringLiteral(PI_DISTRO_NAME));
+        // A distribution's own build speaks for itself; any other build
+        // does not speak for the distribution.
+        msg = pi::is_upstream() ? tr("CachyOS includes this repository of flatpaks for the users' convenience only, and "
+                                     "is not responsible for the functionality of the individual flatpaks themselves. "
+                                     "For more, consult flatpaks in the Wiki.")
+                                : tr("Flathub is run by its own community. This program offers it for your convenience only, and "
+                                     "is not responsible for the functionality of the individual flatpaks themselves.");
     }
     if (!displayed || *displayed || (m_settings.value("disableWarning", false).toBool())) {
         return;
@@ -1010,6 +1014,11 @@ bool MainWindow::install(const QString& names) noexcept {
 
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Installing packages..."));
 
+    // Only package names reach the shell command and pacman.
+    if (!pi::safety::valid_package_names(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
     // simulate install of selections and present for confirmation
     // if user selects cancel, break routine but return success to avoid error message
     bool is_ok{};
@@ -1018,11 +1027,6 @@ bool MainWindow::install(const QString& names) noexcept {
     }
 
     displayOutput();
-
-    if (!pi::safety::valid_package_names(names)) {
-        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
-        return false;
-    }
     const auto& cmd_str = QStringLiteral("pkexec pacman -S -- ") + names;
     return m_cmd.run(cmd_str);
 }
@@ -1589,9 +1593,9 @@ void MainWindow::on_push_install() noexcept {
 // About button clicked
 void MainWindow::on_push_about() noexcept {
     const auto& msgbox_title = tr("About %1").arg(this->windowTitle());
-    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + tr("Package Installer for %1").arg(QStringLiteral(PI_DISTRO_NAME)) + "</h3></p>"
+    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + pi::branded(tr("Package Installer for CachyOS")) + "</h3></p>"
         + (QStringLiteral(PI_HOME_URL).isEmpty() ? QString() : QStringLiteral(R"(<p align="center"><a href=")" PI_HOME_URL R"(">)" PI_HOME_URL "</a><br /></p>"))
-        + R"(<p align="center">)" + QStringLiteral(PI_COPYRIGHT) + "<br /><br /></p>";
+        + R"(<p align="center">)" + (pi::is_upstream() ? tr("Copyright (c) CachyOS") : QStringLiteral(PI_COPYRIGHT)) + "<br /><br /></p>";
     about::display_about_msgbox(msgbox_title, msgbox_body,
         QStringLiteral("file://" PI_DOC_DIR "/license.html"));
 }
@@ -1762,6 +1766,11 @@ void MainWindow::on_current_tab_changed(int index) noexcept {
         if (!checkInstalled("flatpak")) {
             const auto ans = QMessageBox::question(this, tr("Flatpak not installed"), tr("Flatpak is not currently installed.\nOK to go ahead and install it?"));
             if (ans == QMessageBox::No) {
+                m_ui->tabWidget->setCurrentIndex(Tab::Popular);
+                break;
+            }
+            m_alpm_manager->refresh_alpm();
+            if (!pi::safety::ready_to_change(this, true, [this] { on_push_upgrade_all(); })) {
                 m_ui->tabWidget->setCurrentIndex(Tab::Popular);
                 break;
             }
@@ -2053,7 +2062,7 @@ void MainWindow::on_push_cancel() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
     if (m_cmd.state() != QProcess::NotRunning) {
         if (QMessageBox::warning(this, tr("Quit?"),
-                tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to exit %1?</b>").arg(QStringLiteral(PI_PRODUCT_NAME)),
+                pi::branded(tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to exit CachyOS Package Installer?</b>")),
                 QMessageBox::Yes, QMessageBox::No)
             == QMessageBox::No) {
             return;
