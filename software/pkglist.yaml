@@ -16,14 +16,9 @@
   packages:
     - librewolf
     - firefox
-    - firefox-esr-bin
-    - firefox-pure
     - chromium
-    - ungoogled-chromium-bin
     - vivaldi vivaldi-ffmpeg-codecs
     - torbrowser-launcher
-    - brave-bin
-    - floorp-bin
     - falkon
     - qutebrowser python-adblock
 
@@ -59,7 +54,6 @@
 
 - name: "Games"
   packages:
-    - cachyos-gaming-applications cachyos-gaming-meta
     - aisleriot
     - mari0
     - kapman
@@ -67,7 +61,6 @@
     - kmahjongg
     - supertuxkart
     - supertux
-    - extremetuxracer
     - 0ad
     - teeworlds
     - xonotic
@@ -97,22 +90,17 @@
 - name: "Hardware Tools"
   packages:
     - amdgpu_top
-    - cachyos-benchmarker
-    - coolercontrol
     - cpu-x
     - gparted
     - kdiskmark
     - lact
     - nvtop
     - occt
-    - openlinkhub
     - openrgb
     - rog-control-center
 
 - name: "Internet"
   packages:
-    - xdman
-    - freedownloadmanager
     - deluge-gtk
     - qbittorrent
     - nextcloud-client
@@ -120,7 +108,6 @@
     - filezilla
     - putty
     - warpinator
-    - jdownloader2
 
 - name: "Mail"
   packages:
@@ -128,7 +115,6 @@
     - kmail
     - evolution
     - geary
-    - mailspring
     - claws-mail
 
 - name: "Multimedia"
@@ -151,9 +137,6 @@
   packages:
     - libreoffice-fresh libmythes
     - libreoffice-still libmythes
-    - joplin
-    - onlyoffice-bin
-    - wps-office wps-office-mime
     - calligra
     - skrooge
     - kmymoney
