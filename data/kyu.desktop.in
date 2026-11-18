@@ -2,9 +2,12 @@
 Type=Application
 Name=Kyu
 GenericName=System Update
+GenericName[de]=Systemaktualisierung
 Comment=Shows pending updates and what to do next
+Comment[de]=Zeigt ausstehende Aktualisierungen und den nächsten Schritt
 Exec=@CMAKE_INSTALL_FULL_BINDIR@/kyu
 Icon=system-software-update
 Categories=System;PackageManager;
 Keywords=update;upgrade;pacman;flatpak;
+Keywords[de]=Aktualisierung;Update;Pakete;pacman;flatpak;
 StartupNotify=true

@@ -36,6 +36,7 @@ depends=(
     util-linux
 )
 makedepends=(cmake ninja qt6-tools)
+optdepends=("qt6-translations: Qt's own words (buttons, --help) in your language")
 provides=(kyu)
 conflicts=(kyu)
 

@@ -254,7 +254,7 @@ int runSteps(ApplyContext &ctx, const Kyu::Queue &queue, const Kyu::Plan &plan)
                 }
                 discardTypedAhead();
                 out.prompt(Kyu::I18n::tr("Continue with pacman's list? [y/N] "));
-                if (readAnswer() != QLatin1String("y")) {
+                if (!isYes(readAnswer())) {
                     result.set(step.items, QStringLiteral("stopped"));
                     out.warn(Kyu::I18n::tr("Stopped. Nothing of this step was changed."));
                     return 4;

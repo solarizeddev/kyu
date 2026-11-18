@@ -2,7 +2,18 @@
 
 namespace KyuUpdate
 {
-
+int stepWidth()
+{
+    // Every step name Kyu translates; Flatpak(s) and AUR stay as they are.
+    static const char *const names[] = {QT_TRANSLATE_NOOP("Kyu", "Keyrings"), QT_TRANSLATE_NOOP("Kyu", "Packages"),
+                                        QT_TRANSLATE_NOOP("Kyu", "Orphans"), QT_TRANSLATE_NOOP("Kyu", "Cache"),
+                                        QT_TRANSLATE_NOOP("Kyu", "Snapshot")};
+    int width = 10;
+    for (const char *name : names) {
+        width = std::max(width, int(QCoreApplication::translate("Kyu", name).size()));
+    }
+    return width;
+}
 
 bool stdinIsTerminal()
 {
@@ -68,6 +79,14 @@ QString readAnswer()
         return QString();
     }
     return QString::fromLocal8Bit(line).trimmed().toLower();
+}
+
+// The keys stay [y/N] in every language; "j" and "ja" are what a German
+// hand types anyway.
+bool isYes(const QString &answer)
+{
+    const QString a = answer.trimmed().toLower();
+    return a == QLatin1String("y") || a == QLatin1String("yes") || a == QLatin1String("j") || a == QLatin1String("ja");
 }
 
 // Run a command with the terminal: its output and questions are the user's.

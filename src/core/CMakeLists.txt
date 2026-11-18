@@ -25,7 +25,7 @@ add_library(kyucore STATIC
 target_include_directories(kyucore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(kyucore PUBLIC Qt6::Core Qt6::Network)
 target_compile_definitions(kyucore PRIVATE KYU_CHECK_BINARY="${CMAKE_INSTALL_FULL_BINDIR}/kyu-check"
-    KYU_BUILD_TRANSLATIONS="${KYU_QM_DIR}" KYU_INSTALLED_TRANSLATIONS="${KYU_TRANSLATIONS_DIR}")
+    KYU_BUILD_DIR="${CMAKE_BINARY_DIR}" KYU_BUILD_TRANSLATIONS="${KYU_QM_DIR}" KYU_INSTALLED_TRANSLATIONS="${KYU_TRANSLATIONS_DIR}")
 if(KYU_FLATPAK)
     target_compile_definitions(kyucore PRIVATE KYU_HAVE_FLATPAK)
     target_link_libraries(kyucore PRIVATE PkgConfig::FLATPAK)

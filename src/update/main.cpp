@@ -128,7 +128,7 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
         const QString answer = readAnswer();
         // Ctrl+C: no, and the rest of the clean-up stops too.
         stopped = answerInterrupted || hungUp;
-        if (answer == QLatin1String("y")) {
+        if (isYes(answer)) {
             int rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-rk%1").arg(Kyu::CacheVersionsKept)});
             if (rc == 0) {
                 rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-ruk0")});
@@ -207,13 +207,13 @@ int main(int argc, char **argv)
     QCommandLineOption noWait(QStringLiteral("no-wait"), Kyu::I18n::tr("Do not wait for a key at the end."));
     QCommandLineOption noCheck(QStringLiteral("no-check"), Kyu::I18n::tr("Do not run kyu-check afterwards."));
     QCommandLineOption refresh(QStringLiteral("refresh"), Kyu::I18n::tr("Download all package databases again (pacman -Syyu), as after changing mirrors."));
-    QCommandLineOption stateFile(QStringLiteral("state-file"), Kyu::I18n::tr("kyu-check's state (testing)."), Kyu::I18n::tr("path"));
-    QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), Kyu::I18n::tr("pacman's log (testing)."), Kyu::I18n::tr("path"),
+    QCommandLineOption stateFile(QStringLiteral("state-file"), QStringLiteral("kyu-check's state (testing)."), QStringLiteral("path"));
+    QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), QStringLiteral("pacman's log (testing)."), QStringLiteral("path"),
                                  QStringLiteral("/var/log/pacman.log"));
-    QCommandLineOption dbLock(QStringLiteral("db-lock"), Kyu::I18n::tr("pacman's lock file (testing)."), Kyu::I18n::tr("path"),
+    QCommandLineOption dbLock(QStringLiteral("db-lock"), QStringLiteral("pacman's lock file (testing)."), QStringLiteral("path"),
                               QStringLiteral("/var/lib/pacman/db.lck"));
-    QCommandLineOption procDir(QStringLiteral("proc-dir"), Kyu::I18n::tr("%1 (testing).").arg(QStringLiteral("/proc")), Kyu::I18n::tr("path"), QStringLiteral("/proc"));
-    QCommandLineOption modulesDir(QStringLiteral("modules-dir"), Kyu::I18n::tr("%1 (testing).").arg(QStringLiteral("/usr/lib/modules")), Kyu::I18n::tr("path"),
+    QCommandLineOption procDir(QStringLiteral("proc-dir"), QStringLiteral("/proc (testing)."), QStringLiteral("path"), QStringLiteral("/proc"));
+    QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption mergeOnly(QStringLiteral("merge"), Kyu::I18n::tr("Only merge the configuration files the last update left (pacdiff)."));
     QCommandLineOption planOption(QStringLiteral("plan"), Kyu::I18n::tr("Print what installing and removing the queue in FILE would do, as JSON (no root)."),
@@ -236,7 +236,7 @@ int main(int argc, char **argv)
     QCommandLineOption localeDir(QStringLiteral("locale-dir"), QStringLiteral("Where pacman's translations are (testing)."), QStringLiteral("path"),
                                  QStringLiteral("/usr/share/locale"));
     localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
-    QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), Kyu::I18n::tr("pacman's hook directories (testing)."), Kyu::I18n::tr("path"));
+    QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
     parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, planOption, applyOption, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
@@ -336,7 +336,7 @@ int main(int argc, char **argv)
                 }
                 //: Keep [y/N]: Kyu reads "y" as yes.
                 out.prompt(Kyu::I18n::tr("Restart now? Unsaved work in open programs is lost. [y/N] "));
-                if (readAnswer() != QLatin1String("y")) {
+                if (!isYes(readAnswer())) {
                     continue;
                 }
                 const int rc = runInTerminal(QStringLiteral("systemctl"), {QStringLiteral("reboot")});
@@ -462,7 +462,7 @@ int main(int argc, char **argv)
                                       : Kyu::I18n::tr("Installing needs newer libraries than the system has: the system is updated first."));
             discardTypedAhead();
             out.prompt(Kyu::I18n::tr("Update now, then install? [y/N] "));
-            if (readAnswer() != QLatin1String("y")) {
+            if (!isYes(readAnswer())) {
                 out.warn(Kyu::I18n::tr("Nothing was changed."));
                 return finish(4);
             }
@@ -599,7 +599,7 @@ int main(int argc, char **argv)
             if (!stdinIsTerminal()) {
                 out.blank(); // a typed answer ends the line itself
             }
-            if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
+            if (!isYes(answer)) {
                 out.blank();
                 out.warn(Kyu::I18n::tr("Stopped. No packages were upgraded."));
                 return finish(4);

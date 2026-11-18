@@ -37,8 +37,10 @@ int main(int argc, char **argv)
     // its own, shorter limit; together they stay under this.)
     ::alarm(900);
     QCoreApplication app(argc, argv);
-    // Its summary, --help and messages in the user's language.
-    Kyu::loadTranslations();
+    // Its summary and --help in the user's language. Not Qt's own words: its
+    // error texts go into the state file, which stays English. Its lines on
+    // stderr are for the journal: English too.
+    Kyu::loadTranslations(false);
     // The news and the AUR through the system's proxy (http_proxy,
     // https_proxy, no_proxy), as pacman and curl use it; Qt ignores it
     // otherwise.
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
         if (auto loaded = Kyu::UpdateState::load(statePath, &loadError)) {
             previous = *loaded;
         } else {
-            err << "kyu-check: " << Kyu::I18n::tr("ignoring unreadable %1: %2").arg(statePath, loadError) << Qt::endl;
+            err << "kyu-check: " << QStringLiteral("ignoring unreadable %1: %2").arg(statePath, loadError) << Qt::endl;
         }
     }
 
@@ -113,9 +115,9 @@ int main(int argc, char **argv)
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
         if (pid > 0) {
-            err << "kyu-check: " << Kyu::I18n::tr("a check is already running (pid %1)").arg(pid) << Qt::endl;
+            err << "kyu-check: " << QStringLiteral("a check is already running (pid %1)").arg(pid) << Qt::endl;
         } else {
-            err << "kyu-check: " << Kyu::I18n::tr("a check is already running") << Qt::endl;
+            err << "kyu-check: " << QStringLiteral("a check is already running") << Qt::endl;
         }
         return Ok;
     }
@@ -166,7 +168,7 @@ int main(int argc, char **argv)
     Kyu::UpdateState state = Kyu::UpdateState::merge(previous, pacmanResult, flatpakResult, QDateTime::currentDateTimeUtc(), newsResult);
     QString saveError;
     if (!state.save(statePath, &saveError)) {
-        err << "kyu-check: " << Kyu::I18n::tr("cannot write %1: %2").arg(statePath, saveError) << Qt::endl;
+        err << "kyu-check: " << QStringLiteral("cannot write %1: %2").arg(statePath, saveError) << Qt::endl;
         return StateNotSaved;
     }
 
@@ -218,7 +220,7 @@ int main(int argc, char **argv)
         }
         state = Kyu::UpdateState::merge(state, std::nullopt, std::nullopt, state.checkedAt, std::nullopt, aurResult);
         if (!state.save(statePath, &saveError)) {
-            err << "kyu-check: " << Kyu::I18n::tr("cannot write %1: %2").arg(statePath, saveError) << Qt::endl;
+            err << "kyu-check: " << QStringLiteral("cannot write %1: %2").arg(statePath, saveError) << Qt::endl;
             return StateNotSaved;
         }
     }
