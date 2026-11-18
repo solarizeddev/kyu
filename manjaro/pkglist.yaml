@@ -1,0 +1,168 @@
+- name: "Audio"
+  packages:
+    - strawberry
+    - lollypop
+    - audacious
+    - elisa
+    - kwave
+    - audacity
+    - ardour
+    - lmms
+    - mixxx
+    - musescore
+    - rosegarden
+
+- name: "Browsers"
+  packages:
+    - librewolf
+    - firefox
+    - chromium
+    - vivaldi vivaldi-ffmpeg-codecs
+    - torbrowser-launcher
+    - falkon
+    - qutebrowser python-adblock
+
+- name: "Communication"
+  packages:
+    - telegram-desktop
+    - discord
+    - neochat
+    - fractal
+    - element-desktop
+    - signal-desktop
+    - mumble
+
+- name: "Development"
+  packages:
+    - vim
+    - code
+    - emacs
+    - qtcreator
+    - gnome-builder
+    - kdevelop
+    - netbeans
+    - intellij-idea-community-edition
+    - pycharm-community-edition
+    - cockpit cockpit-machines
+    - ansible
+    - docker docker-compose
+    - podman-docker podman-compose crun
+    - jenkins
+    - puppet
+    - prometheus
+    - terraform
+
+- name: "Games"
+  packages:
+    - aisleriot
+    - mari0
+    - kapman
+    - knights
+    - kmahjongg
+    - supertuxkart
+    - supertux
+    - 0ad
+    - teeworlds
+    - xonotic
+    - hedgewars
+
+- name: "Graphics"
+  packages:
+    - krita krita-plugin-gmic opencolorio
+    - gimp
+    - inkscape
+    - blender
+    - digikam
+    - darktable
+    - luminancehdr
+    - kolourpaint
+    - mypaint
+    - sweethome3d
+    - freecad
+    - librecad
+    - kicad
+    - pencil2d
+    - synfigstudio
+    - opentoonz
+    - fontforge
+    - birdfont
+
+- name: "Hardware Tools"
+  packages:
+    - amdgpu_top
+    - cpu-x
+    - gparted
+    - kdiskmark
+    - lact
+    - nvtop
+    - occt
+    - openrgb
+    - rog-control-center
+
+- name: "Internet"
+  packages:
+    - deluge-gtk
+    - qbittorrent
+    - nextcloud-client
+    - remmina
+    - filezilla
+    - putty
+    - warpinator
+
+- name: "Mail"
+  packages:
+    - thunderbird
+    - kmail
+    - evolution
+    - geary
+    - claws-mail
+
+- name: "Multimedia"
+  packages:
+    - hypnotix
+    - shortwave
+    - converseen
+    - handbrake
+    - transmageddon
+    - soundconverter
+    - kodi kodi-platform kodi-eventclients
+    - mediaelch
+    - kid3
+    - easytag
+    - k3b cdparanoia cdrdao dvd+rw-tools emovix vcdimager cdrtools
+    - brasero
+    - xfburn
+
+- name: "Office"
+  packages:
+    - libreoffice-fresh libmythes
+    - libreoffice-still libmythes
+    - calligra
+    - skrooge
+    - kmymoney
+    - abiword
+    - gnumeric
+    - gnucash
+    - homebank
+
+- name: "Other"
+  packages:
+    - scrcpy
+    - variety
+
+- name: "Video"
+  packages:
+    - kdenlive movit sox opus-tools frei0r-plugins opentimelineio dvgrab opencv
+    - dragon
+    - shotcut
+    - pitivi frei0r-plugins
+    - obs-studio
+    - vlc
+    - smplayer smplayer-skins smplayer-themes
+    - baka-mplayer
+
+- name: "Virtualization"
+  packages:
+    - virtualbox
+    - gnome-boxes
+    - virt-manager
