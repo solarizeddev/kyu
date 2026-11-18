@@ -28,12 +28,20 @@ done
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-# README.md only differs by our pointer line and screenshot: take upstream's, put them back
-resolve_readme() {
-    git diff --name-only --diff-filter=U | grep -qx README.md || return 0
-    git checkout --theirs -- README.md
-    grep -qF "$pointer" README.md || printf '%s\n\n%s\n\n%s\n' "$pointer" "$screenshot" "$(cat README.md)" > README.md
-    git add README.md
+# Conflicts that resolve themselves: README.md only differs by our pointer line
+# and screenshot (take upstream's, put them back); screenshots/ holds our
+# pictures under upstream's names (keep ours, see the check after the merge).
+resolve_known() {
+    local conflicted
+    conflicted=$(git diff --name-only --diff-filter=U)
+    if grep -qx README.md <<<"$conflicted"; then
+        git checkout --theirs -- README.md
+        grep -qF "$pointer" README.md || printf '%s\n\n%s\n\n%s\n' "$pointer" "$screenshot" "$(cat README.md)" > README.md
+        git add README.md
+    fi
+    grep '^screenshots/' <<<"$conflicted" | while read -r file; do
+        git checkout --ours -- "$file" && git add "$file"
+    done
     [ -n "$(git diff --name-only --diff-filter=U)" ] || git commit --no-edit >/dev/null
 }
 
@@ -70,7 +78,7 @@ if [ "$count" -gt 0 ]; then
     git log --oneline --no-merges -n 40 "HEAD..$ref"
     before=$(git rev-parse HEAD)
     say "Merging $ref"
-    git merge --no-edit -m "Merge upstream ${ref#upstream/}" "$ref" || resolve_readme
+    git merge --no-edit -m "Merge upstream ${ref#upstream/}" "$ref" || resolve_known
     # still merging, or no merge happened
     if git rev-parse -q --verify MERGE_HEAD >/dev/null || [ "$(git rev-parse HEAD)" = "$before" ]; then
         say "Conflicts"
@@ -95,6 +103,16 @@ if [ -n "$new_texts" ]; then
     echo "$new_texts" | sed 's/^+[[:space:]]*/  /'
 else
     echo "  none new"
+fi
+
+say "Screenshots"
+# ours replace upstream's CachyOS pictures under the same names
+shots=$(git diff --name-only "$(git merge-base "$before" "$ref")" "$ref" -- screenshots/ 2>/dev/null || true)
+if [ -n "$shots" ]; then
+    echo "Upstream changed or added screenshots; take ours again with tools/screenshots.sh:"
+    echo "$shots" | sed 's/^/  /'
+else
+    echo "  upstream changed none"
 fi
 
 say "Upstream's app list (pkglist.yaml)"

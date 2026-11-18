@@ -11,8 +11,12 @@ releases.
 
 ![The Discover page on Manjaro KDE](manjaro/screenshots/discover.png)
 
-Screenshots are in `manjaro/screenshots/`; the ones in `screenshots/` are
-upstream's, of CachyOS.
+The four pictures in README.md's table (`screenshots/`) are ours, of the
+Manjaro build, under upstream's file names, so README.md itself stays
+upstream's. `tools/screenshots.sh` takes them again (Manjaro container, Xvfb,
+needs docker); `tools/update-upstream.sh` keeps ours on a merge and says when
+upstream changed its pictures. Screenshots from a real desktop go in
+`manjaro/screenshots/`.
 
 ## What differs from upstream
 
@@ -25,6 +29,7 @@ upstream's, of CachyOS.
 | `src/backend.{hpp,cpp}`, `qml/AurDetailsPage.qml`, `qml/Main.qml` | "Install paru" where the repositories have no paru: paru's AUR page, buildable without paru |
 | `CMakeLists.txt` | The `PI_*` options; the program, scanner and helper names; the polkit file with its own ids; the desktop file; no CachyOS icon or AppStream entry |
 | `src/instance.{hpp,cpp}` (new), two hooks in `src/main.cpp` | One window per user; `--updates` opens it (or brings it forward) on the Updates page, for the notifier |
+| `screenshots/` | The README's pictures, of the Manjaro build (`tools/screenshots.sh`) |
 | `cmake/Manjaro.cmake`, `manjaro/` | The Manjaro settings, the app list (only packages in Manjaro's repositories), its check, the desktop file |
 | `MANJARO.md`, `packaging/PKGBUILD`, `tools/test-manjaro.sh` | This file, the package, the container test |
 
