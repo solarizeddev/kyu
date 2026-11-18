@@ -1,6 +1,7 @@
 #include "traystate.h"
 
 #include "aftercare.h"
+#include "i18n.h"
 #include "news.h"
 #include "paths.h"
 #include "statustext.h"
@@ -32,11 +33,6 @@ QString readText(const QString &path)
     return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
 }
 
-QString plural(qsizetype n, const QString &one, const QString &many)
-{
-    return n == 1 ? QStringLiteral("1 ") + one : QStringLiteral("%1 ").arg(n) + many;
-}
-
 QDateTime lastRunTime(const QJsonObject &last)
 {
     return QDateTime::fromString(last.value(QStringLiteral("time")).toString(), Qt::ISODate);
@@ -58,18 +54,20 @@ QString restartReason(const TrayInput &in)
     if (in.sameBoot && !recorded.isEmpty()) {
         return recorded;
     }
+    // In English, as kyu-update records it: restartReasonText() says it.
     return in.kernelInstalled.isEmpty() ? QStringLiteral("the running kernel was replaced") : QStringLiteral("new kernel ") + in.kernelInstalled;
 }
 
 QString aurFailedLine(const QStringList &names)
 {
-    return QStringLiteral("AUR: %1 not updated last time; offered again with a newer version").arg(names.join(QStringLiteral(", ")));
+    return I18n::tr("AUR: %1 not updated last time; offered again with a newer version").arg(names.join(QStringLiteral(", ")));
 }
 
-QString settingsLine(const QStringList &configs)
+// "1 configuration file to merge: /etc/sddm.conf", "3 configuration files to merge".
+QString toMerge(const QStringList &configs)
 {
-    return configs.size() == 1 ? QStringLiteral("1 configuration file to merge: ") + configTarget(configs.constFirst())
-                               : QStringLiteral("%1 configuration files to merge").arg(configs.size());
+    return configs.size() == 1 ? I18n::tr("1 configuration file to merge: %1").arg(configTarget(configs.constFirst()))
+                               : numbered("%n configuration files to merge", "1 configuration file to merge", configs.size());
 }
 }
 
@@ -168,13 +166,13 @@ TrayView trayView(const TrayInput &in)
 
     if (in.updating) {
         v.mark = TrayMark::Updating;
-        v.tooltip = in.activity == QLatin1String("merge") ? QStringLiteral("Merging configuration files")
-            : in.activity == QLatin1String("clean")       ? QStringLiteral("Cleaning up")
-                                                          : QStringLiteral("Updating");
+        v.tooltip = in.activity == QLatin1String("merge") ? I18n::tr("Merging configuration files")
+            : in.activity == QLatin1String("clean")       ? I18n::tr("Cleaning up")
+                                                          : I18n::tr("Updating");
     } else if (lastFailed) {
         v.mark = TrayMark::Error;
         v.iconName = QStringLiteral("update-high");
-        v.tooltip = QStringLiteral("The last update did not finish");
+        v.tooltip = I18n::tr("The last update did not finish");
         v.lastFailed = true;
     } else if (checkFailed) {
         v.mark = TrayMark::Error;
@@ -183,11 +181,11 @@ TrayView trayView(const TrayInput &in)
     } else if (restart) {
         v.mark = TrayMark::Restart;
         v.iconName = QStringLiteral("system-reboot-update");
-        v.tooltip = QStringLiteral("Restart required: ") + restartReason(in);
+        v.tooltip = I18n::tr("Restart required: %1").arg(restartReasonText(restartReason(in)));
     } else if (news) {
         v.mark = TrayMark::News;
         v.iconName = QStringLiteral("update-medium");
-        v.tooltip = QStringLiteral("Read first: ") + unread->title + QLatin1Char('\n') + status.value(0);
+        v.tooltip = I18n::tr("Read first: %1").arg(unread->title) + QLatin1Char('\n') + status.value(0);
         if (const QString failed = failureLines(*in.state, in.now).value(0); !failed.isEmpty()) {
             v.tooltip += QLatin1Char('\n') + failed;
         }
@@ -207,7 +205,7 @@ TrayView trayView(const TrayInput &in)
         }
         // A configuration file left to merge keeps the icon in view.
         if (!in.configs.isEmpty()) {
-            v.tooltip += QLatin1Char('\n') + settingsLine(in.configs);
+            v.tooltip += QLatin1Char('\n') + toMerge(in.configs);
         }
         v.passive = !in.checking && in.configs.isEmpty();
     }
@@ -228,15 +226,15 @@ QString checkFailure(const UpdateState &s)
         const QString e = status->error.toLower();
         for (const char *n : {"resolve", "could not connect", "couldn't connect", "failed to connect", "network is unreachable", "connection refused"}) {
             if (e.contains(QLatin1String(n))) {
-                return QStringLiteral("No network connection.");
+                return I18n::tr("No network connection.");
             }
         }
         if (e.contains(QLatin1String("timed out")) || e.contains(QLatin1String("timeout"))) {
-            return name == QLatin1String("Flatpak") ? QStringLiteral("Flatpak's server did not answer.") : QStringLiteral("The mirrors did not answer.");
+            return name == QLatin1String("Flatpak") ? I18n::tr("Flatpak's server did not answer.") : I18n::tr("The mirrors did not answer.");
         }
-        return QStringLiteral("%1 reported an error.").arg(name);
+        return I18n::tr("%1 reported an error.").arg(name);
     }
-    return QStringLiteral("The check did not finish.");
+    return I18n::tr("The check did not finish.");
 }
 
 // The failed sources' own messages, for Details.
@@ -297,15 +295,16 @@ QList<DetailLine> detailLines(const QList<DetailRow> &rows)
                              row.size >= 0 ? QLocale().formattedDataSize(row.size, 1) : QString()});
         }
     }
-    const QString size = QStringLiteral("Download Size");
+    // pacman's column titles (in its own translations: "Paket", "Alte Version").
+    const QString size = I18n::tr("Download Size");
     if (!packages.isEmpty()) {
-        packages.prepend({QStringLiteral("Package (%1)").arg(packages.size()), QStringLiteral("Old Version"), QStringLiteral("New Version"), size});
+        packages.prepend({I18n::tr("Package (%1)").arg(packages.size()), I18n::tr("Old Version"), I18n::tr("New Version"), size});
     }
     if (!aur.isEmpty()) {
         aur.prepend({QStringLiteral("AUR (%1)").arg(aur.size())});
     }
     if (!flatpaks.isEmpty()) {
-        flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), QStringLiteral("Branch")});
+        flatpaks.prepend({QStringLiteral("Flatpak (%1)").arg(flatpaks.size()), I18n::tr("Branch")});
     }
     // Every block in the same columns, each as wide as its longest cell;
     // three spaces apart; sizes right-aligned under their title (pacman's
@@ -350,33 +349,22 @@ QList<DetailLine> detailLines(const QList<DetailRow> &rows)
     return out;
 }
 
-namespace
-{
-
-// "1 configuration file to merge: /etc/sddm.conf", "3 configuration files to merge".
-QString toMerge(const QStringList &configs, const QString &tail = QString())
-{
-    return configs.size() == 1 ? QStringLiteral("1 configuration file to merge") + tail + QStringLiteral(": ") + configTarget(configs.constFirst())
-                               : QStringLiteral("%1 configuration files to merge").arg(configs.size()) + tail;
-}
-}
-
 QString updatesHeading(const UpdateState &s)
 {
-    return plural(s.total(), QStringLiteral("update available"), QStringLiteral("updates available"));
+    return numbered("%n updates available", "1 update available", s.total());
 }
 
 QString updatesBreakdown(const UpdateState &s)
 {
     QStringList what;
     if (!s.packages.isEmpty()) {
-        what.append(plural(s.packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
+        what.append(numbered("%n packages", "1 package", s.packages.size()));
     }
     if (!s.aurPackages.isEmpty()) {
         what.append(QStringLiteral("%1 AUR").arg(s.aurPackages.size()));
     }
     if (!s.flatpaks.isEmpty()) {
-        what.append(plural(s.flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+        what.append(numbered("%n Flatpaks", "1 Flatpak", s.flatpaks.size()));
     }
     return what.join(QStringLiteral(", "));
 }
@@ -390,7 +378,7 @@ CardView cardView(const TrayInput &in)
     // A Check button while a check runs: still there, "Checking…", greyed out.
     const auto checkButton = [&c, &in](const QString &text, bool primary) {
         c.action = CardView::Action::Check;
-        c.actionText = in.checking ? QStringLiteral("Checking…") : text;
+        c.actionText = in.checking ? I18n::tr("Checking…") : text;
         c.actionEnabled = !in.checking;
         c.primary = primary;
     };
@@ -401,32 +389,31 @@ CardView cardView(const TrayInput &in)
         if (in.activity == QLatin1String("merge")) {
             c.kind = CardView::Kind::Merging;
             c.icon = QStringLiteral("merge");
-            c.heading = QStringLiteral("Merging configuration files…");
-            c.detail = QStringLiteral("pacdiff is running in the Kyu window.");
+            c.heading = I18n::tr("Merging configuration files…");
+            c.detail = I18n::tr("pacdiff is running in the Kyu window.");
         } else {
             c.kind = CardView::Kind::Updating;
             c.icon = QStringLiteral("system-upgrade");
-            c.heading = in.activity == QLatin1String("clean") ? QStringLiteral("Cleaning up…") : QStringLiteral("Updating…");
-            c.detail = QStringLiteral("Running in the Kyu window.");
+            c.heading = in.activity == QLatin1String("clean") ? I18n::tr("Cleaning up…") : I18n::tr("Updating…");
+            c.detail = I18n::tr("Running in the Kyu window.");
         }
         c.busy = true;
         c.action = CardView::Action::ShowWindow;
-        c.actionText = QStringLiteral("Show Window");
+        c.actionText = I18n::tr("Show Window");
         c.primary = true;
         return c;
     case TrayMark::Error:
         if (tray.lastFailed) {
             c.kind = CardView::Kind::Failed;
             c.icon = QStringLiteral("update-high");
-            c.heading = QStringLiteral("Update failed");
+            c.heading = I18n::tr("Update failed");
             c.failureKind = in.lastRun.value(QStringLiteral("failure")).toString();
             c.transactionStarted = in.lastRun.value(QStringLiteral("transactionStarted")).toBool();
             c.changed = in.lastRun.value(QStringLiteral("changed")).toInt();
             // What changed (the card puts what went wrong before it).
-            c.detail = c.transactionStarted ? QStringLiteral("The update was interrupted.")
-                : c.changed > 0             ? QStringLiteral("Only ") + plural(c.changed, QStringLiteral("package was upgraded."),
-                                                                             QStringLiteral("packages were upgraded."))
-                                            : QStringLiteral("No packages were upgraded.");
+            c.detail = c.transactionStarted ? I18n::tr("The update was interrupted.")
+                : c.changed > 0             ? numbered("Only %n packages were upgraded.", "Only 1 package was upgraded.", c.changed)
+                                            : I18n::tr("No packages were upgraded.");
             QStringList lines;
             for (const QJsonValue &v : in.lastRun.value(QStringLiteral("failureLines")).toArray()) {
                 lines.append(v.toString());
@@ -436,41 +423,47 @@ CardView cardView(const TrayInput &in)
                 c.muted = toMerge(in.configs);
             }
             c.action = CardView::Action::Update;
-            c.actionText = QStringLiteral("Try Again");
+            c.actionText = I18n::tr("Try Again");
             c.primary = true;
         } else {
             c.kind = CardView::Kind::CheckFailed;
             c.icon = QStringLiteral("data-warning");
-            c.heading = QStringLiteral("Could not check for updates");
+            c.heading = I18n::tr("Could not check for updates");
             if (!in.loadError.isEmpty() || !in.state) {
-                c.detail = QStringLiteral("Kyu could not read its list of updates.");
+                c.detail = I18n::tr("Kyu could not read its list of updates.");
                 c.raw = in.loadError;
             } else {
                 c.detail = checkFailure(*in.state);
                 if (const QDateTime ok = lastSuccess(*in.state); ok.isValid()) {
-                    c.muted = QStringLiteral("Last successful check: ") + shortWhen(ok, in.now);
+                    c.muted = I18n::tr("Last successful check: %1").arg(shortWhen(ok, in.now));
                 }
                 c.raw = checkErrors(*in.state);
             }
-            checkButton(QStringLiteral("Try Again"), true);
+            checkButton(I18n::tr("Try Again"), true);
         }
         return c;
     case TrayMark::Restart: {
         c.kind = CardView::Kind::Restart;
         c.icon = QStringLiteral("system-reboot-update");
-        c.heading = QStringLiteral("Restart required");
+        c.heading = I18n::tr("Restart required");
         // "new kernel 6.18.22-1-MANJARO", "the running kernel 6.18.20-1 was
         // removed", "systemd was updated" (a package name keeps its case).
         QString reason = restartReason(in);
         reason.remove(QStringLiteral(" (from an earlier update)"));
+        // The reason is recorded in English (kyu-update's last-run.json).
         static const QRegularExpression updatedPackage(QStringLiteral("^(\\S+) was updated$"));
+        static const QRegularExpression removedKernel(QStringLiteral("^the running kernel (\\S+) was removed$"));
         if (reason.startsWith(QLatin1String("new kernel "))) {
-            c.detail = QStringLiteral("Kernel %1 is installed.").arg(reason.mid(11));
+            c.detail = I18n::tr("Kernel %1 is installed.").arg(reason.mid(11));
+        } else if (const auto k = removedKernel.match(reason); k.hasMatch()) {
+            c.detail = I18n::tr("The running kernel %1 was removed.").arg(k.captured(1));
+        } else if (reason == QLatin1String("the running kernel was replaced")) {
+            c.detail = I18n::tr("The running kernel was replaced.");
         } else if (reason.startsWith(QLatin1String("the running kernel"))) {
             reason[0] = reason[0].toUpper();
             c.detail = reason + QLatin1Char('.');
         } else if (const auto m = updatedPackage.match(reason); m.hasMatch()) {
-            c.detail = QStringLiteral("An update of %1 is installed.").arg(m.captured(1));
+            c.detail = I18n::tr("An update of %1 is installed.").arg(m.captured(1));
         } else {
             if (reason.startsWith(QLatin1String("the "))) {
                 reason[0] = QLatin1Char('T');
@@ -480,10 +473,10 @@ CardView cardView(const TrayInput &in)
         if (!in.configs.isEmpty()) {
             c.muted = toMerge(in.configs);
             c.secondary = CardView::Action::Merge;
-            c.secondaryText = QStringLiteral("Merge…");
+            c.secondaryText = I18n::tr("Merge…");
         }
         c.action = CardView::Action::Restart;
-        c.actionText = QStringLiteral("Restart");
+        c.actionText = I18n::tr("Restart");
         c.primary = true;
         return c;
     }
@@ -496,39 +489,39 @@ CardView cardView(const TrayInput &in)
         c.heading = updatesHeading(s);
         c.detail = updatesBreakdown(s);
         if (s.totalSize() > 0) {
-            c.detail += QStringLiteral(" · ") + QLocale().formattedDataSize(s.totalSize(), 0) + QStringLiteral(" download");
+            c.detail += QStringLiteral(" · ") + I18n::tr("%1 download").arg(QLocale().formattedDataSize(s.totalSize(), 0));
         }
         if (!in.aurFailed.isEmpty()) {
-            c.detail += QStringLiteral(" · %1 AUR held back").arg(in.aurFailed.size());
+            c.detail += QStringLiteral(" · ") + I18n::tr("%1 AUR held back").arg(in.aurFailed.size());
         }
         // A failed check keeps the last list: said, with its age.
         if (s.hasError() || !in.loadError.isEmpty()) {
             const QDateTime ok = lastSuccess(s);
-            c.muted = ok.isValid() ? QStringLiteral("Could not check for updates · list from %1").arg(shortWhen(ok, in.now))
-                                   : QStringLiteral("Could not check for updates · the last list");
+            c.muted = ok.isValid() ? I18n::tr("Could not check for updates · list from %1").arg(shortWhen(ok, in.now))
+                                   : I18n::tr("Could not check for updates · the last list");
             c.raw = checkErrors(s);
             // Checking again, next to Update (greyed out while it runs).
             c.secondary = CardView::Action::Check;
-            c.secondaryText = in.checking ? QStringLiteral("Checking…") : QStringLiteral("Try Again");
+            c.secondaryText = in.checking ? I18n::tr("Checking…") : I18n::tr("Try Again");
             c.secondaryEnabled = !in.checking;
         } else if (s.restartNeeded()) {
             // Why, before the update (the running kernel's package).
-            c.muted = QStringLiteral("Updates the running kernel · requires a restart");
+            c.muted = I18n::tr("Updates the running kernel · requires a restart");
         }
         // The news: "Read first" until read (confirmed in kyu-update, or
         // opened from here); afterwards just the link.
         if (unread) {
-            c.linkText = QStringLiteral("Read first: ") + unread->title;
+            c.linkText = I18n::tr("Read first: %1").arg(unread->title);
             c.linkUrl = unread->link;
             c.linkKey = newsKey(*unread);
         } else if (!s.news.items.isEmpty()) {
-            c.linkText = QStringLiteral("News: ") + s.news.items.constFirst().title;
+            c.linkText = I18n::tr("News: %1").arg(s.news.items.constFirst().title);
             c.linkUrl = s.news.items.constFirst().link;
             c.linkKey = newsKey(s.news.items.constFirst());
         }
         c.rows = detailRows(s);
         c.action = CardView::Action::Update;
-        c.actionText = QStringLiteral("Update");
+        c.actionText = I18n::tr("Update");
         c.primary = true;
         return c;
     }
@@ -539,47 +532,46 @@ CardView cardView(const TrayInput &in)
     if (!in.configs.isEmpty()) {
         c.kind = CardView::Kind::Settings;
         c.icon = QStringLiteral("merge");
-        c.heading = in.configs.size() == 1 ? QStringLiteral("1 configuration file to merge")
-                                           : QStringLiteral("%1 configuration files to merge").arg(in.configs.size());
+        c.heading = numbered("%n configuration files to merge", "1 configuration file to merge", in.configs.size());
         const QString &file = in.configs.constFirst();
         if (in.configs.size() > 1) {
-            c.detail = QStringLiteral("%1 and %2 more").arg(file).arg(in.configs.size() - 1);
+            c.detail = numbered("%1 and %n more", "%1 and 1 more", in.configs.size() - 1).arg(file);
             c.detailPath = true;
-            c.muted = QStringLiteral("Your files stay in use until you merge.");
+            c.muted = I18n::tr("Your files stay in use until you merge.");
         } else if (file.endsWith(QLatin1String(".pacsave"))) {
-            c.detail = QStringLiteral("Your old file: %1").arg(file);
+            c.detail = I18n::tr("Your old file: %1").arg(file);
             c.detailPath = true;
-            c.muted = QStringLiteral("The package's version is in use now.");
+            c.muted = I18n::tr("The package's version is in use now.");
         } else {
-            c.detail = QStringLiteral("New version: %1").arg(file);
+            c.detail = I18n::tr("New version: %1").arg(file);
             c.detailPath = true;
-            c.muted = QStringLiteral("Your file stays in use until you merge.");
+            c.muted = I18n::tr("Your file stays in use until you merge.");
         }
         c.action = CardView::Action::Merge;
-        c.actionText = QStringLiteral("Merge…");
+        c.actionText = I18n::tr("Merge…");
         c.primary = true;
         return c;
     }
     if (!in.state) {
         c.kind = in.checking ? CardView::Kind::Checking : CardView::Kind::NotChecked;
         c.icon = QStringLiteral("system-upgrade");
-        c.heading = in.checking ? QStringLiteral("Checking for updates…") : QStringLiteral("Not checked yet");
+        c.heading = in.checking ? I18n::tr("Checking for updates…") : I18n::tr("Not checked yet");
         c.busy = in.checking;
         if (!in.checking) {
-            checkButton(QStringLiteral("Check for Updates"), true);
+            checkButton(I18n::tr("Check for Updates"), true);
         }
         return c;
     }
     c.kind = CardView::Kind::UpToDate;
     c.icon = QStringLiteral("checkmark");
-    c.heading = QStringLiteral("Up to date");
+    c.heading = I18n::tr("Up to date");
     if (!in.aurFailed.isEmpty()) {
         c.detail = aurFailedLine(in.aurFailed);
     }
     if (in.state->checkedAt.isValid()) {
-        c.muted = QStringLiteral("Last checked: ") + shortWhen(in.state->checkedAt, in.now);
+        c.muted = I18n::tr("Last checked: %1").arg(shortWhen(in.state->checkedAt, in.now));
     }
-    checkButton(QStringLiteral("Check for Updates"), false);
+    checkButton(I18n::tr("Check for Updates"), false);
     return c;
 }
 }

@@ -17,9 +17,26 @@ QString numbered(const char *many, const char *one, qsizetype n)
     return translated;
 }
 
+namespace
+{
+// gettext's rule, as pacman follows it: the first of LC_ALL, LC_MESSAGES and
+// LANG that is set decides; under the C locale (or with none set) all is
+// English, and LANGUAGE is not used.
+bool cLocale()
+{
+    for (const char *name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
+        const QByteArray value = qgetenv(name);
+        if (!value.isEmpty()) {
+            return value == "C" || value == "POSIX" || value.startsWith("C.");
+        }
+    }
+    return true;
+}
+}
+
 bool loadTranslations()
 {
-    if (!QCoreApplication::instance()) {
+    if (!QCoreApplication::instance() || cLocale()) {
         return false;
     }
     QStringList dirs;
@@ -33,23 +50,38 @@ bool loadTranslations()
 #ifdef KYU_INSTALLED_TRANSLATIONS
     dirs.append(QStringLiteral(KYU_INSTALLED_TRANSLATIONS));
 #endif
-    const QLocale locale;
-    bool loaded = false;
-    for (const QString &dir : std::as_const(dirs)) {
+    // The user's languages in order (LANGUAGE first, as Qt reads it): the
+    // first one Kyu has, unless English comes before it ("en_US:de").
+    QString language;
+    for (QString name : QLocale().uiLanguages()) {
+        name.replace(QLatin1Char('-'), QLatin1Char('_'));
+        if (name.startsWith(QLatin1String("en")) || name == QLatin1String("C")) {
+            break;
+        }
         auto *kyu = new QTranslator(QCoreApplication::instance());
-        if (kyu->load(locale, QStringLiteral("kyu"), QStringLiteral("_"), dir)) {
+        for (const QString &dir : std::as_const(dirs)) {
+            // kyu_de_DE.qm, else kyu_de.qm.
+            if (kyu->load(QStringLiteral("kyu_") + name, dir)) {
+                language = name;
+                break;
+            }
+        }
+        if (!language.isEmpty()) {
             QCoreApplication::installTranslator(kyu);
-            loaded = true;
             break;
         }
         delete kyu;
     }
+    if (language.isEmpty()) {
+        return false;
+    }
+    // Qt's own words (dialog buttons, --help) in the same language.
     auto *qt = new QTranslator(QCoreApplication::instance());
-    if (qt->load(locale, QStringLiteral("qtbase"), QStringLiteral("_"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+    if (qt->load(QStringLiteral("qtbase_") + language, QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
         QCoreApplication::installTranslator(qt);
     } else {
         delete qt;
     }
-    return loaded;
+    return true;
 }
 }

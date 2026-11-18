@@ -1,5 +1,6 @@
 #include "waiting.h"
 
+#include "i18n.h"
 #include "paths.h"
 
 #include <QDir>
@@ -77,7 +78,7 @@ QString waitingPrompt(const QByteArray &tail)
         return QString(); // the output ended its line: nothing asked
     }
     const QString line = bare(cursor);
-    const QString generic = QStringLiteral("An answer is needed in the Kyu window.");
+    const QString generic = I18n::tr("An answer is needed in the Kyu window.");
     // paru's and yay's menus: the question above, an empty "==> " to type at.
     if (line.isEmpty()) {
         const QString question = earlier([&bare](const QString &l) {
@@ -88,12 +89,12 @@ QString waitingPrompt(const QByteArray &tail)
     // A pager (a PKGBUILD to review, a diff): less's ":" and "(END)", more's.
     static const QRegularExpression pager(QStringLiteral("^(:|\\(END\\)|lines \\d+-\\d+.*|.*--More--.*)$"));
     if (pager.match(line).hasMatch()) {
-        return QStringLiteral("Something to read in the Kyu window.");
+        return I18n::tr("Something to read in the Kyu window.");
     }
     // A fingerprint reader or a security key (PAM), in their own words.
     static const QRegularExpression confirm(QStringLiteral("finger|touch|token"), QRegularExpression::CaseInsensitiveOption);
     if (confirm.match(line).hasMatch()) {
-        return QStringLiteral("Your confirmation is needed.");
+        return I18n::tr("Your confirmation is needed.");
     }
     // A choice ("[Y/n]", "[J/n]", "[o/N]"), or a sentence ending in "?" or
     // ":" (a password, "Enter a selection (default=all):"). A progress bar
@@ -103,7 +104,7 @@ QString waitingPrompt(const QByteArray &tail)
         return QString();
     }
     if (line.contains(QLatin1String("[sudo]")) || line.contains(QLatin1String("password"), Qt::CaseInsensitive) || line.startsWith(QLatin1String("doas ("))) {
-        return QStringLiteral("Your password is needed.");
+        return I18n::tr("Your password is needed.");
     }
     // pacman's provider choice: the question is the "::" line above
     // ("There are 2 providers available for …").

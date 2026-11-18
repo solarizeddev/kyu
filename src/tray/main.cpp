@@ -2,6 +2,7 @@
 // kyu-check writes; never runs as root and never changes the system.
 
 #include "checkscheduler.h"
+#include "i18n.h"
 #include "statewatcher.h"
 #include "systemwatcher.h"
 #include "trayicon.h"
@@ -14,6 +15,7 @@
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    Kyu::loadTranslations();
     QApplication::setApplicationName(QStringLiteral("kyu-tray"));
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));
     QApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));

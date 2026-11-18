@@ -4,6 +4,7 @@
 
 #include "checkscheduler.h"
 #include "failuretext.h"
+#include "i18n.h"
 #include "news.h"
 #include "statewatcher.h"
 
@@ -295,7 +296,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
     m_top->addLayout(m_grid);
     layout->addLayout(m_top);
 
-    m_details = new Disclosure(QStringLiteral("Details"), this);
+    m_details = new Disclosure(Kyu::I18n::tr("Details"), this);
     m_details->setGutter(IconSize, 2 * across);
     connect(m_details, &QAbstractButton::clicked, this, [this]() {
         showDetails(!m_detailsShown);
@@ -315,7 +316,7 @@ CardWindow::CardWindow(StateWatcher *watcher, CheckScheduler *scheduler, QWidget
         run(m_view.secondary);
     });
     m_action = new QPushButton(this);
-    m_measure = new QPushButton(QIcon::fromTheme(QStringLiteral("system-upgrade")), QStringLiteral("Update"), this);
+    m_measure = new QPushButton(QIcon::fromTheme(QStringLiteral("system-upgrade")), Kyu::I18n::tr("Update"), this);
     m_measure->hide();
     connect(m_action, &QPushButton::clicked, this, [this]() {
         run(m_view.action);
@@ -691,7 +692,7 @@ void CardWindow::run(Kyu::CardView::Action action)
                                                    QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot"));
         const QDBusMessage reply = QDBusConnection::sessionBus().call(call);
         if (reply.type() == QDBusMessage::ErrorMessage) {
-            if (QMessageBox::question(this, QStringLiteral("Kyu"), QStringLiteral("Restart now? Unsaved work in open programs is lost."))
+            if (QMessageBox::question(this, QStringLiteral("Kyu"), Kyu::I18n::tr("Restart now? Unsaved work in open programs is lost."))
                 == QMessageBox::Yes) {
                 QProcess::startDetached(QStringLiteral("systemctl"), {QStringLiteral("reboot")});
             }

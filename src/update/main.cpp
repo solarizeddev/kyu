@@ -14,6 +14,7 @@
 #include "aftercare.h"
 #include "failure.h"
 #include "housekeeping.h"
+#include "i18n.h"
 #include "failuretext.h"
 #include "aur.h"
 #include "keyrings.h"
@@ -123,9 +124,9 @@ public:
     }
     // "  Fix: sudo pacman -Sy …": the command bold in the text colour, the
     // one line to read (or copy) whole: never wrapped.
-    void fix(const QString &command, const QString &label = QStringLiteral("Fix"))
+    void fix(const QString &command, const QString &label = QString())
     {
-        write(QStringLiteral("  ") + label + QStringLiteral(": "), Tone::Plain, false);
+        write(QStringLiteral("  ") + (label.isEmpty() ? Kyu::I18n::tr("Fix") : label) + QStringLiteral(": "), Tone::Plain, false);
         write(command, Tone::Plain, true);
         put(QStringLiteral("\n"));
         flush();
@@ -575,11 +576,6 @@ QByteArray readFrom(const QString &path, qint64 offset)
     return file.readAll();
 }
 
-QString plural(qsizetype n, const QString &one, const QString &many)
-{
-    return n == 1 ? QStringLiteral("1 ") + one : QStringLiteral("%1 ").arg(n) + many;
-}
-
 // Word-wraps a sentence for continuation lines.
 QStringList wrap(const QString &text, int width = 64)
 {
@@ -668,7 +664,7 @@ QString snapshotHook(const QStringList &dirs)
 QString duration(qint64 ms)
 {
     const qint64 s = (ms + 500) / 1000;
-    return s < 60 ? QStringLiteral("%1 s").arg(s) : QStringLiteral("%1 min").arg((s + 30) / 60);
+    return s < 60 ? Kyu::I18n::tr("%1 s").arg(s) : Kyu::I18n::tr("%1 min").arg((s + 30) / 60);
 }
 
 // The command to run pacman with, kept from sleeping where logind allows it.
@@ -679,7 +675,8 @@ QStringList inhibited(const QStringList &command)
         return command;
     }
     const QStringList args{QStringLiteral("--no-ask-password"), QStringLiteral("--what=idle:sleep:shutdown"), QStringLiteral("--who=Kyu"),
-                           QStringLiteral("--why=Updating packages"), QStringLiteral("--mode=block")};
+                           // Plasma's battery and brightness applet shows why.
+                           QStringLiteral("--why=") + Kyu::I18n::tr("Updating packages"), QStringLiteral("--mode=block")};
     QProcess probe;
     probe.setStandardInputFile(QProcess::nullDevice());
     probe.start(inhibit, args + QStringList{QStringLiteral("true")});
@@ -745,11 +742,11 @@ QString shellJoin(const QStringList &args)
 bool runPacdiff(Out &out, const QString &elevate)
 {
     if (QStandardPaths::findExecutable(QStringLiteral("pacdiff")).isEmpty()) {
-        out.warn(QStringLiteral("pacdiff is in pacman-contrib: sudo pacman -S pacman-contrib"));
+        out.warn(Kyu::I18n::tr("pacdiff is in pacman-contrib: %1").arg(QStringLiteral("sudo pacman -S pacman-contrib")));
         return false;
     }
     if (elevate.isEmpty()) {
-        out.warn(QStringLiteral("pacdiff needs sudo, doas or pkexec to change files in /etc."));
+        out.warn(Kyu::I18n::tr("pacdiff needs sudo, doas or pkexec to change files in /etc."));
         return false;
     }
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
@@ -770,17 +767,18 @@ bool runPacdiff(Out &out, const QString &elevate)
         } else {
             env.insert(QStringLiteral("DIFFPROG"), QStringLiteral("diff -u --color=always"));
         }
-        out.note(QStringLiteral("Differences are shown with %1 (set DIFFPROG to change).").arg(env.value(QStringLiteral("DIFFPROG")).section(QLatin1Char(' '), 0, 0)),
+        out.note(Kyu::I18n::tr("Differences are shown with %1 (set DIFFPROG to change).").arg(env.value(QStringLiteral("DIFFPROG")).section(QLatin1Char(' '), 0, 0)),
                  Tone::Dim);
     }
-    out.note(QStringLiteral("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
-                            "o use the new version, s skip."),
+    //: v, m, r, o and s are pacdiff's own keys: keep them.
+    out.note(Kyu::I18n::tr("pacdiff asks for each file: v view the differences, m merge, r remove the new version, "
+                           "o use the new version, s skip."),
              Tone::Dim);
     // Watched: its questions count for "The update is waiting for you".
     const int rc = elevate == QLatin1String("sudo") ? runWatched({QStringLiteral("pacdiff"), QStringLiteral("--sudo")}, env)
                                                     : runWatched({elevate, QStringLiteral("pacdiff")}, env);
     if (rc != 0) {
-        out.bad(QStringLiteral("pacdiff stopped (status %1).").arg(rc));
+        out.bad(Kyu::I18n::tr("pacdiff stopped (status %1).").arg(rc));
     }
     return true;
 }
@@ -813,21 +811,20 @@ void checkInBackground()
 void printHousekeeping(Out &out, const Kyu::Housekeeping &h)
 {
     out.blank();
-    out.heading(QStringLiteral("Can be cleaned up, if you like:"));
+    out.heading(Kyu::I18n::tr("Can be cleaned up, if you like:"));
     if (!h.orphans.isEmpty()) {
-        QString line = QStringLiteral("%1: %2").arg(plural(h.orphans.size(), QStringLiteral("orphan package"), QStringLiteral("orphan packages")),
-                                                    h.orphans.join(QStringLiteral(", ")));
+        QString line = Kyu::numbered("%n orphan packages: %1", "1 orphan package: %1", h.orphans.size()).arg(h.orphans.join(QStringLiteral(", ")));
         // pacman -Rs also takes what only they need: said here, not first at its question.
         if (h.orphanRemovals.size() > h.orphans.size()) {
-            line += QStringLiteral(" (%1 packages in all, with what only they need)").arg(h.orphanRemovals.size());
+            line += QLatin1Char(' ') + Kyu::numbered("(%n packages in all, with what only they need)", "(1 package in all, with what only they need)", h.orphanRemovals.size());
         }
         out.note(line);
     }
     if (h.cacheWorthCleaning()) {
-        out.note(QStringLiteral("%1 of older and removed packages in the package cache").arg(QLocale().formattedDataSize(h.cacheBytes, 1)));
+        out.note(Kyu::I18n::tr("%1 of older and removed packages in the package cache").arg(QLocale().formattedDataSize(h.cacheBytes, 1)));
     }
     if (!h.unusedFlatpaks.isEmpty()) {
-        out.note(plural(h.unusedFlatpaks.size(), QStringLiteral("Flatpak runtime no app uses"), QStringLiteral("Flatpak runtimes no app uses")));
+        out.note(Kyu::numbered("%n Flatpak runtimes no app uses", "1 Flatpak runtime no app uses", h.unusedFlatpaks.size()));
     }
 }
 
@@ -843,8 +840,9 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
     if (!h.orphans.isEmpty()) {
         out.blank();
         const QString mode = h.orphansRecursive ? QStringLiteral("-Rs") : QStringLiteral("-R");
-        out.step(QStringLiteral("Orphans"), elevate + QStringLiteral(" pacman ") + mode + QLatin1Char(' ') + h.orphans.join(QLatin1Char(' ')));
-        out.note(QStringLiteral("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
+        out.step(Kyu::I18n::tr("Orphans"), elevate + QStringLiteral(" pacman ") + mode + QLatin1Char(' ') + h.orphans.join(QLatin1Char(' ')));
+        //: "n" is the answer to pacman's question: keep it.
+        out.note(Kyu::I18n::tr("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
         out.note(elevate + QStringLiteral(" pacman -D --asexplicit NAME"), Tone::Dim);
         QStringList shown;
         const int rc = runWatched(QStringList{elevate, QStringLiteral("pacman"), mode} + h.orphans, QProcessEnvironment::systemEnvironment(), &shown);
@@ -854,18 +852,20 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
             static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));
             const bool no = rc == 130 || (!shown.isEmpty() && shown.last().startsWith(QLatin1String("::")) && answered.match(shown.last()).hasMatch());
             if (no) {
-                out.note(QStringLiteral("Orphans kept."), Tone::Dim);
+                out.note(Kyu::I18n::tr("Orphans kept."), Tone::Dim);
                 stopped = rc == 130;
             } else {
-                out.warn(QStringLiteral("The orphans were not removed (status %1), see above.").arg(rc));
+                out.warn(Kyu::I18n::tr("The orphans were not removed (status %1), see above.").arg(rc));
             }
         }
     }
     if (!stopped && h.cacheWorthCleaning()) {
         out.blank();
-        out.step(QStringLiteral("Cache"), QStringLiteral("%1 paccache -rk%2, then -ruk0").arg(elevate).arg(Kyu::CacheVersionsKept));
+        out.step(Kyu::I18n::tr("Cache"), Kyu::I18n::tr("%1, then %2")
+                                             .arg(QStringLiteral("%1 paccache -rk%2").arg(elevate).arg(Kyu::CacheVersionsKept), QStringLiteral("-ruk0")));
         discardTypedAhead();
-        out.prompt(QStringLiteral("Remove %1 from the package cache: older versions (the newest %2 of each stay) and packages no longer installed? [y/N] ")
+        //: Keep [y/N]: Kyu reads "y" as yes.
+        out.prompt(Kyu::I18n::tr("Remove %1 from the package cache: older versions (the newest %2 of each stay) and packages no longer installed? [y/N] ")
                        .arg(QLocale().formattedDataSize(h.cacheBytes, 1))
                        .arg(Kyu::CacheVersionsKept));
         const QString answer = readAnswer();
@@ -878,7 +878,7 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
             }
             if (rc != 0) {
                 cacheKept = true;
-                out.warn(QStringLiteral("The package cache was not cleaned (status %1), see above.").arg(rc));
+                out.warn(Kyu::I18n::tr("The package cache was not cleaned (status %1), see above.").arg(rc));
             }
         } else {
             cacheKept = true;
@@ -890,7 +890,7 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
         const int rc = runWatched({QStringLiteral("flatpak"), QStringLiteral("uninstall"), QStringLiteral("--unused")});
         if (rc != 0) {
             flatpaksKept = true;
-            out.warn(QStringLiteral("The unused runtimes were not removed (status %1), see above.").arg(rc));
+            out.warn(Kyu::I18n::tr("The unused runtimes were not removed (status %1), see above.").arg(rc));
         }
     }
     Kyu::Housekeeping left = Kyu::readHousekeeping();
@@ -907,7 +907,7 @@ Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeep
     if (!left.any()) {
         if (!orphansKept && !cacheKept && !flatpaksKept && !stopped) {
             out.blank();
-            out.good(QStringLiteral("Cleaned up."));
+            out.good(Kyu::I18n::tr("Cleaned up."));
         }
     } else {
         printHousekeeping(out, left);
@@ -930,6 +930,9 @@ int main(int argc, char **argv)
     });
     const bool utf8 = QByteArray(::nl_langinfo(CODESET)) == "UTF-8";
     QCoreApplication app(argc, argv);
+    // Kyu's words in the user's language (English under LC_ALL=C.UTF-8);
+    // pacman's, sudo's and flatpak's as they print them.
+    Kyu::loadTranslations();
     QCoreApplication::setApplicationName(QStringLiteral("kyu-update"));
     {
         struct sigaction hup {};
@@ -939,23 +942,24 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Updates the system in this terminal: sudo pacman -Syu, then flatpak update, then "
-                                                    "the AUR helper's update, with the news before and what is left to do after."));
+    parser.setApplicationDescription(Kyu::I18n::tr("Updates the system in this terminal: %1, then %2, then "
+                                                   "the AUR helper's update, with the news before and what is left to do after.")
+                                         .arg(QStringLiteral("sudo pacman -Syu"), QStringLiteral("flatpak update")));
     parser.addHelpOption();
     parser.addVersionOption();
-    QCommandLineOption noWait(QStringLiteral("no-wait"), QStringLiteral("Do not wait for a key at the end."));
-    QCommandLineOption noCheck(QStringLiteral("no-check"), QStringLiteral("Do not run kyu-check afterwards."));
-    QCommandLineOption refresh(QStringLiteral("refresh"), QStringLiteral("Download all package databases again (pacman -Syyu), as after changing mirrors."));
-    QCommandLineOption stateFile(QStringLiteral("state-file"), QStringLiteral("kyu-check's state (testing)."), QStringLiteral("path"));
-    QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), QStringLiteral("pacman's log (testing)."), QStringLiteral("path"),
+    QCommandLineOption noWait(QStringLiteral("no-wait"), Kyu::I18n::tr("Do not wait for a key at the end."));
+    QCommandLineOption noCheck(QStringLiteral("no-check"), Kyu::I18n::tr("Do not run kyu-check afterwards."));
+    QCommandLineOption refresh(QStringLiteral("refresh"), Kyu::I18n::tr("Download all package databases again (pacman -Syyu), as after changing mirrors."));
+    QCommandLineOption stateFile(QStringLiteral("state-file"), Kyu::I18n::tr("kyu-check's state (testing)."), Kyu::I18n::tr("path"));
+    QCommandLineOption pacmanLog(QStringLiteral("pacman-log"), Kyu::I18n::tr("pacman's log (testing)."), Kyu::I18n::tr("path"),
                                  QStringLiteral("/var/log/pacman.log"));
-    QCommandLineOption dbLock(QStringLiteral("db-lock"), QStringLiteral("pacman's lock file (testing)."), QStringLiteral("path"),
+    QCommandLineOption dbLock(QStringLiteral("db-lock"), Kyu::I18n::tr("pacman's lock file (testing)."), Kyu::I18n::tr("path"),
                               QStringLiteral("/var/lib/pacman/db.lck"));
-    QCommandLineOption procDir(QStringLiteral("proc-dir"), QStringLiteral("/proc (testing)."), QStringLiteral("path"), QStringLiteral("/proc"));
-    QCommandLineOption modulesDir(QStringLiteral("modules-dir"), QStringLiteral("/usr/lib/modules (testing)."), QStringLiteral("path"),
+    QCommandLineOption procDir(QStringLiteral("proc-dir"), Kyu::I18n::tr("%1 (testing).").arg(QStringLiteral("/proc")), Kyu::I18n::tr("path"), QStringLiteral("/proc"));
+    QCommandLineOption modulesDir(QStringLiteral("modules-dir"), Kyu::I18n::tr("%1 (testing).").arg(QStringLiteral("/usr/lib/modules")), Kyu::I18n::tr("path"),
                                   QStringLiteral("/usr/lib/modules"));
-    QCommandLineOption mergeOnly(QStringLiteral("merge"), QStringLiteral("Only merge the configuration files the last update left (pacdiff)."));
-    QCommandLineOption cleanOnly(QStringLiteral("clean"), QStringLiteral("Only offer to clean up: orphan packages, the package cache, unused Flatpak runtimes."));
+    QCommandLineOption mergeOnly(QStringLiteral("merge"), Kyu::I18n::tr("Only merge the configuration files the last update left (pacdiff)."));
+    QCommandLineOption cleanOnly(QStringLiteral("clean"), Kyu::I18n::tr("Only offer to clean up: orphan packages, the package cache, unused Flatpak runtimes."));
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
     lockWait.setFlags(QCommandLineOption::HiddenFromHelp);
@@ -971,7 +975,7 @@ int main(int argc, char **argv)
     QCommandLineOption localeDir(QStringLiteral("locale-dir"), QStringLiteral("Where pacman's translations are (testing)."), QStringLiteral("path"),
                                  QStringLiteral("/usr/share/locale"));
     localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
-    QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), QStringLiteral("pacman's hook directories (testing)."), QStringLiteral("path"));
+    QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), Kyu::I18n::tr("pacman's hook directories (testing)."), Kyu::I18n::tr("path"));
     parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
 
@@ -1023,19 +1027,25 @@ int main(int argc, char **argv)
         Keys k = keys;
         for (;;) {
             QStringList offer;
+            // The keys stay as they are in every language: Kyu reads these letters.
             if (!k.fix.isEmpty()) {
-                offer.append(QStringLiteral("[f] fix and try again"));
+                //: Keep the key in brackets as it is: Kyu reads that letter.
+                offer.append(Kyu::I18n::tr("[f] fix and try again"));
             }
             if (k.restart) {
-                offer.append(QStringLiteral("[r] restart"));
+                //: Keep the key in brackets as it is: Kyu reads that letter.
+                offer.append(Kyu::I18n::tr("[r] restart"));
             }
             if (!k.configs.isEmpty()) {
-                offer.append(QStringLiteral("[m] merge"));
+                //: Keep the key in brackets as it is: Kyu reads that letter.
+                offer.append(Kyu::I18n::tr("[m] merge"));
             }
             if (k.house.any()) {
-                offer.append(QStringLiteral("[c] clean up"));
+                //: Keep the key in brackets as it is: Kyu reads that letter.
+                offer.append(Kyu::I18n::tr("[c] clean up"));
             }
-            offer.append(QStringLiteral("[Enter] close"));
+            //: The Enter key
+            offer.append(Kyu::I18n::tr("[Enter] close"));
             out.blank();
             // Keys pressed while flatpak or pacdiff ran are not answers to this.
             discardTypedAhead();
@@ -1055,10 +1065,11 @@ int main(int argc, char **argv)
                               QStringLiteral("org.kde.LogoutPrompt"), QStringLiteral("promptReboot")});
                 const int prompted = busctl.waitForFinished(10000) && busctl.exitStatus() == QProcess::NormalExit ? busctl.exitCode() : 1;
                 if (prompted == 0) {
-                    out.note(QStringLiteral("Plasma asks whether to restart now."), Tone::Dim);
+                    out.note(Kyu::I18n::tr("Plasma asks whether to restart now."), Tone::Dim);
                     continue;
                 }
-                out.prompt(QStringLiteral("Restart now? Unsaved work in open programs is lost. [y/N] "));
+                //: Keep [y/N]: Kyu reads "y" as yes.
+                out.prompt(Kyu::I18n::tr("Restart now? Unsaved work in open programs is lost. [y/N] "));
                 if (readAnswer() != QLatin1String("y")) {
                     continue;
                 }
@@ -1066,7 +1077,7 @@ int main(int argc, char **argv)
                 if (rc == 0) {
                     return 0;
                 }
-                out.bad(QStringLiteral("systemctl reboot failed (status %1).").arg(rc));
+                out.bad(Kyu::I18n::tr("systemctl reboot failed (status %1).").arg(rc));
             } else if (answer == QLatin1String("m") && !k.configs.isEmpty()) {
                 if (!runPacdiff(out, elevate)) {
                     continue;
@@ -1082,7 +1093,7 @@ int main(int argc, char **argv)
                     k.configsLeft(left);
                 }
                 if (left.isEmpty()) {
-                    out.good(QStringLiteral("Configuration files merged."));
+                    out.good(Kyu::I18n::tr("Configuration files merged."));
                 }
             } else if (answer == QLatin1String("c") && k.house.any()) {
                 k.house = cleanUp(out, elevate, k.house);
@@ -1092,7 +1103,7 @@ int main(int argc, char **argv)
                 }
                 const int rc = runWatched({QStringLiteral("/bin/sh"), QStringLiteral("-c"), k.fix});
                 if (rc != 0) {
-                    out.bad(QStringLiteral("The fix failed (status %1); its messages are above.").arg(rc));
+                    out.bad(Kyu::I18n::tr("The fix failed (status %1); its messages are above.").arg(rc));
                     continue;
                 }
                 // The whole update again, as a new run of this program,
@@ -1114,7 +1125,7 @@ int main(int argc, char **argv)
                 argvNew.append(nullptr);
                 out.blank();
                 ::execv(self.constData(), argvNew.data());
-                out.bad(QStringLiteral("Could not start kyu-update again: run it once more yourself."));
+                out.bad(Kyu::I18n::tr("Could not start kyu-update again: run it once more yourself."));
             }
         }
     };
@@ -1125,12 +1136,12 @@ int main(int argc, char **argv)
         qint64 pid = 0;
         QString host, appName;
         lock.getLockInfo(&pid, &host, &appName);
-        out.warn(pid > 0 ? QStringLiteral("An update is already running (pid %1).").arg(pid) : QStringLiteral("An update is already running."));
+        out.warn(pid > 0 ? Kyu::I18n::tr("An update is already running (pid %1).").arg(pid) : Kyu::I18n::tr("An update is already running."));
         if (parser.isSet(noWait) || !stdinIsTerminal()) {
             return 3;
         }
         out.blank();
-        out.prompt(QStringLiteral("[Enter] close "));
+        out.prompt(Kyu::I18n::tr("[Enter] close") + QLatin1Char(' '));
         readAnswer();
         return 0;
     }
@@ -1149,12 +1160,12 @@ int main(int argc, char **argv)
 
     // --- Clean up only (kyu-update --clean) --------------------------------------
     if (parser.isSet(cleanOnly)) {
-        out.header(QStringLiteral("Kyu · clean up"));
+        out.header(Kyu::I18n::tr("Kyu · clean up"));
         out.blank();
         Keys keys;
         keys.house = Kyu::readHousekeeping();
         if (!keys.house.any()) {
-            out.good(QStringLiteral("Nothing to clean up."));
+            out.good(Kyu::I18n::tr("Nothing to clean up."));
         } else {
             printHousekeeping(out, keys.house);
         }
@@ -1163,7 +1174,7 @@ int main(int argc, char **argv)
 
     // --- Configuration files only (the card's Merge…) ----------------------------
     if (parser.isSet(mergeOnly)) {
-        out.header(QStringLiteral("Kyu · configuration files"));
+        out.header(Kyu::I18n::tr("Kyu · configuration files"));
         out.blank();
         QJsonObject record = readJson(Kyu::Paths::stateDir() + QStringLiteral("/last-run.json"));
         if (runPacdiff(out, elevate)) {
@@ -1183,9 +1194,9 @@ int main(int argc, char **argv)
             }
             out.blank();
             if (left.isEmpty()) {
-                out.good(QStringLiteral("Configuration files merged."));
+                out.good(Kyu::I18n::tr("Configuration files merged."));
             } else {
-                out.warn(QStringLiteral("%1 still to merge.").arg(plural(left.size(), QStringLiteral("configuration file"), QStringLiteral("configuration files"))));
+                out.warn(Kyu::numbered("%n configuration files still to merge.", "1 configuration file still to merge.", left.size()));
             }
         }
         return finish(0);
@@ -1211,29 +1222,28 @@ int main(int argc, char **argv)
     }
     const int pendingTotal = state ? int(state->total() - aurHeldBack.size()) : 0;
     if (!state || !state->checkedAt.isValid() || pendingTotal == 0) {
-        out.header(QStringLiteral("Kyu · updating"));
+        out.header(Kyu::I18n::tr("Kyu · updating"));
     } else {
         QStringList parts;
         if (!state->packages.isEmpty()) {
-            parts.append(plural(state->packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
+            parts.append(Kyu::numbered("%n packages", "1 package", state->packages.size()));
         }
         if (!aurPending.isEmpty()) {
-            parts.append(QStringLiteral("%1 AUR").arg(aurPending.size()));
+            parts.append(Kyu::I18n::tr("%1 AUR").arg(aurPending.size()));
         }
         if (!state->flatpaks.isEmpty()) {
-            parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+            parts.append(Kyu::numbered("%n Flatpaks", "1 Flatpak", state->flatpaks.size()));
         }
-        out.header(QStringLiteral("Kyu · %1: %2").arg(plural(pendingTotal, QStringLiteral("update"), QStringLiteral("updates")),
-                                                     parts.join(QStringLiteral(", "))));
+        out.header(Kyu::numbered("Kyu · %n updates: %1", "Kyu · 1 update: %1", pendingTotal).arg(parts.join(QStringLiteral(", "))));
     }
     if (!aurHeldBack.isEmpty()) {
-        out.note(QStringLiteral("AUR, held back: %1 (not built last time; tried again when the AUR has a newer version).")
+        out.note(Kyu::I18n::tr("AUR, held back: %1 (not built last time; tried again when the AUR has a newer version).")
                      .arg(aurHeldBack.join(QStringLiteral(", "))),
                  Tone::Dim);
     }
     // Kyu's own window asks before it closes during an update.
     if (qEnvironmentVariableIsEmpty("KYU_WINDOW")) {
-        out.note(QStringLiteral("Keep this window open until Kyu says it is done."), Tone::Dim);
+        out.note(Kyu::I18n::tr("Keep this window open until Kyu says it is done."), Tone::Dim);
     }
 
     // The news since the last full upgrade. Asked about once per announcement
@@ -1252,22 +1262,24 @@ int main(int argc, char **argv)
             // Read before: one quiet line, the link to go back to it.
             const Kyu::NewsItem &newest = state->news.items.constFirst();
             const qsizetype more = state->news.items.size() - 1;
-            out.note(QStringLiteral("News (read): ") + newest.title + QStringLiteral(" · ") + newest.link
-                         + (more > 0 ? QStringLiteral(" · +%1 more").arg(more) : QString()),
+            out.note(Kyu::I18n::tr("News (read): %1").arg(newest.title) + QStringLiteral(" · ") + newest.link
+                         + (more > 0 ? QStringLiteral(" · ") + Kyu::numbered("+%n more", "+1 more", more) : QString()),
                      Tone::Dim);
         } else {
             const QList<Kyu::NewsItem> shown = fresh.mid(0, 5);
-            out.heading(QStringLiteral("%1 since your last update").arg(state->news.source));
+            out.heading(Kyu::I18n::tr("%1 since your last update").arg(Kyu::newsSourceText(state->news.source)));
             for (const Kyu::NewsItem &item : shown) {
                 out.note(item.title);
                 out.note(item.link, Tone::Dim);
             }
             if (fresh.size() > shown.size()) {
-                out.note(QStringLiteral("… and %1 more: %2").arg(fresh.size() - shown.size()).arg(state->news.page), Tone::Dim);
+                out.note(Kyu::numbered("… and %n more: %1", "… and 1 more: %1", fresh.size() - shown.size()).arg(state->news.page), Tone::Dim);
             }
             // No by default: Enter alone must not skip news that may need action.
-            out.prompt(QStringLiteral("Continue? [y/N] "));
-            Kyu::setWaiting(QStringLiteral("News to read first: continue? [y/N]"));
+            //: Keep [y/N]: Kyu reads "y" as yes.
+            out.prompt(Kyu::I18n::tr("Continue? [y/N] "));
+            //: Keep [y/N]: Kyu reads "y" as yes.
+            Kyu::setWaiting(Kyu::I18n::tr("News to read first: continue? [y/N]"));
             const QString answer = readAnswer();
             Kyu::setWaiting(QString());
             if (!stdinIsTerminal()) {
@@ -1275,7 +1287,7 @@ int main(int argc, char **argv)
             }
             if (answer != QLatin1String("y") && answer != QLatin1String("yes")) {
                 out.blank();
-                out.warn(QStringLiteral("Stopped. No packages were upgraded."));
+                out.warn(Kyu::I18n::tr("Stopped. No packages were upgraded."));
                 return finish(4);
             }
             // Read once the person said y, before pacman runs: they saw them,
@@ -1326,7 +1338,7 @@ int main(int argc, char **argv)
             const QList<Manager> holders = lockHolders(procPath, lockPath);
             return holders.isEmpty() ? packageManagers(procPath) : holders;
         };
-        out.warn(QStringLiteral("Waiting for %1 to finish. Press Ctrl+C to cancel.").arg(describe(candidates().constFirst())));
+        out.warn(Kyu::I18n::tr("Waiting for %1 to finish. Press Ctrl+C to cancel.").arg(describe(candidates().constFirst())));
         // What changes while a package manager works: its and its children's
         // CPU time, pacman's log, the lock itself.
         auto activity = [&]() {
@@ -1390,7 +1402,8 @@ int main(int argc, char **argv)
             }
             if (tty) {
                 const qint64 s = waited.elapsed() / 1000;
-                std::printf("\r  waited %lld:%02lld ", s / 60, s % 60);
+                const QString waitedFor = QStringLiteral("%1:%2").arg(s / 60).arg(s % 60, 2, 10, QLatin1Char('0'));
+                std::fputs((QStringLiteral("\r  ") + Kyu::I18n::tr("waited %1").arg(waitedFor) + QLatin1Char(' ')).toLocal8Bit().constData(), stdout);
                 std::fflush(stdout);
             }
             QThread::msleep(500);
@@ -1407,17 +1420,17 @@ int main(int argc, char **argv)
     // The lock is left over: say so, with the fix.
     auto staleLock = [&](Lock why) {
         if (why == Lock::Idle) {
-            out.warn(QStringLiteral("pacman's lock looks left over: %1 is running but idle.").arg(idleHolder));
+            out.warn(Kyu::I18n::tr("pacman's lock looks left over: %1 is running but idle.").arg(idleHolder));
         } else if (why == Lock::Unseen) {
-            out.warn(QStringLiteral("pacman's lock is there; Kyu cannot see other users' programs to tell who has it."));
+            out.warn(Kyu::I18n::tr("pacman's lock is there; Kyu cannot see other users' programs to tell who has it."));
         } else {
-            out.warn(QStringLiteral("pacman's lock is left over from a stopped run; nothing is using it."));
+            out.warn(Kyu::I18n::tr("pacman's lock is left over from a stopped run; nothing is using it."));
         }
         Keys keys;
         if (!elevate.isEmpty()) {
             keys.fix = unlockCommand(elevate, lockPath);
             keys.fixShown = QStringLiteral("%1 rm %2").arg(elevate, lockPath);
-            out.fix(keys.fixShown, QStringLiteral("Fix (if no pacman is running)"));
+            out.fix(keys.fixShown, Kyu::I18n::tr("Fix (if no pacman is running)"));
             // Minutes may pass before [f]: a package manager may have started working.
             keys.fixAllowed = [&out, lockPath, procPath]() {
                 if (!QFileInfo::exists(lockPath)) {
@@ -1429,7 +1442,7 @@ int main(int argc, char **argv)
                 QHash<int, int> parents = parentMap(procPath);
                 for (const Manager &m : all) {
                     if (!canBeIdle(m, all, parents)) {
-                        out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(m)));
+                        out.warn(Kyu::I18n::tr("%1 is working now and may be using the lock: wait until it is done.").arg(describe(m)));
                         return false;
                     }
                 }
@@ -1437,7 +1450,7 @@ int main(int argc, char **argv)
                 QThread::msleep(1000);
                 parents = parentMap(procPath);
                 if (cpuMarks(procPath, all, parents) != before) {
-                    out.warn(QStringLiteral("%1 is working now and may be using the lock: wait until it is done.").arg(describe(all.constFirst())));
+                    out.warn(Kyu::I18n::tr("%1 is working now and may be using the lock: wait until it is done.").arg(describe(all.constFirst())));
                     return false;
                 }
                 return true;
@@ -1452,10 +1465,10 @@ int main(int argc, char **argv)
         case Lock::Free:
             break;
         case Lock::Stopped:
-            out.warn(QStringLiteral("Stopped. No packages were upgraded."));
+            out.warn(Kyu::I18n::tr("Stopped. No packages were upgraded."));
             return finish(4);
         case Lock::TimedOut:
-            out.warn(QStringLiteral("Still busy after %1. Update when it is done.").arg(duration(lockLimit)));
+            out.warn(Kyu::I18n::tr("Still busy after %1. Update when it is done.").arg(duration(lockLimit)));
             return finish(1);
         case Lock::Stale:
         case Lock::Idle:
@@ -1465,7 +1478,7 @@ int main(int argc, char **argv)
     }
 
     if (!skipPacman && elevate.isEmpty()) {
-        out.bad(QStringLiteral("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."));
+        out.bad(Kyu::I18n::tr("Neither sudo, doas nor pkexec is installed: pacman needs one of them to run as root."));
         return finish(1);
     }
 
@@ -1599,8 +1612,8 @@ int main(int argc, char **argv)
             out.blank();
             const Lock lock = waitForLock();
             if (lock == Lock::Stopped) {
-                out.warn(QStringLiteral("Stopped. ")
-                         + (run.changed.isEmpty() ? QStringLiteral("No packages were upgraded.") : QStringLiteral("Only %1 upgraded.").arg(run.changed.join(QStringLiteral(", ")))));
+                out.warn(run.changed.isEmpty() ? Kyu::I18n::tr("Stopped. No packages were upgraded.")
+                                               : Kyu::I18n::tr("Stopped. Only %1 upgraded.").arg(run.changed.join(QStringLiteral(", "))));
                 return finish(4);
             }
             if (lock == Lock::Stale || lock == Lock::Idle || lock == Lock::Unseen) {
@@ -1609,7 +1622,7 @@ int main(int argc, char **argv)
             if (lock != Lock::Free) {
                 break; // timed out: the verdict says why pacman stopped
             }
-            out.step(steps.first().title, steps.first().command.join(QLatin1Char(' ')) + QStringLiteral(" (again)"));
+            out.step(steps.first().title, steps.first().command.join(QLatin1Char(' ')) + QLatin1Char(' ') + Kyu::I18n::tr("(again)"));
         }
         return std::nullopt;
     };
@@ -1633,19 +1646,19 @@ int main(int argc, char **argv)
                                                             : QStringList{QStringLiteral("/usr/share/libalpm/hooks"), QStringLiteral("/etc/pacman.d/hooks")};
         if (const QString hook = snapshotHook(hookDirs); !hook.isEmpty()) {
             out.blank();
-            out.quietStep(QStringLiteral("Snapshot"),
-                          keyringsFirst.isEmpty() ? QStringLiteral("%1 takes one first").arg(hook)
-                                                  : QStringLiteral("%1 takes one before the keyrings and one before the rest").arg(hook));
+            out.quietStep(Kyu::I18n::tr("Snapshot"),
+                          keyringsFirst.isEmpty() ? Kyu::I18n::tr("%1 takes one first").arg(hook)
+                                                  : Kyu::I18n::tr("%1 takes one before the keyrings and one before the rest").arg(hook));
         }
         const bool refreshAll = parser.isSet(refresh);
         std::optional<int> end;
         if (!keyringsFirst.isEmpty()) {
-            end = runPacman({{QStringLiteral("Keyrings"),
+            end = runPacman({{Kyu::I18n::tr("Keyrings"),
                               QStringList{elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syy") : QStringLiteral("-Sy"), QStringLiteral("--needed")}
                                   + keyringsFirst},
-                             {QStringLiteral("Packages"), {elevate, QStringLiteral("pacman"), QStringLiteral("-Su")}}});
+                             {Kyu::I18n::tr("Packages"), {elevate, QStringLiteral("pacman"), QStringLiteral("-Su")}}});
         } else {
-            end = runPacman({{QStringLiteral("Packages"), {elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syyu") : QStringLiteral("-Syu")}}});
+            end = runPacman({{Kyu::I18n::tr("Packages"), {elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syyu") : QStringLiteral("-Syu")}}});
         }
         if (end) {
             return *end;
@@ -1701,8 +1714,10 @@ int main(int argc, char **argv)
     const auto after = [&]() {
         After a;
         const Kyu::KernelState kernel = Kyu::kernelState(parser.value(procDir), parser.value(modulesDir));
+        // In English: last-run.json's data, which the card reads;
+        // Kyu::restartReasonText() says it in the user's language.
         if (kernel.replaced) {
-            a.restartReason = kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was removed").arg(kernel.running)
+            a.restartReason =kernel.installed.isEmpty() ? QStringLiteral("the running kernel %1 was removed").arg(kernel.running)
                                                          : QStringLiteral("new kernel %1").arg(kernel.installed);
             static const QRegularExpression kernelPackage(QStringLiteral("^linux([0-9]+|-lts|-zen|-hardened|-rt.*|-cachyos.*)?$"));
             for (const QString &name : std::as_const(run.updated)) {
@@ -1799,7 +1814,7 @@ int main(int argc, char **argv)
         }
         out.blank();
         out.step(QStringLiteral("AUR"), command.join(QLatin1Char(' ')));
-        out.note(QStringLiteral("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
+        out.note(Kyu::I18n::tr("%1 asks its own questions, and may ask for the password again.").arg(aurHelper->name), Tone::Dim);
         const qint64 logOffset = QFileInfo(logPath).size();
         const QStringList c = inhibited(command);
         aurExit = runWatched(c);
@@ -1847,14 +1862,13 @@ int main(int argc, char **argv)
     }
 
     Keys keys;
-    const QString packages = plural(run.changed.size(), QStringLiteral("package"), QStringLiteral("packages"));
     out.blank();
     // Stopped on purpose ("n", Ctrl+C, no password): not a failed update.
     bool stoppedOnPurpose = false;
     if (pacmanExit > 0) {
-        const QString skipped = flatpakWanted && aurWanted ? QStringLiteral(" Flatpaks and AUR packages were skipped.")
-            : flatpakWanted                                 ? QStringLiteral(" Flatpaks were skipped.")
-            : aurWanted                                     ? QStringLiteral(" AUR packages were skipped.")
+        const QString skipped = flatpakWanted && aurWanted ? QLatin1Char(' ') + Kyu::I18n::tr("Flatpaks and AUR packages were skipped.")
+            : flatpakWanted                                 ? QLatin1Char(' ') + Kyu::I18n::tr("Flatpaks were skipped.")
+            : aurWanted                                     ? QLatin1Char(' ') + Kyu::I18n::tr("AUR packages were skipped.")
                                                             : QString();
         // pacman's last lines, whatever the language; the last one is its
         // "::" question when it was answered no.
@@ -1883,23 +1897,24 @@ int main(int argc, char **argv)
         stoppedOnPurpose = declined && !lastStarted;
         // What an earlier run of this update (the keyrings) installed.
         const QString only = run.changed.isEmpty()
-            ? QStringLiteral("No packages were upgraded.")
-            : QStringLiteral("Only %1 %2 upgraded.").arg(run.changed.join(QStringLiteral(", ")), run.changed.size() == 1 ? QStringLiteral("was") : QStringLiteral("were"));
+            ? Kyu::I18n::tr("No packages were upgraded.")
+            : Kyu::numbered("Only %1 were upgraded.", "Only %1 was upgraded.", run.changed.size()).arg(run.changed.join(QStringLiteral(", ")));
         if (lastStarted && pacmanExit > 128) {
             // Stopped by a signal (killed, the window closed) mid-transaction.
-            out.bad((run.changed.isEmpty() ? QStringLiteral("The update was interrupted while pacman was changing packages.")
-                                           : QStringLiteral("The update was interrupted after %1 had changed.").arg(packages))
+            out.bad((run.changed.isEmpty() ? Kyu::I18n::tr("The update was interrupted while pacman was changing packages.")
+                                           : Kyu::numbered("The update was interrupted after %n packages had changed.",
+                                                           "The update was interrupted after 1 package had changed.", run.changed.size()))
                     + skipped);
-            out.note(QStringLiteral("Run the update again: pacman completes it."), Tone::Dim);
+            out.note(Kyu::I18n::tr("Run the update again: pacman completes it."), Tone::Dim);
         } else if (lastStarted) {
-            out.bad(QStringLiteral("pacman failed after changing %1.").arg(packages) + skipped);
+            out.bad(Kyu::numbered("pacman failed after changing %n packages.", "pacman failed after changing 1 package.", run.changed.size()) + skipped);
         } else if (declined) {
-            out.warn(QStringLiteral("Stopped. ") + only + skipped);
+            out.warn(Kyu::I18n::tr("Stopped.") + QLatin1Char(' ') + only + skipped);
             if (refused) {
                 out.note(last.last(), Tone::Dim);
             }
         } else {
-            out.bad((run.changed.isEmpty() ? QString() : QStringLiteral("pacman failed. ")) + only + skipped);
+            out.bad((run.changed.isEmpty() ? QString() : Kyu::I18n::tr("pacman failed.") + QLatin1Char(' ')) + only + skipped);
         }
         // The package lists were synced and the upgrade did not begin:
         // installing anything now would be a partial upgrade. Synced: the
@@ -1920,13 +1935,14 @@ int main(int argc, char **argv)
             // the usual fix does not help.
             if (kind == QLatin1String("keyring") && (keyringsDone || keyringsFailed || parser.isSet(synced))) {
                 text.fix.clear();
-                const QString keys = QStringLiteral("Check that the clock is right, then reload and refresh pacman's keys: %1 pacman-key --populate, "
-                                                    "then %1 pacman-key --refresh-keys (slow). pacman's messages above name the key.")
-                                         .arg(elevate.isEmpty() ? QStringLiteral("sudo") : elevate);
-                text.text = keyringsFailed ? QStringLiteral("The new keyring itself could not be checked: the installed one is too old to "
-                                                            "trust it, which happens after a long gap. ")
-                                                 + keys
-                                           : QStringLiteral("The keyrings are already current, so a newer keyring is not the answer. ") + keys;
+                const QString root = elevate.isEmpty() ? QStringLiteral("sudo") : elevate;
+                const QString keys = Kyu::I18n::tr("Check that the clock is right, then reload and refresh pacman's keys: %1, "
+                                                   "then %2 (slow). pacman's messages above name the key.")
+                                         .arg(root + QStringLiteral(" pacman-key --populate"), root + QStringLiteral(" pacman-key --refresh-keys"));
+                text.text = (keyringsFailed ? Kyu::I18n::tr("The new keyring itself could not be checked: the installed one is too old to "
+                                                            "trust it, which happens after a long gap.")
+                                            : Kyu::I18n::tr("The keyrings are already current, so a newer keyring is not the answer."))
+                    + QLatin1Char(' ') + keys;
             }
             out.note(text.title + QLatin1Char('.'));
             // Files and package files are not in the sentence: list them.
@@ -1935,7 +1951,7 @@ int main(int argc, char **argv)
                     out.note(QStringLiteral("· ") + item, Tone::Dim);
                 }
                 if (text.items.size() > 3) {
-                    out.note(QStringLiteral("· and %1 more").arg(text.items.size() - 3), Tone::Dim);
+                    out.note(QStringLiteral("· ") + Kyu::numbered("and %n more", "and 1 more", text.items.size() - 3), Tone::Dim);
                 }
             }
             // The fix with this system's sudo, doas or pkexec, and only with
@@ -1961,14 +1977,14 @@ int main(int argc, char **argv)
                 }
             }
         } else if (!declined && !last.isEmpty()) {
-            out.note(QStringLiteral("pacman's last lines (status %1):").arg(pacmanExit));
+            out.note(Kyu::I18n::tr("pacman's last lines (status %1):").arg(pacmanExit));
             for (const QString &l : last) {
                 out.note(l, Tone::Dim);
             }
         }
         // After what went wrong and its fix: what not to do meanwhile.
         if (partial) {
-            out.warn(QStringLiteral("The package lists are newer than the system: update before installing anything."));
+            out.warn(Kyu::I18n::tr("The package lists are newer than the system: update before installing anything."));
         }
     } else {
         // AUR packages updated: those the check listed (not split, debug or
@@ -1981,16 +1997,16 @@ int main(int argc, char **argv)
         }
         QStringList parts;
         if (!run.changed.isEmpty()) {
-            parts.append(packages);
+            parts.append(Kyu::numbered("%n packages", "1 package", run.changed.size()));
         }
         if (aurDone > 0) {
-            parts.append(QStringLiteral("%1 AUR").arg(aurDone));
+            parts.append(Kyu::I18n::tr("%1 AUR").arg(aurDone));
         }
         if (flatpakExit == 0 && !flatpakNothing && state && !state->flatpaks.isEmpty()) {
-            parts.append(plural(state->flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+            parts.append(Kyu::numbered("%n Flatpaks", "1 Flatpak", state->flatpaks.size()));
         }
         // How long it took, when that is worth saying.
-        const QString done = (clock.elapsed() < 2000 ? QStringLiteral("Done") : QStringLiteral("Done in ") + duration(clock.elapsed()))
+        const QString done = (clock.elapsed() < 2000 ? Kyu::I18n::tr("Done") : Kyu::I18n::tr("Done in %1").arg(duration(clock.elapsed())))
             + QStringLiteral(" · ") + parts.join(QStringLiteral(" · "));
         const bool flatpakShort = flatpakNothing && state && !state->flatpaks.isEmpty();
         if (flatpakExit > 0 || aurExit > 0 || flatpakShort) {
@@ -1998,33 +2014,35 @@ int main(int argc, char **argv)
             if (!parts.isEmpty()) {
                 out.good(done);
             } else if (pacmanExit == 0) {
-                out.good(QStringLiteral("The system is up to date."));
+                out.good(Kyu::I18n::tr("The system is up to date."));
             }
             if (flatpakStopped) {
-                out.warn(QStringLiteral("Flatpaks: stopped. None were updated."));
+                out.warn(Kyu::I18n::tr("Flatpaks: stopped. None were updated."));
             } else if (flatpakExit > 0) {
-                out.bad(QStringLiteral("Flatpaks failed (status %1), see above.").arg(flatpakExit));
+                out.bad(Kyu::I18n::tr("Flatpaks failed (status %1), see above.").arg(flatpakExit));
             } else if (flatpakShort) {
-                out.warn(QStringLiteral("Flatpaks not updated: flatpak found nothing to update (a remote it could not reach?), see above."));
+                out.warn(Kyu::I18n::tr("Flatpaks not updated: flatpak found nothing to update (a remote it could not reach?), see above."));
             }
         } else {
-            out.good(parts.isEmpty() ? QStringLiteral("Already up to date.") : done);
+            out.good(parts.isEmpty() ? Kyu::I18n::tr("Already up to date.") : done);
         }
     }
 
     // The AUR on its own line: never the system update's failure.
     if (aurExit > 0) {
         const bool restDone = flatpakExit <= 0 && (pacmanExit == 0 || flatpakExit == 0);
-        out.warn(QStringLiteral("AUR packages not updated: %1 stopped (status %2), see above.").arg(aurHelper->name).arg(aurExit)
-                 + (restDone ? QStringLiteral(" The rest is done.") : QString()));
+        out.warn(Kyu::I18n::tr("AUR packages not updated: %1 stopped (status %2), see above.").arg(aurHelper->name).arg(aurExit)
+                 + (restDone ? QLatin1Char(' ') + Kyu::I18n::tr("The rest is done.") : QString()));
     }
 
     if (!restartReason.isEmpty()) {
         if (pacmanExit > 0 && lastStarted) {
             // Half an update: the new kernel's boot files may not be there.
-            out.warn(QStringLiteral("Do not restart: the update is incomplete. Run it again first."));
+            out.warn(Kyu::I18n::tr("Do not restart: the update is incomplete. Run it again first."));
         } else {
-            out.warn(QStringLiteral("Restart required: ") + restartReason + (restartFromThisRun ? QString() : QStringLiteral(" (from an earlier update)")));
+            // The reason is recorded in English (last-run.json), shown translated.
+            out.warn((restartFromThisRun ? Kyu::I18n::tr("Restart required: %1") : Kyu::I18n::tr("Restart required: %1 (from an earlier update)"))
+                         .arg(Kyu::restartReasonText(restartReason)));
             keys.restart = true;
         }
     }
@@ -2034,16 +2052,13 @@ int main(int argc, char **argv)
         for (const QString &path : configs) {
             shown.append(QString(path).remove(QRegularExpression(QStringLiteral("\\.pac(new|save)$"))));
         }
-        out.warn(QStringLiteral("%1 to merge: %2")
-                     .arg(plural(configs.size(), QStringLiteral("configuration file"), QStringLiteral("configuration files")),
-                          shown.mid(0, 3).join(QStringLiteral(", ")) + (shown.size() > 3 ? QStringLiteral(", …") : QString())));
+        out.warn(Kyu::numbered("%n configuration files to merge: %1", "1 configuration file to merge: %1", configs.size())
+                     .arg(shown.mid(0, 3).join(QStringLiteral(", ")) + (shown.size() > 3 ? QStringLiteral(", …") : QString())));
         keys.configs = configs;
     }
     if (!programs.isEmpty()) {
-        out.warn(QStringLiteral("%1 still %2 old libraries: restart %3.")
-                     .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString()),
-                          programs.size() == 1 ? QStringLiteral("uses") : QStringLiteral("use"),
-                          programs.size() == 1 ? QStringLiteral("it") : QStringLiteral("them")));
+        out.warn(Kyu::numbered("%1 still use old libraries: restart them.", "%1 still uses old libraries: restart it.", programs.size())
+                     .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())));
     }
 
     const int code = pacmanExit > 0 ? pacmanExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;

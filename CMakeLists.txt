@@ -76,8 +76,9 @@ set(KYU_TRANSLATIONS_DIR ${CMAKE_INSTALL_FULL_DATADIR}/kyu/translations)
 add_subdirectory(src)
 add_subdirectory(data)
 if(Qt6LinguistTools_FOUND AND KYU_TS_FILES)
-    qt_add_lrelease(kyucore TS_FILES ${KYU_TS_FILES} QM_FILES_OUTPUT_VARIABLE KYU_QM_FILES OPTIONS -silent)
+    # Before qt_add_lrelease, which reads it: the .qm files in build/translations.
     set_source_files_properties(${KYU_TS_FILES} PROPERTIES OUTPUT_LOCATION ${KYU_QM_DIR})
+    qt_add_lrelease(kyucore TS_FILES ${KYU_TS_FILES} QM_FILES_OUTPUT_VARIABLE KYU_QM_FILES OPTIONS -silent)
     install(FILES ${KYU_QM_FILES} DESTINATION ${CMAKE_INSTALL_DATADIR}/kyu/translations)
     add_custom_target(kyu-lupdate
         COMMAND Qt6::lupdate -tr-function-alias tr+=numbered -locations relative -no-obsolete

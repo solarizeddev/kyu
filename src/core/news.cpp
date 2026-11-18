@@ -1,5 +1,6 @@
 #include "news.h"
 
+#include "i18n.h"
 #include "paths.h"
 
 #include <QDir>
@@ -80,9 +81,16 @@ NewsSource newsSourceFor(const QString &osReleasePath, const QString &mirrorsCon
         return {QStringLiteral("Manjaro %1%2 updates").arg(arm ? QStringLiteral("ARM ") : QString(), branch), page + QStringLiteral(".rss"), page};
     }
     if (id == QLatin1String("arch") || like.contains(QLatin1String("arch"))) {
-        return {QStringLiteral("Arch Linux news"), QStringLiteral("https://archlinux.org/feeds/news/"), QStringLiteral("https://archlinux.org/news/")};
+        // Recorded in English (the state file); newsSourceText() translates it.
+        return {QStringLiteral(QT_TRANSLATE_NOOP("Kyu", "Arch Linux news")), QStringLiteral("https://archlinux.org/feeds/news/"),
+                QStringLiteral("https://archlinux.org/news/")};
     }
     return {};
+}
+
+QString newsSourceText(const QString &name)
+{
+    return I18n::tr(name.toUtf8().constData());
 }
 
 QDateTime lastFullUpgrade(const QString &pacmanLogPath)

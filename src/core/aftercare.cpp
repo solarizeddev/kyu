@@ -1,5 +1,7 @@
 #include "aftercare.h"
 
+#include "i18n.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -178,5 +180,25 @@ QString restartPackage(const PacmanRun &run)
         }
     }
     return {};
+}
+
+QString restartReasonText(const QString &reason)
+{
+    static const QRegularExpression newKernel(QStringLiteral("^new kernel (\\S+)$"));
+    static const QRegularExpression removed(QStringLiteral("^the running kernel (\\S+) was removed$"));
+    static const QRegularExpression updated(QStringLiteral("^(\\S+) was updated$"));
+    if (const auto m = newKernel.match(reason); m.hasMatch()) {
+        return I18n::tr("new kernel %1").arg(m.captured(1));
+    }
+    if (const auto m = removed.match(reason); m.hasMatch()) {
+        return I18n::tr("the running kernel %1 was removed").arg(m.captured(1));
+    }
+    if (reason == QLatin1String("the running kernel was replaced")) {
+        return I18n::tr("the running kernel was replaced");
+    }
+    if (const auto m = updated.match(reason); m.hasMatch()) {
+        return I18n::tr("%1 was updated").arg(m.captured(1));
+    }
+    return reason;
 }
 }

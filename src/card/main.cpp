@@ -4,6 +4,7 @@
 
 #include "cardwindow.h"
 #include "checkscheduler.h"
+#include "i18n.h"
 #include "singleinstance.h"
 #include "statewatcher.h"
 
@@ -112,6 +113,7 @@ int main(int argc, char **argv)
     KIconTheme::initTheme();
 #endif
     QApplication app(argc, argv);
+    Kyu::loadTranslations();
     QApplication::setApplicationName(QStringLiteral("kyu"));
     QApplication::setApplicationDisplayName(QStringLiteral("Kyu"));
     QApplication::setApplicationVersion(QStringLiteral(KYU_VERSION));
@@ -120,15 +122,16 @@ int main(int argc, char **argv)
     QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("system-software-update")));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("What is going on with updates, and the one thing to do next."));
+    parser.setApplicationDescription(Kyu::I18n::tr("What is going on with updates, and the one thing to do next."));
     parser.addHelpOption();
     parser.addVersionOption();
     QCommandLineOption demoOption(QStringLiteral("demo"),
-                                  QStringLiteral("Show a sample state (updates, stale, flatpaks, uptodate, checking, checkfailed, updating, merging, "
-                                                 "restart, settings, failed), for screenshots."),
-                                  QStringLiteral("name"));
-    QCommandLineOption shot(QStringLiteral("screenshot"), QStringLiteral("Save the card to this PNG file and quit."), QStringLiteral("file"));
-    QCommandLineOption detailsOption(QStringLiteral("details"), QStringLiteral("With --demo: Details open."));
+                                  Kyu::I18n::tr("Show a sample state (%1), for screenshots.")
+                                      .arg(QStringLiteral("updates, stale, flatpaks, uptodate, checking, checkfailed, updating, merging, "
+                                                          "restart, settings, failed")),
+                                  Kyu::I18n::tr("name"));
+    QCommandLineOption shot(QStringLiteral("screenshot"), Kyu::I18n::tr("Save the card to this PNG file and quit."), Kyu::I18n::tr("file"));
+    QCommandLineOption detailsOption(QStringLiteral("details"), Kyu::I18n::tr("With --demo: Details open."));
     parser.addOptions({demoOption, shot, detailsOption});
     parser.process(app);
 

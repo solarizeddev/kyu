@@ -47,4 +47,10 @@ PacmanRun parsePacmanLog(const QString &appendedText);
 // the kernel: systemd (PID 1 cannot be inspected without root), glibc, or the
 // NVIDIA driver (its kernel module and libraries must match).
 QString restartPackage(const PacmanRun &run);
+
+// Why a restart is needed, as kyu-update records it in last-run.json (in
+// English: "new kernel 6.18.22-1-MANJARO", "the running kernel 6.18.20-1 was
+// removed", "the running kernel was replaced", "systemd was updated"), in the
+// user's language, for "Restart required: %1". Anything else as it is.
+QString restartReasonText(const QString &reason);
 }
