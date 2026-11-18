@@ -44,7 +44,11 @@ you, patching Arch-Update is the cheaper road.
 
 ## What it should not be
 
-- A package manager: no search, no install/remove, no list to tick.
+- A package manager inside the updater: the updater (tray, card, kyu-update)
+  has no search and no install/remove. Since 2026-11-18 the owner wants a
+  package manager too: a separate app and package, `kyu-software`
+  (docs/PACKAGE-MANAGER.md), that hands every change to the real pacman in
+  Kyu's window; the updater does not depend on it.
 - An updater that hides pacman: no GUI transaction, no auto-answered
   "Proceed?", no PackageKit.
 - A partial-upgrade risk: never offer or run `pacman -Sy <package>` on its own.
@@ -111,8 +115,9 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 32 | A short log of each run | Omarchy keeps one | part (last-run.json) | 3 |
 
 Cut from the draft: restarting system services and firmware updates (scope
-creep, Arch-Update parity nobody asked for), Kyu's own translations (until
-there is a second user). Branch switching: unsupported; say so in the docs.
+creep, Arch-Update parity nobody asked for). Kyu's own translations were cut
+"until there is a second user"; the owner asked for them on 2026-11-18
+(German first), before the package manager. Branch switching: unsupported; say so in the docs.
 
 ### Kyu itself
 

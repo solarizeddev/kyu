@@ -1,0 +1,268 @@
+# Kyu Software: the package manager (design, reviewed with Fable)
+
+A Qt 6 Widgets package manager for Manjaro and Arch on Plasma, in the spirit
+of CachyOS's Qt package installer: a replacement for pamac's "Add/Remove
+Software" (pamac-manager), with the useful parts of CachyOS's tools and
+checks for bad AUR packages. Its own package, `kyu-software`, next to Kyu's
+updater: it shares Kyu's window (the real pacman, watched, its failures
+explained), kyu-check's state and the tray.
+
+Status: design, nothing built. Research read 2026-11-18 from the sources at
+the end. Reviewed by Fable (2026-11-18); the changes from that review are in
+this text, and "Decided against" lists what was cut and why.
+
+**The cost, said plainly.** Every change runs the real pacman in a terminal
+pane: you see its output, type your password there and answer its
+"[Y/n]". Kyu puts a plain sentence above the pane saying what this step does
+and answers ahead what it can, but there is no progress-bar-only mode. That
+is the price of not having a root daemon (pamac's, which Manjaro's 2026 stable
+announcements warn about) or one of our own (Kyu deleted its old one).
+
+## What we take from whom
+
+| From | Take | Leave |
+|---|---|---|
+| pamac 11.7 | the views (Installed with filters, Updates, Search, Pending), a details page (Dependencies, Files, Build files), queue then continue, optional dependencies and providers chosen ahead, history from pacman.log, cache cleaning (keep N, uninstalled only), orphans, mirrors (pacman-mirrors), per-update Ignore, Refresh databases, local package files, "Software mode" (apps only) | the root daemon, conflicts and replacements answered "yes" without asking, aur.manjaro.org (stale in June 2026), Snap, GTK/libadwaita look |
+| CachyOS package installer (Qt 6 Widgets) | Qt Widgets with the system style, a curated app list, "hide library and developer packages", a dry run before the password, refusing to run as root or while pacman runs | `pkexec pacman` through `bash -c`, a list downloaded at start |
+| Shelly (CachyOS's default since April 2026) | checks of PKGBUILD and `.install` with severities, the diff since the last review, "no" as the default answer when something is flagged, approval pinned to what was reviewed and checked again before building, refusing packages the AUR no longer lists, a Utilities page | its own package engine, a recommendations feed from a third-party server |
+| traur | provenance: an orphan adopted recently, a maintainer change, a new account uploading many packages, a source host or owner that changed, votes and age, a name close to a popular one | its pacman hook (Kyu builds itself, so it checks before building) |
+| CachyOS pacman | the idea: no network for code that does not need it | patching pacman |
+| Kyu | the real pacman in Kyu's window, questions noticed, failures explained, keyrings first, pamac's lock waited for, .pacnew, restarts | — |
+
+## Principles
+
+1. **The real pacman does every change, as an ordered list of real
+   commands.** pacman's command line cannot mix install (`-S`), removal
+   (`-R`), local files (`-U`) and install reasons (`-D`, `--asdeps`) in one
+   transaction, so a queue becomes steps, each a command pacman runs as
+   typed: removals, then installs (with `--asdeps` for chosen optional
+   dependencies), then local files, then reason changes. Each step is dry-run
+   the way the command line will run it (`pacman -S --print` and `-R --print`
+   on the planning databases). If a step fails, the later ones do not run;
+   the window says which steps happened and which did not, and the queue
+   keeps what did not happen.
+2. **The summary is a preview; pacman confirms.** Conflicts, replacements and
+   what goes with a removal are shown before you start, in plain words, but
+   the answer is pacman's own "[Y/n]" (Kyu never passes `--noconfirm` or
+   `--ask`). Providers are answered ahead by naming the chosen one as a
+   target. The summary's button is **Continue**, the window shows each
+   command before it runs, and kyu-update compares pacman's "Packages (N)"
+   with the plan and says so when they differ, before you answer.
+3. **No partial upgrades, and no needless full ones.** Planning uses a fresh
+   copy of the sync databases (refreshed right before each dry run, without
+   root; offline is said). A plain `pacman -S` (planned on the system's own
+   databases) when both hold: nothing is pending on the system's databases,
+   and every package to install has the same version in the fresh copy.
+   Otherwise installing means updating first: "GIMP needs a newer libfoo than
+   your system has. Installing it means installing the 130 pending updates
+   first (1.8 GB, a restart afterwards)." — **Update and install** / **Not
+   now**. That runs kyu-update's normal update (news, keyrings first,
+   restart) with the targets added; there is no second update path.
+   Removing never needs an update; an AUR build always needs an up-to-date
+   system.
+4. **Plasma's look.** Qt Widgets, the system style and colour scheme (light,
+   dark, any accent), its fonts and icons, changes followed live; a sidebar
+   and lists like System Settings and Dolphin, not GTK's header tabs and card
+   grids; colours for severities from the colour scheme; PKGBUILDs and diffs
+   highlighted with KSyntaxHighlighting. "Theming" is Plasma's: nothing of
+   our own to configure.
+5. **The AUR is opt-in, reviewed, sandboxed and honest about Manjaro.** Off
+   until turned on in Kyu (not carried over from pamac). On Manjaro stable it
+   says AUR packages are built against Arch's current libraries and may break
+   until stable catches up.
+6. **The updater must survive.** libalpm changes its library version with
+   pacman's major releases; only `kyu-software` links it, never kyu-check,
+   kyu-update or the tray, and it ships as its own package. While any pacman
+   holds `db.lck`, the views freeze ("pacman is running"), and the database
+   is reopened once it is gone.
+7. **Arch too**, without pacman-mirrors or Manjaro's news.
+
+## Screens
+
+One window, `kyu-software` ("Software"), refusing to run as root. A toolbar
+with Back, the search field and the menu (Refresh databases, Software mode,
+Install a package file…, Preferences, About); a sidebar like System
+Settings: Featured, the categories, then "Your system": Installed, Updates,
+Pending (when something is queued), History, Maintenance. Banners above the
+content when they apply: pacman is running, offline (planning databases from
+…), restart required, news to read first.
+
+1. **Featured and categories** (release 3, AppStream): a static, curated list
+   shipped with Kyu (no download, never AUR names); categories from AppStream
+   (Photo & Video, Music & Audio, Productivity, Communication, Games,
+   Development, Utilities). Apps as a list with icon, name, summary and an
+   Install button, not a card grid.
+2. **Installed**: All, Explicitly installed, Orphans, Foreign (AUR and local),
+   Flatpak; sort by name, size, install date; "Hide library and developer
+   packages".
+3. **Updates**: kyu-check's list as the card shows it (packages, AUR, Flatpak,
+   held back, news first), per-package **Ignore** (this time, or always:
+   IgnorePkg, shown with the pacman.conf line, through the window), and one
+   **Update** that runs kyu-update. No other update path.
+4. **Search**: packages (name and description), AUR (when on); filter
+   Installed / Not installed; sort by relevance, name, repository, size, date,
+   votes; "Hide library and developer packages".
+5. **Details**: name, version, summary, buttons (Install, Remove…, Reinstall,
+   Build for the AUR), description, links, a facts list (repository,
+   licences, sizes, packager, dates, install reason with "Mark as explicitly
+   installed" / "as a dependency", validated by). Tabs: **Dependencies**
+   (Depends on; Optional, with checkboxes that queue them as dependencies;
+   Required by; Optional for; Provides; Replaces; Conflicts), **Files**
+   (installed packages; for others from the `.files` databases, refreshed
+   with the copy), **History** (this package's lines in pacman.log), for the
+   AUR **Build files** and **AUR** (maintainer, submitter, dates, votes,
+   popularity, out of date, comments link).
+6. **Removal** says what it does: `pacman -Rs` (the package and the
+   dependencies nothing else needs) by default; "Also remove saved
+   settings" (`-n`) as an option; packages that depend on it named and only
+   shown (`-Rc` is never offered by a button).
+7. **Pending**: the queue as steps (principle 1) with the summary preview,
+   **Continue** and **Clear**.
+8. **History**: pacman.log grouped per transaction: when, installed,
+   upgraded, removed; filter by package.
+9. **Maintenance**: orphans (all names, `-Rs`), package cache (keep 3,
+   removed packages, what it frees; paccache), AUR build files, unused
+   Flatpak runtimes, a stale database lock (Kyu's explanation), mirrors
+   (pacman-mirrors on Manjaro), `.pacnew` files (Kyu's merge).
+10. **Preferences**: Kyu's own (check interval, AUR on/off, build directory,
+    keep built packages, network for builds, Flatpak on/off, notifications
+    → System Settings). pacman's settings are not edited (Kyu does not edit
+    other programs' settings) except IgnorePkg from the Updates view.
+
+`kyu-software FILE.pkg.tar.zst` opens the summary for a local package (Kyu's
+desktop file and its own MIME description for `application/x-alpm-package`);
+`appstream://ID` opens its details.
+
+## The AUR
+
+**Data.** aur.archlinux.org: the RPC for search and info, its git for the
+files (a full clone, so history is there). Never aur.manjaro.org.
+
+**Before approval nothing of the package runs.** A PKGBUILD is bash: sourcing
+it (`makepkg --verifysource`, `--printsrcinfo`, `pkgver()`) runs its code. So
+before approval Kyu reads only `.SRCINFO`, the RPC and the files as text.
+
+**The review.** First install: the provenance verdict in plain words first,
+then every file in the repository (PKGBUILD, `.install`, patches, hooks,
+units, `.desktop`, scripts), highlighted. Update: the diff against the tree
+approved last time (stored); when only `pkgver`, `pkgrel` and checksums
+changed and the source hosts are the same, a compact review with **Build** as
+default; anything else is a full review with **Don't build** as default.
+Packages first installed by yay, paru or pamac have no approved tree and get a
+first review. Approval is the commit plus a SHA-256 of every file, checked
+again right before building.
+
+**Findings**, tiered so that the default "no" means something:
+
+- *Critical*: code that downloads and runs in `.install` or hooks; obfuscation
+  (`c''u''r''l`, base64/xxd piped to a shell, `eval` of fetched text);
+  privilege tools (sudo, doas, pkexec, run0, su as a command, found by a
+  tokenizer); writes to named sensitive paths (`~/.ssh`, browser profiles,
+  shell rc files, autostart, systemd user units); lookalike characters in
+  names or URLs; sources on raw IPs, paste sites, link shorteners or chat
+  CDNs; the package on a known compromised list.
+- *Warning*: a maintainer change since the last review or in the last 30
+  days; an orphan adopted recently; a new account that uploaded several
+  packages at once; a source host or forge owner that changed since the
+  last review; `install=` newly added; package managers fetching code
+  (npm, bun, pip, cargo, go) newly added in the diff, or used globally
+  (`npm -g`, `npx`, `bunx`, pip without `--root`); a `-bin` source whose
+  registrable domain or forge owner matches neither `url` nor the upstream
+  project; `SKIP` checksums for non-VCS sources; plain http sources.
+- *Info*: package managers in `build()` as usual (cargo, npm, go); fewer than 5
+  votes and younger than 30 days; a VCS package; out of date.
+- After building and before `pacman -U`, the built package is checked too:
+  setuid files, `/etc/sudoers.d`, polkit rules, libalpm hooks, autostart,
+  `profile.d`, its `.INSTALL`.
+- **Calibration gate** before the checks ship: no Critical and under 5 %
+  Warning on the 500 most popular AUR packages, and the CHAOS RAT (July
+  2025) and "Atomic Arch" (June 2026) samples caught.
+- A package the AUR no longer lists is refused. A compromised list: verify
+  whether Arch publishes a machine-readable one; otherwise Kyu keeps one.
+
+**The build.** As the user, in Kyu's window, every makepkg call inside
+bubblewrap with the home directory hidden (the build directory writable,
+a temporary HOME, no session bus, its own GNUPGHOME): that filesystem sandbox
+is the real protection and is always on. Network in stages: `makepkg
+--nobuild` (download and `prepare()`) with network, then `makepkg
+--noextract` without; packages that need the network to build (many
+npm/electron/go ones) get "Allow network for this package" with the reason
+stated. Never `makepkg -s`: dependencies come from the repositories through
+the same pacman plan. bubblewrap is a dependency of kyu-software (it needs
+unprivileged user namespaces; linux-hardened users are told). AUR
+dependencies of AUR packages are reviewed one by one.
+
+**One AUR path.** With Kyu's AUR on, kyu-update builds AUR updates with Kyu's
+builder and its review; the helper (paru, yay, pamac) is used only when Kyu's
+AUR is off, as today.
+
+## Architecture
+
+- `kyu-software`: Qt 6 Widgets, C++20, single instance (D-Bus
+  `io.github.solarizeddev.kyu.Software`), Wayland activation tokens as the
+  card; its own package depending on kyu, libalpm, bubblewrap,
+  appstream-qt, ksyntaxhighlighting.
+- **Reading**: libalpm read-only: the system's local database and sync
+  databases, and a private planning copy (its own dbpath with a `local`
+  symlink to the system's, sync databases refreshed with `pacman -Sy
+  --dbpath` as checkupdates does, `.files` too); pacman.conf through
+  `pacman-conf`. AppStream through AppStreamQt. Flatpak through libflatpak.
+  The AUR through QNetworkAccessManager (system proxy).
+- **Writing**: `kyu-update --apply PLAN.json` in kyu-window runs the steps
+  (keyrings first if in the plan, pamac's lock waited for, questions
+  watched, failures explained, restart and .pacnew after).
+- **pamac compatibility**, optional and last: before anything, check on a
+  real Manjaro what depends on pamac-gtk (`pactree -r`: metapackages,
+  pamac-tray-icon-plasma, manjaro-hello), whether pamac-manager is
+  D-Bus-activated as `org.manjaro.pamac.manager`, and whether pamac-gtk3
+  still exists. No second launcher; MIME types on Kyu's own desktop file;
+  Flatpak ref files left to Discover.
+
+## Releases and steps (each step reviewed with Fable, each with container tests)
+
+**Release 1, the minimum lovable one**: Search, Installed, Details,
+queue/summary/continue, local package files, Updates handing to kyu-update,
+orphans.
+
+0. **Translations**: Kyu's strings through Qt's translation system (owner's
+   request; German first), so the app is translated from its first line.
+1. **`kyu-update --apply` headless first**: the plan format, steps, dry runs
+   on a fresh copy, the two-test rule, the comparison with pacman's list,
+   partial failure. Container tests: a provider, a conflict, a removal that
+   takes dependencies, a stale database, a mixed queue, a local file.
+2. **The alpm reader and the read-only app**: Installed, Search, Details
+   (Dependencies, Files, History), the db.lck freeze.
+3. **Queue, Pending, summary, Continue** through step 1; optional
+   dependencies, providers, removal options, install reasons, local files.
+4. **Updates, History, Maintenance** (orphans, cache, stale lock, .pacnew).
+
+**Release 2**: the AUR (step 5: search, details, the review, findings with the
+calibration gate, the sandboxed build, the built-package check, kyu-update
+using Kyu's builder).
+
+**Release 3**: AppStream (step 6: Featured, categories, Software mode,
+screenshots), Flatpak install and remove (step 7; Discover also does it, but
+pamac users expect it), mirrors, pamac compatibility (step 8).
+
+## Decided against
+
+- libpamac (what pamac-tray-plasma links): the fastest route, but it is the
+  daemon Manjaro warns about, answers conflicts "yes", Manjaro-only, GLib in Qt.
+- A polkit helper of our own: the only way to a pamac-like progress-bar feel,
+  but it re-implements pacman's front end as root, and Kyu deleted 9,000 lines
+  of that.
+- Snap; Groups; editing ParallelDownloads/CheckSpace; reflector; a downloaded
+  Featured list; carrying over pamac's EnableAUR.
+
+## Sources
+
+- pamac: github.com/manjaro/pamac (363e794, v11.7.5), libpamac (c7efe92),
+  pamac-cli; pamac-tray-icon-plasma (gitlab.com/LordTermor).
+- CachyOS: github.com/CachyOS/packageinstaller,
+  github.com/Seafoam-Labs/Shelly-ALPM (`Shelly.PackageManager/src/pkgbuild/`,
+  `aur/manager.zig`, `review_integrity.zig`), CachyOS/pacman commit 4056cd6,
+  CachyOS/website posts 2604 and 2606, CachyOS/cachyos-calamares PR 239,
+  CachyOS/wiki FAQ "AUR Safety Practices".
+- AUR safety: github.com/Sohimaster/traur, github.com/mgalgs/aur-sleuth.
+- Manjaro forum threads on pamac's reliability, theming and the AUR mirror
+  (search snippets only; the forum was not reachable from here).
