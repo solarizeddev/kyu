@@ -14,3 +14,9 @@ Name=The update is waiting for you
 Comment=pacman, sudo or Kyu asks a question while the Kyu window is not in front
 Action=Popup
 Urgency=High
+
+[Event/updates]
+Name=Updates available
+Comment=When updates appear after there were none; at most once a day, after any news is read
+Action=Popup
+Urgency=Normal

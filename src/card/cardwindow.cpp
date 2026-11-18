@@ -1,5 +1,7 @@
 #include "cardwindow.h"
 
+#include "launch.h"
+
 #include "checkscheduler.h"
 #include "failuretext.h"
 #include "news.h"
@@ -55,27 +57,7 @@ constexpr int IconSize = 22;
 // The most lines Details shows before it scrolls: three blocks of a
 // usual update.
 constexpr int MaxLines = 16;
-// A program next to this one (a build tree), else on PATH.
-QString sibling(const QString &name)
-{
-    const QString path = QCoreApplication::applicationDirPath() + QLatin1Char('/') + name;
-    return QFileInfo(path).isExecutable() ? path : name;
-}
-
-// kyu-update in Kyu's window, or in a terminal when the window is not built.
-void startUpdate(const QStringList &args)
-{
-    const QString window = sibling(QStringLiteral("kyu-window"));
-    if (!QStandardPaths::findExecutable(window).isEmpty() || QFileInfo(window).isExecutable()) {
-        if (QProcess::startDetached(window, args)) {
-            return;
-        }
-    }
-    const QStringList command = QStringList{sibling(QStringLiteral("kyu-update"))} + args;
-    if (!QProcess::startDetached(QStringLiteral("konsole"), QStringList{QStringLiteral("-e")} + command)) {
-        QProcess::startDetached(QStringLiteral("xdg-terminal-exec"), command);
-    }
-}
+using Kyu::startUpdate;
 
 // Kyu's update window (kyu-window) answers here while it is open.
 const QString WindowService = QStringLiteral("io.github.solarizeddev.kyu.Window");

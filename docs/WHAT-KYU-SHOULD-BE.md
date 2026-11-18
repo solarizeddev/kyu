@@ -71,7 +71,7 @@ Kyu to be worth using, 2 = clearly better, 3 = nice.
 | 7 | One tray, not two: print how to turn pamac's tray off (never change it ourselves) | two trays and two notifications on Manjaro | missing | 2 |
 | 8 | A failed check is quiet (tooltip "could not check since …"); loud only after about a day | an offline laptop shouldn't show red | missing (today: red at once, like a failed update) | 2 |
 | 9 | Held-back packages (IgnorePkg) shown: "N held back" in the tooltip and the verdict | they vanish silently; long holds break Manjaro systems | missing | 2 |
-| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part: "Read before updating" (news) and "The update is waiting for you" (seen working on the owner's Plasma); "Updates", "Done", "Failed" not yet | 2 |
+| 10 | Notifications: one at a time, replaced not stacked, expiring; only for new news and a finished update in the background | Arch-Update and Apdatifier pile-ups | part: "Read before updating" (news), "The update is waiting for you" (seen working on the owner's Plasma) and "Updates available"; "Done", "Failed" not yet | 2 |
 | 11 | Icons that don't depend on colour alone | Arch-Update colourblind request | part (tooltip) | 2 |
 | 12 | A news fetch that fails says so (Manjaro's forum categories can change) | — | have; proven in containers (real pacman): a failing feed is stated (kyu-check's error, the card) and the earlier news is kept | 2 |
 
@@ -164,9 +164,13 @@ a password prompt behind other windows stalls the update without a sign), and
 done/failed only fire when the window is not in front. Both: one kind per
 event, replaced, and switchable in System Settings.
 
-Status: "News" ("Read before updating") and "Waiting for you" have it (the
-latter seen working on Plasma); "Updates",
-"Done", "Failed" 2 and "Could not check" 3 (with item 8) are missing.
+Status: "News" ("Read before updating"), "Waiting for you" (seen working on
+Plasma) and "Updates" have it; "Done", "Failed" 2 and "Could not check" 3
+(with item 8) are missing. "Updates", as built after Fable's review: told
+once per list that follows an empty one, held back (not dropped) while news
+is unread, while a check is still running (kyu-check saves the AUR's part
+last) and within 20 hours of the last one; transient, so it does not stay in
+Plasma's history once the updates are installed.
 
 How "Waiting for you" knows: kyu-update runs pacman, flatpak and the AUR
 helper inside util-linux `script` and watches what they print. When the

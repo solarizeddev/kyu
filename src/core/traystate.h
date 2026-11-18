@@ -111,6 +111,11 @@ struct CardView {
 
 CardView cardView(const TrayInput &in);
 
+// "9 updates available" and "6 packages, 1 AUR, 2 Flatpaks": the card's
+// heading and first line, and the "Updates" notification's.
+QString updatesHeading(const UpdateState &state);
+QString updatesBreakdown(const UpdateState &state);
+
 // "/etc/sddm.conf" for "/etc/sddm.conf.pacnew" or ".pacsave".
 QString configTarget(const QString &path);
 }

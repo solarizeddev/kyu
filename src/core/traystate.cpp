@@ -359,6 +359,26 @@ QString toMerge(const QStringList &configs, const QString &tail = QString())
 }
 }
 
+QString updatesHeading(const UpdateState &s)
+{
+    return plural(s.total(), QStringLiteral("update available"), QStringLiteral("updates available"));
+}
+
+QString updatesBreakdown(const UpdateState &s)
+{
+    QStringList what;
+    if (!s.packages.isEmpty()) {
+        what.append(plural(s.packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
+    }
+    if (!s.aurPackages.isEmpty()) {
+        what.append(QStringLiteral("%1 AUR").arg(s.aurPackages.size()));
+    }
+    if (!s.flatpaks.isEmpty()) {
+        what.append(plural(s.flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
+    }
+    return what.join(QStringLiteral(", "));
+}
+
 CardView cardView(const TrayInput &in)
 {
     CardView c;
@@ -471,18 +491,8 @@ CardView cardView(const TrayInput &in)
         c.kind = CardView::Kind::Updates;
         const NewsItem *unread = unreadNews(in);
         c.icon = unread ? QStringLiteral("update-medium") : QStringLiteral("update-low");
-        c.heading = plural(total, QStringLiteral("update available"), QStringLiteral("updates available"));
-        QStringList what;
-        if (!s.packages.isEmpty()) {
-            what.append(plural(s.packages.size(), QStringLiteral("package"), QStringLiteral("packages")));
-        }
-        if (!s.aurPackages.isEmpty()) {
-            what.append(QStringLiteral("%1 AUR").arg(s.aurPackages.size()));
-        }
-        if (!s.flatpaks.isEmpty()) {
-            what.append(plural(s.flatpaks.size(), QStringLiteral("Flatpak"), QStringLiteral("Flatpaks")));
-        }
-        c.detail = what.join(QStringLiteral(", "));
+        c.heading = updatesHeading(s);
+        c.detail = updatesBreakdown(s);
         if (s.totalSize() > 0) {
             c.detail += QStringLiteral(" · ") + QLocale().formattedDataSize(s.totalSize(), 0) + QStringLiteral(" download");
         }

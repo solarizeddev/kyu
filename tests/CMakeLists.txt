@@ -17,6 +17,7 @@ kyu_test(test_aur)
 kyu_test(test_translations)
 kyu_test(test_waiting)
 kyu_test(test_failuretext)
+kyu_test(test_notices)
 target_link_libraries(test_failuretext PRIVATE kyuclient)
 target_compile_definitions(test_translations PRIVATE KYU_TEST_LOCALE="${CMAKE_CURRENT_SOURCE_DIR}/update/locale")
 

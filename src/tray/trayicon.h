@@ -1,5 +1,7 @@
 #pragma once
 
+#include "notices.h"
+
 #include <QObject>
 #include <QPointer>
 
@@ -35,6 +37,7 @@ private:
     void refresh();
     void spin();
     void notifyNews(const QString &key, const QString &title, const QString &link);
+    void notifyUpdates(const Kyu::TrayInput &in);
 
     StateWatcher *m_watcher;
     QMenu *m_menu;
@@ -43,8 +46,10 @@ private:
     QTimer *m_spin = nullptr;
     int m_frame = 0;
     QString m_newsKey;
+    Kyu::UpdatesMemory m_updatesMemory;
 #ifdef KYU_HAVE_KNOTIFICATIONS
     QPointer<KNotification> m_news;
+    QPointer<KNotification> m_updates;
 #endif
 #ifdef KYU_HAVE_KSNI
     KStatusNotifierItem *m_item;

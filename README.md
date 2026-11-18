@@ -23,8 +23,14 @@ fake pacman. Manjaro first; Arch is tested less.
 | `kyu-update` | The update itself, in any terminal: the news since your last update (Manjaro's announcements on Manjaro), `sudo pacman -Syu` (a new keyring first, on its own), `flatpak update`, then your AUR helper (paru, yay, or pamac with the AUR on), then one verdict and one key per thing left to do. `kyu-update --merge` only merges configuration files (pacdiff). |
 | `kyu-check` | Counts pending updates with `checkupdates` (pacman's real databases are not touched), plus Flatpaks, news, and AUR packages from the AUR's web API when an AUR helper is installed; run by a systemd user timer. |
 
-Two notifications, each of which can be switched off in System Settings →
+Three notifications, each of which can be switched off in System Settings →
 Notifications → Kyu:
+
+- **Updates available**: "9 updates available · 6 packages, 1 AUR,
+  2 Flatpaks · including the kernel and Plasma", when updates appear after
+  there were none, at most once in 20 hours and only once any news is read.
+  Not when the list only grows or shrinks; it goes away by itself and is
+  closed when an update starts. **Update** starts it; clicking it opens the card.
 
 - **The update is waiting for you**: pacman, sudo, flatpak, the AUR helper or
   Kyu asks a question while Kyu's window is not the active one (the question,

@@ -2,6 +2,7 @@
 
 #include "aftercare.h"
 #include "badge.h"
+#include "launch.h"
 #include "news.h"
 #include "paths.h"
 #include "statewatcher.h"
@@ -51,6 +52,7 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     : QObject(parent)
     , m_watcher(watcher)
     , m_menu(new QMenu)
+    , m_updatesMemory(Kyu::readUpdatesMemory(Kyu::Paths::stateDir() + QStringLiteral("/updates-notified.json")))
 {
     auto *show = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-update")), QStringLiteral("Show updates"));
     connect(show, &QAction::triggered, this, [this] {
@@ -117,6 +119,7 @@ void TrayIcon::refresh()
     const Kyu::TrayInput in = Kyu::currentTrayInput(state, checking, m_watcher->loadError());
     const Kyu::TrayView view = Kyu::trayView(in);
     notifyNews(view.newsKey, view.newsTitle, view.newsLink);
+    notifyUpdates(in);
 
 #ifdef KYU_HAVE_KSNI
     // Icons by name, so Plasma colours them for the panel (which may be dark
@@ -167,6 +170,9 @@ TrayIcon::~TrayIcon()
 #ifdef KYU_HAVE_KNOTIFICATIONS
     if (m_news) {
         m_news->close();
+    }
+    if (m_updates) {
+        m_updates->close();
     }
 #endif
 }
@@ -227,5 +233,46 @@ void TrayIcon::notifyNews(const QString &key, const QString &title, const QStrin
 #else
     Q_UNUSED(title)
     Q_UNUSED(link)
+#endif
+}
+
+// "Updates": once for a list that follows an empty one, at most once in
+// 20 hours (notices.h). Goes away by itself; closed when an update starts or nothing
+// is left. Switchable in System Settings → Notifications ("updates").
+void TrayIcon::notifyUpdates(const Kyu::TrayInput &in)
+{
+    const Kyu::UpdatesMemory before = m_updatesMemory;
+    const Kyu::UpdatesNotice notice = Kyu::updatesNotice(in, m_updatesMemory);
+    if (!(m_updatesMemory == before)) {
+        Kyu::writeUpdatesMemory(m_updatesMemory, Kyu::Paths::stateDir() + QStringLiteral("/updates-notified.json"));
+    }
+#ifdef KYU_HAVE_KNOTIFICATIONS
+    if (notice.action == Kyu::UpdatesNotice::Do::Close && m_updates) {
+        m_updates->close();
+    }
+    if (notice.action != Kyu::UpdatesNotice::Do::Send) {
+        return;
+    }
+    if (m_updates) {
+        m_updates->close();
+    }
+    auto *notification = new KNotification(QStringLiteral("updates"), KNotification::CloseOnTimeout);
+    notification->setComponentName(QStringLiteral("kyu"));
+    notification->setIconName(QStringLiteral("update-low"));
+    notification->setTitle(notice.title);
+    notification->setText(notice.text.toHtmlEscaped());
+    // Not kept in the history: the tray shows the updates, and a list in
+    // the history would go stale once they are installed.
+    notification->setHint(QStringLiteral("transient"), true);
+    connect(notification->addAction(QStringLiteral("Update")), &KNotificationAction::activated, this, [notification]() {
+        Kyu::startUpdate({}, notification->xdgActivationToken());
+    });
+    connect(notification->addDefaultAction(QStringLiteral("Show updates")), &KNotificationAction::activated, this, [this, notification]() {
+        Q_EMIT cardRequested(notification->xdgActivationToken());
+    });
+    m_updates = notification;
+    notification->sendEvent();
+#else
+    Q_UNUSED(notice)
 #endif
 }
