@@ -6,3 +6,6 @@ packaging/arch/*.pkg.tar.*
 # Build output of any kind, and downloads, never belong here
 target/
 *.whl
+
+# Working copies of agents (git worktrees), never part of the repository
+.claude/worktrees/
