@@ -132,6 +132,34 @@ corrosion_add_cxxbridge(backend-rustlib-cxxbridge CRATE backend_rustlib FILES li
 
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
 
+# Branding (src/branding.hpp): upstream's values unless a distribution's
+# configuration sets them (cmake -C cmake/Manjaro.cmake).
+set(PI_PRODUCT_NAME "CachyOS Package Installer" CACHE STRING "Name shown in the window and dialogs")
+set(PI_DISTRO_NAME "CachyOS" CACHE STRING "The distribution's name")
+set(PI_HOME_URL "http://cachyos.org" CACHE STRING "Link in About (empty: none)")
+set(PI_COPYRIGHT "Copyright (c) CachyOS" CACHE STRING "Line in About")
+set(PI_APP_ID "cachyos-pi" CACHE STRING "Application and desktop file id")
+set(PI_BINARY_NAME "cachyos-pi" CACHE STRING "Installed program name")
+set(PI_ORG_NAME "cachyos" CACHE STRING "Settings organisation")
+set(PI_ORG_DOMAIN "cachyos.org" CACHE STRING "Settings domain")
+set(PI_ICON_NAME "" CACHE STRING "Theme icon (empty: the built-in one)")
+set(PI_DOC_DIR "${CMAKE_INSTALL_PREFIX}/share/doc/cachyos-packageinstaller" CACHE STRING "Help and licence pages")
+set(PI_HELP_FILE "cachyos-pi.html" CACHE STRING "Help page in PI_DOC_DIR")
+set(PI_HELP_SOURCE "${PROJECT_SOURCE_DIR}/help" CACHE PATH "Help pages to install")
+set(PI_PKGLIST_URL "https://raw.githubusercontent.com/cachyos/packageinstaller/develop/pkglist.yaml" CACHE STRING "Popular applications list downloaded at start (empty: none)")
+set(PI_PKGLIST_FILE "${CMAKE_INSTALL_PREFIX}/lib/cachyos-pi/pkglist.yaml" CACHE STRING "Installed popular applications list")
+set(PI_PKGLIST_SOURCE "${PROJECT_SOURCE_DIR}/pkglist.yaml" CACHE FILEPATH "Popular applications list to install")
+set(PI_DESKTOP_FILE "${PROJECT_SOURCE_DIR}/cachyos-pi.desktop" CACHE FILEPATH "Desktop file to install")
+set(PI_ICON_FILE "${PROJECT_SOURCE_DIR}/icons/cachyos-pi.png" CACHE FILEPATH "Icon to install (empty: none)")
+set(PI_POLICY_FILE "${PROJECT_SOURCE_DIR}/org.cachyos.cachyos-pi.pkexec.policy" CACHE FILEPATH "Polkit policy to install (empty: none)")
+set(PI_UPDATE_NOTES_URL "" CACHE STRING "Update announcements offered before Upgrade All (empty: none)")
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PI_PRODUCT_NAME="${PI_PRODUCT_NAME}" PI_DISTRO_NAME="${PI_DISTRO_NAME}" PI_HOME_URL="${PI_HOME_URL}"
+    PI_COPYRIGHT="${PI_COPYRIGHT}" PI_APP_ID="${PI_APP_ID}" PI_ORG_NAME="${PI_ORG_NAME}" PI_ORG_DOMAIN="${PI_ORG_DOMAIN}"
+    PI_ICON_NAME="${PI_ICON_NAME}" PI_DOC_DIR="${PI_DOC_DIR}" PI_HELP_FILE="${PI_HELP_FILE}"
+    PI_PKGLIST_URL="${PI_PKGLIST_URL}" PI_PKGLIST_FILE="${PI_PKGLIST_FILE}" PI_UPDATE_NOTES_URL="${PI_UPDATE_NOTES_URL}")
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PI_BINARY_NAME}")
+
 target_link_libraries(${PROJECT_NAME} PRIVATE project_warnings project_options Qt6::Widgets Threads::Threads spdlog::spdlog fmt::fmt ryml::ryml cpr::cpr backend-rustlib-cxxbridge PkgConfig::LIBALPM)
 
 option(ENABLE_UNITY "Enable Unity builds of projects" OFF)
@@ -145,26 +173,34 @@ install(
    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+if(PI_POLICY_FILE)
 install(
-   FILES org.cachyos.cachyos-pi.pkexec.policy
+   FILES "${PI_POLICY_FILE}"
    DESTINATION "${POLKITQT-1_POLICY_FILES_INSTALL_DIR}"
 )
+endif()
 
+get_filename_component(PI_PKGLIST_DIR "${PI_PKGLIST_FILE}" DIRECTORY)
+get_filename_component(PI_PKGLIST_NAME "${PI_PKGLIST_FILE}" NAME)
 install(
-   FILES "${PROJECT_SOURCE_DIR}/pkglist.yaml"
-   DESTINATION lib/cachyos-pi
+   FILES "${PI_PKGLIST_SOURCE}"
+   DESTINATION "${PI_PKGLIST_DIR}"
+   RENAME "${PI_PKGLIST_NAME}"
 )
-file(GLOB HELP_FILES "${PROJECT_SOURCE_DIR}/help/*")
+file(GLOB HELP_FILES "${PI_HELP_SOURCE}/*")
 install(
    FILES ${HELP_FILES}
-   DESTINATION share/doc/cachyos-packageinstaller
+   DESTINATION "${PI_DOC_DIR}"
 )
 
 install(
-   FILES cachyos-pi.desktop
+   FILES "${PI_DESKTOP_FILE}"
    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+   RENAME "${PI_APP_ID}.desktop"
 )
+if(PI_ICON_FILE)
 install(
-   FILES icons/cachyos-pi.png
+   FILES "${PI_ICON_FILE}"
    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
 )
+endif()

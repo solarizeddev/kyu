@@ -39,6 +39,7 @@
 #endif
 
 #include "mainwindow.hpp"
+#include "branding.hpp"
 #include "ui_mainwindow.h"
 
 #include "about.hpp"
@@ -78,7 +79,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
         if (alpm_manager.has_value()) {
             m_alpm_manager = std::make_unique<alpm::AlpmManager>(std::move(*alpm_manager));
         } else {
-            QMessageBox::critical(this, tr("CachyOS Package Installer"), tr("Cannot initialize ALPM library"));
+            QMessageBox::critical(this, QStringLiteral(PI_PRODUCT_NAME), tr("Cannot initialize ALPM library"));
             return;
         }
     }
@@ -93,7 +94,7 @@ MainWindow::MainWindow(QWidget* parent) : QDialog(parent),
     setWindowFlags(Qt::Window);  // for the close, min and max buttons
 
     // Set window title
-    this->setWindowTitle(tr("CachyOS Package Installer"));
+    this->setWindowTitle(QStringLiteral(PI_PRODUCT_NAME));
 
     setup();
 }
@@ -190,7 +191,7 @@ void MainWindow::setup() noexcept {
 
     // connect buttons
     connect(m_ui->pushHelp, &QPushButton::clicked, [] {
-        about::display_doc(QStringLiteral("file:///usr/share/doc/cachyos-packageinstaller/cachyos-pi.html"));
+        about::display_doc(QStringLiteral("file://" PI_DOC_DIR "/" PI_HELP_FILE));
     });
 
     connect(m_ui->pushAbout, &QPushButton::clicked, this, &MainWindow::on_push_about);
@@ -407,7 +408,10 @@ void MainWindow::fetch_net_pkglist() noexcept {
         auto progress_callback = []([[maybe_unused]] auto&& downloadTotal, [[maybe_unused]] auto&& downloadNow, [[maybe_unused]] auto&& uploadTotal,
                                      [[maybe_unused]] auto&& uploadNow, [[maybe_unused]] auto&& userdata) -> bool { return true; };
 
-        const auto& file_url      = cpr::Url{"https://raw.githubusercontent.com/cachyos/packageinstaller/develop/pkglist.yaml"};
+        if (QStringLiteral(PI_PKGLIST_URL).isEmpty()) {
+            return QStringLiteral(PI_PKGLIST_FILE);
+        }
+        const auto& file_url      = cpr::Url{PI_PKGLIST_URL};
         const auto& fetch_timeout = cpr::Timeout{100 * 1000};  // 100s
         const auto& response      = cpr::Get(file_url, fetch_timeout, cpr::ProgressCallback(std::move(progress_callback)));
 
@@ -427,9 +431,9 @@ void MainWindow::fetch_net_pkglist() noexcept {
             return QString::fromStdString(std::move(pkglist_path));
         } else if (response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT) {
             spdlog::error("Unable to fetch pkglist. Timeout");
-            QMessageBox::warning(this, "CachyOS Package Installer", tr("Unable to fetch pkglist. Timeout!"));
+            QMessageBox::warning(this, QStringLiteral(PI_PRODUCT_NAME), tr("Unable to fetch pkglist. Timeout!"));
         }
-        return {"/usr/lib/cachyos-pi/pkglist.yaml"};
+        return QStringLiteral(PI_PKGLIST_FILE);
     }();
 
     QFile file(fetch_filepath);
@@ -847,9 +851,10 @@ void MainWindow::displayWarning(std::string_view repo) noexcept {
     using namespace std::string_view_literals;
     if (repo == "flatpaks"sv) {
         displayed = &m_warning_flatpaks;
-        msg       = tr("CachyOS includes this repository of flatpaks for the users' convenience only, and "
+        msg       = tr("%1 includes this repository of flatpaks for the users' convenience only, and "
                              "is not responsible for the functionality of the individual flatpaks themselves. "
-                             "For more, consult flatpaks in the Wiki.");
+                             "For more, consult flatpaks in the Wiki.")
+                  .arg(QStringLiteral(PI_DISTRO_NAME));
     }
     if (!displayed || *displayed || (m_settings.value("disableWarning", false).toBool())) {
         return;
@@ -1569,9 +1574,11 @@ void MainWindow::on_push_install() noexcept {
 // About button clicked
 void MainWindow::on_push_about() noexcept {
     const auto& msgbox_title = tr("About %1").arg(this->windowTitle());
-    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + tr("Package Installer for CachyOS") + R"(</h3></p><p align="center"><a href="http://cachyos.org">http://cachyos.org</a><br /></p><p align="center">)" + tr("Copyright (c) CachyOS") + "<br /><br /></p>";
+    const auto& msgbox_body  = "<p align=\"center\"><b><h2>" + this->windowTitle() + "</h2></b></p><p align=\"center\">" + tr("Version: ") + APP_VERSION + "</p><p align=\"center\"><h3>" + tr("Package Installer for %1").arg(QStringLiteral(PI_DISTRO_NAME)) + "</h3></p>"
+        + (QStringLiteral(PI_HOME_URL).isEmpty() ? QString() : QStringLiteral(R"(<p align="center"><a href=")" PI_HOME_URL R"(">)" PI_HOME_URL "</a><br /></p>"))
+        + R"(<p align="center">)" + QStringLiteral(PI_COPYRIGHT) + "<br /><br /></p>";
     about::display_about_msgbox(msgbox_title, msgbox_body,
-        QStringLiteral("file:///usr/share/doc/cachyos-packageinstaller/license.html"));
+        QStringLiteral("file://" PI_DOC_DIR "/license.html"));
 }
 
 // Resize columns when expanding
@@ -2017,7 +2024,7 @@ void MainWindow::on_push_cancel() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
     if (m_cmd.state() != QProcess::NotRunning) {
         if (QMessageBox::warning(this, tr("Quit?"),
-                tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to exit CachyOS Package Installer?</b>"),
+                tr("Process still running, quitting might leave the system in an unstable state.<p><b>Are you sure you want to exit %1?</b>").arg(QStringLiteral(PI_PRODUCT_NAME)),
                 QMessageBox::Yes, QMessageBox::No)
             == QMessageBox::No) {
             return;

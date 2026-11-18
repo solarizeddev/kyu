@@ -38,6 +38,7 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+#include "branding.hpp"
 #include "alpm_manager.hpp"
 #include "mainwindow.hpp"
 
@@ -139,13 +140,14 @@ auto main(int argc, char** argv) -> std::int32_t {
 #endif
 
     /// 2. Application identification
-    QApplication::setOrganizationName("cachyos");
-    QApplication::setOrganizationDomain("cachyos.org");
-    QApplication::setApplicationName("cachyos-pi");
+    QApplication::setOrganizationName(PI_ORG_NAME);
+    QApplication::setOrganizationDomain(PI_ORG_DOMAIN);
+    QApplication::setApplicationName(PI_APP_ID);
+    QApplication::setDesktopFileName(PI_APP_ID);
 
     // Set application attributes
     const QApplication app(argc, argv);
-    QApplication::setWindowIcon(QIcon(":/icons/cachyos-pi.png"));
+    QApplication::setWindowIcon(QStringLiteral(PI_ICON_NAME).isEmpty() ? QIcon(":/icons/cachyos-pi.png") : QIcon::fromTheme(QStringLiteral(PI_ICON_NAME)));
 
     /// 3. Initialization of translations
     QTranslator qtTranslatorBase;
@@ -154,7 +156,7 @@ auto main(int argc, char** argv) -> std::int32_t {
     QTranslator translator;
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
-    QSharedMemory sharedMemoryLock("CachyOS-PI-lock");
+    QSharedMemory sharedMemoryLock(PI_APP_ID "-lock");
     if (IsInstanceAlreadyRunning(sharedMemoryLock)) {
         QMessageBox::critical(nullptr, QObject::tr("Error"),
             QObject::tr("Instance of the program is already running! Please close it first"));
@@ -195,7 +197,7 @@ auto main(int argc, char** argv) -> std::int32_t {
     }
 
     const auto& cache_path   = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    const auto& log_filepath = fmt::format("{}/cachyospi.log", cache_path.toStdString());
+    const auto& log_filepath = fmt::format("{}/" PI_APP_ID ".log", cache_path.toStdString());
     if (fs::exists(log_filepath)) {
         std::ifstream currentfile{log_filepath};
         const std::string file_data{std::istreambuf_iterator<char>(currentfile), std::istreambuf_iterator<char>()};
