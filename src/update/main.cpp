@@ -910,9 +910,10 @@ int main(int argc, char **argv)
             // The failing command's own lines: after Kyu's step line when the
             // second ran (the keyrings' run prints gpg's chatter).
             if (second) {
-                const QString title = steps.at(1).title + QLatin1Char(' ');
+                // Kyu's step line: the title, padded to the step column, then the command.
+                const QString title = steps.at(1).title, command = steps.at(1).command.join(QLatin1Char(' '));
                 for (qsizetype n = pacmanLines.size() - 1; n >= 0; --n) {
-                    if (pacmanLines.at(n).contains(title + steps.at(1).command.join(QLatin1Char(' ')))) {
+                    if (pacmanLines.at(n).contains(title) && pacmanLines.at(n).trimmed().endsWith(command)) {
                         pacmanLines = pacmanLines.mid(n + 1);
                         break;
                     }
