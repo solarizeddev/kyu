@@ -45,7 +45,7 @@ const QHash<QString, QString>& wholeTexts() {
          u"Ranking needs the “pacman-mirrors” package, which is not installed."_s},
         {u"Install cachyos-rate-mirrors"_s, u"Install pacman-mirrors"_s},
         {u"Building AUR packages needs “paru”, which is not installed. You can still search and review packages."_s,
-         u"Building AUR packages needs “paru”, which is not installed. It is not in the %1 repositories: build it from the AUR once with makepkg. You can still search and review packages."_s
+         u"Building AUR packages needs “paru”, which is not installed. It is not in the %1 repositories: open any AUR package and choose “Install paru” to build it from the AUR. You can still search and review packages."_s
              .arg(PI_DISTRO_NAME)},
     };
     return texts;

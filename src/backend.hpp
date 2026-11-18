@@ -91,6 +91,11 @@ class Backend : public QObject {
     /// Sorts the mirror lists by speed with cachyos-rate-mirrors.
     Q_INVOKABLE void rateMirrors();
     Q_INVOKABLE void installFromAur(const QString& name);
+    /// Manjaro fork: paru from the repositories where they have it; elsewhere (Manjaro)
+    /// opens paru from the AUR, reviewed like any AUR package and built with makepkg.
+    Q_INVOKABLE void installParu();
+    /// Manjaro fork: whether `name` is paru and can be built without paru (makepkg).
+    Q_INVOKABLE [[nodiscard]] bool buildsWithoutParu(const QString& name) const;
     /// Builds several reviewed AUR packages in one paru run.
     Q_INVOKABLE void installManyFromAur(const QStringList& names);
 
@@ -114,6 +119,8 @@ class Backend : public QObject {
     void startupFileChanged();
     /// Something the user asked for could not be done, and `text` says why.
     void notice(const QString& text);
+    /// Manjaro fork: show this AUR package's review page.
+    void openAurRequested(const AurPackage& item);
 
  private:
     void onLoaded(std::expected<catalog::LoadResult, QString> result);

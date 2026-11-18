@@ -75,6 +75,16 @@ ScrollPage {
         Backend.aur.resolve(queue.map(entry => entry.name))
     }
 
+    // Manjaro fork: back from another package's page ("Install paru"), which loaded its
+    // own details into the shared client: load this one again, to be reviewed again.
+    StackView.onActivated: {
+        if (Backend.aur.details.name !== item.name && Backend.aur.details.name !== "") {
+            reviewBox.checked = false
+            Backend.aur.loadDetails(item.name, item.pkgbase, item.upgradable)
+            Backend.aur.resolve(queue.map(entry => entry.name))
+        }
+    }
+
     // AUR packages that the queue needs are reviewed as well, after the ones asked for.
     Connections {
         target: Backend.aur
@@ -207,13 +217,15 @@ ScrollPage {
     Notice {
         width: parent.width
         tone: Notice.Warning
-        text: !Backend.paruAvailable ? qsTr("Install “paru” to build AUR packages.")
+        text: !Backend.paruAvailable && Backend.buildsWithoutParu(root.info.name)
+            ? qsTr("paru is not installed, so this package is built with makepkg. Once it is installed, paru builds AUR packages.")
+            : !Backend.paruAvailable ? qsTr("Install “paru” to build AUR packages.")
             : root.info.outOfDate ? qsTr("This package is flagged as out of date by AUR users.") : ""
 
         PillButton {
-            visible: !Backend.paruAvailable
             text: qsTr("Install paru")
-            onClicked: Backend.install("paru")
+            visible: !Backend.paruAvailable && !Backend.buildsWithoutParu(root.info.name)
+            onClicked: Backend.installParu()
         }
     }
 
@@ -461,7 +473,7 @@ ScrollPage {
                 implicitWidth: Math.max(190, implicitContentWidth + 36)
                 size: "large"
                 visible: !root.info.inRepos
-                enabled: Backend.paruAvailable && reviewBox.checked && root.ready && (!root.last || !Backend.aur.resolving)
+                enabled: (Backend.paruAvailable || Backend.buildsWithoutParu(root.info.name)) && reviewBox.checked && root.ready && (!root.last || !Backend.aur.resolving)
                 tone: Backend.aur.dangerous ? "danger" : "primary"
                 text: !root.last ? qsTr("Next package")
                     : root.queued ? (root.updates ? qsTr("Build and update %n package(s)", "", root.accepted.length + 1)

@@ -158,6 +158,14 @@ ApplicationWindow {
 
     Component.onCompleted: if (Backend.hasStartupFile) show("appimage")
 
+    // Manjaro fork: "Install paru" opens paru's review page where paru is not packaged
+    Connections {
+        target: Backend
+        function onOpenAurRequested(item: aurPackage): void {
+            root.openPage(aurDetailsPage, {"item": item});
+        }
+    }
+
     width: 1220
     height: 800
     minimumWidth: 760

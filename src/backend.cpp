@@ -323,8 +323,34 @@ void Backend::installFromAur(const QString& name) {
     installManyFromAur({name});
 }
 
+// Manjaro fork: paru is not in Manjaro's repositories.
+namespace {
+bool isParu(const QString& name) {
+    // not paru-bin: it is linked against Arch's libraries, often newer than Manjaro stable's
+    return name == "paru"_L1;
+}
+}  // namespace
+
+bool Backend::buildsWithoutParu(const QString& name) const {
+    const auto* inRepos = m_packages.find(u"paru"_s);
+    return isParu(name) && (inRepos == nullptr || inRepos->foreign());
+}
+
+void Backend::installParu() {
+    if (!buildsWithoutParu(u"paru"_s)) {
+        install(u"paru"_s);
+        return;
+    }
+    // Built from source: paru-bin is linked against Arch's libraries, which Manjaro
+    // stable often does not have yet (OpenSSL 4 in late 2026). Rust comes from the
+    // repositories as a build dependency.
+    emit openAurRequested(AurPackage{.name = u"paru"_s, .pkgbase = u"paru"_s});
+}
+
 void Backend::installManyFromAur(const QStringList& names) {
-    if (m_aurEnabled && m_paruAvailable && !names.isEmpty()) {
+    const bool bootstrap = !names.isEmpty()
+        && std::ranges::all_of(names, [this](const QString& name) { return buildsWithoutParu(name); });
+    if (m_aurEnabled && (m_paruAvailable || bootstrap) && !names.isEmpty()) {
         const auto directories = m_aur.buildDirectories(names);
         if (!directories) {
             emit notice(directories.error());

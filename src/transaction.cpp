@@ -9,6 +9,7 @@
 #include <QGuiApplication>
 #include <QLocale>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QWindow>
 
 #include <csignal>
@@ -103,6 +104,11 @@ QString Transaction::summary() const {
     case RateMirrors:
         return tr("The download speed of the Arch and CachyOS mirrors will be measured and the mirror lists rewritten to prefer the fast ones. This takes a minute or two; a copy of the current lists is kept until the next ranking.");
     case AurInstall:
+        // Manjaro fork: paru itself, built without paru (see prepareAur)
+        if (m_program == "bash"_L1) {
+            return tr("%1 will be built from the AUR with makepkg, as your user: what it needs to build (Rust) is installed from the repositories first, then the sources are downloaded and built, and the package is installed. Building takes several minutes; you may be asked for your password twice.")
+                .arg(m_targets.join(", "_L1));
+        }
         return m_targets.size() > 1
             ? tr("paru will download the sources, build %1 as your user and then ask for permission to install them. This can take a while.").arg(m_targets.join(", "_L1))
             : tr("paru will download the sources, build the package as your user and then ask for permission to install it. This can take a while.");
@@ -207,6 +213,30 @@ void Transaction::prepareAur(const QStringList& names, const QStringList& direct
                    u"--sudoflags"_s, helperPath(), u"--mode=pkgbuilds"_s,
                    u"--aururl"_s, u"http://127.0.0.1:1"_s, u"--aurrpcurl"_s, u"http://127.0.0.1:1/rpc"_s}
         + directories;
+    // Manjaro fork: without paru (only paru itself is let through, see Backend) makepkg
+    // builds the reviewed checkouts and our helper installs what it built.
+    if (QStandardPaths::findExecutable(u"paru"_s).isEmpty()) {
+        static const auto script = uR"(set -e
+helper=$1; shift
+files=()
+for dir in "$@"; do
+    cd "$dir"
+    # what it needs from the repositories, and makepkg's own tools (makepkg -s would ask
+    # sudo): through our helper, under the same permission as the install below
+    mapfile -t needed < <(makepkg --printsrcinfo | sed -n -E 's/^\t(make)?depends = //p')
+    needed+=(base-devel)
+    mapfile -t missing < <(pacman -T "${needed[@]}" | sed -E 's/[<>=].*//')
+    if (( ${#missing[@]} > 0 )); then pkexec "$helper" pacman --sync --needed --noconfirm -- "${missing[@]}"; fi
+    makepkg --force --noconfirm --nocheck
+    while IFS= read -r file; do
+        if [[ -f $file && $file != *-debug-* ]]; then files+=("$file"); fi
+    done < <(makepkg --packagelist)
+done
+if (( ${#files[@]} == 0 )); then echo "makepkg built no package" >&2; exit 1; fi
+exec pkexec "$helper" pacman --upgrade --noconfirm -- "${files[@]}")"_s;
+        m_program = u"bash"_s;
+        m_args    = QStringList{u"-c"_s, script, u"makepkg-install"_s, helperPath()} + directories;
+    }
     m_workingDirectory = workingDirectory;
     begin(AurInstall, names);
 }

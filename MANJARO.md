@@ -16,13 +16,14 @@ releases.
 | `src/brand.{hpp,cpp}` (new), two lines in `src/main.cpp` | With a distribution's name set: a translator that puts "Manjaro" in place of "CachyOS" (and rewrites the few texts that say more than the name); the app's pictures of the CachyOS logo replaced by the logo from the icon theme (`manjarolinux`, from `manjaro-icons`); window icon, desktop file name and settings name |
 | `src/alpmdb.cpp` | Which repositories are shown as the distribution's own: all of them on Manjaro (upstream: those starting with `cachyos`, the rest show as "Arch") |
 | `src/helper/shared.hpp`, `src/helper/main.cpp` | The mirror ranking program: `pacman-mirrors --no-color --fasttrack 10` |
-| `src/transaction.cpp` | An uninstalled build finds its helper by the installed name (one line) |
+| `src/transaction.cpp` | An uninstalled build finds its helper by the installed name (one line); without paru, paru itself is built with makepkg (its build dependencies through the helper) and installed through the helper |
+| `src/backend.{hpp,cpp}`, `qml/AurDetailsPage.qml`, `qml/Main.qml` | "Install paru" where the repositories have no paru: paru's AUR page, buildable without paru |
 | `CMakeLists.txt` | The `PI_*` options; the program, scanner and helper names; the polkit file with its own ids; the desktop file; no CachyOS icon or AppStream entry |
 | `src/instance.{hpp,cpp}` (new), two hooks in `src/main.cpp` | One window per user; `--updates` opens it (or brings it forward) on the Updates page, for the notifier |
 | `cmake/Manjaro.cmake`, `manjaro/` | The Manjaro settings, the app list (only packages in Manjaro's repositories), its check, the desktop file |
 | `MANJARO.md`, `packaging/PKGBUILD`, `tools/test-manjaro.sh` | This file, the package, the container test |
 
-No QML file and no upstream text is edited, so a merge only conflicts where
+Two QML files get a few lines (the paru case) and no upstream text is edited, so a merge only conflicts where
 upstream changes the few lines above. Without `cmake/Manjaro.cmake` the
 build is upstream's; the container test builds and tests both.
 
@@ -64,9 +65,13 @@ it behind polkit's generic prompt, and the taskbar shows a generic icon
 (`-f` builds again after your edits). The first build downloads rapidyaml
 and backward-cpp (CPM).
 
-AUR builds need `paru`, which Manjaro does not package: build it from the
-AUR once. AUR packages are written for Arch, which is often ahead of
-Manjaro stable; the settings page says so.
+AUR builds need `paru`, which Manjaro does not package. "Install paru" (on
+any AUR package's page) opens paru's own AUR page instead: it is reviewed
+like any AUR package, its build dependencies (Rust) are installed from the
+repositories, it is built from source with makepkg (paru-bin is linked
+against Arch's newer libraries) and installed through the helper. From then
+on paru builds AUR packages. AUR packages are written for Arch, which is
+often ahead of Manjaro stable; the settings page says so.
 
 ## Merging an upstream release
 
