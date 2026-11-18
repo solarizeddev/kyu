@@ -27,7 +27,8 @@ _root=$(realpath "$startdir/..")
 build() {
     # keep CPM's downloads of rapidyaml and backward-cpp in $srcdir
     export CPM_SOURCE_CACHE="$srcdir/cpm"
-    cmake -C "$_root/cmake/Manjaro.cmake" -S "$_root" -B build -G Ninja \
+    # --fresh: makepkg -f keeps src/build, whose cache would win over -C
+    cmake --fresh -C "$_root/cmake/Manjaro.cmake" -S "$_root" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr
     cmake --build build

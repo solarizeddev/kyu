@@ -52,9 +52,6 @@ const QHash<QString, QString>& wholeTexts() {
 }
 
 QString rebrand(const QString& text) {
-    if (const auto whole = wholeTexts().constFind(text); whole != wholeTexts().cend()) {
-        return *whole;
-    }
     auto changed = text;
     return changed.replace("CachyOS"_L1, QLatin1StringView(PI_DISTRO_NAME));
 }
@@ -65,6 +62,10 @@ class BrandTranslator final : public QTranslator {
     explicit BrandTranslator(QTranslator* inner) : m_inner(inner) {}
 
     QString translate(const char* context, const char* source, const char* disambiguation, int n) const override {
+        // a text rewritten as a whole is matched in English, before any translation
+        if (const auto whole = wholeTexts().constFind(QString::fromUtf8(source)); whole != wholeTexts().cend()) {
+            return *whole;
+        }
         const auto translated = m_inner ? m_inner->translate(context, source, disambiguation, n) : QString();
         const auto text       = translated.isEmpty() ? QString::fromUtf8(source) : translated;
         const auto branded    = rebrand(text);

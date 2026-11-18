@@ -50,6 +50,7 @@ done
 grep -i cachyos /usr/share/polkit-1/actions/org.packageinstaller-manjaro.policy | grep -v vendor_url && { echo "CachyOS in the policy"; exit 1; }
 grep -q "/usr/lib/packageinstaller-manjaro/packageinstaller-manjaro-helper" /usr/share/polkit-1/actions/org.packageinstaller-manjaro.policy
 strings /usr/lib/packageinstaller-manjaro/packageinstaller-manjaro-helper | grep -qx /usr/bin/pacman-mirrors
+strings /usr/lib/packageinstaller-manjaro/packageinstaller-manjaro-helper | grep -qx -- --no-color
 /tmp/src/manjaro/check-pkglist.sh
 su tester -c "cd; Xvfb :99 -screen 0 1280x860x24 >/dev/null 2>&1 & sleep 2
   DISPLAY=:99 packageinstaller-manjaro >/out/run.log 2>&1 & pid=\$!; sleep 15

@@ -15,7 +15,7 @@ releases.
 |---|---|
 | `src/brand.{hpp,cpp}` (new), two lines in `src/main.cpp` | With a distribution's name set: a translator that puts "Manjaro" in place of "CachyOS" (and rewrites the few texts that say more than the name); the app's pictures of the CachyOS logo replaced by the logo from the icon theme (`manjarolinux`, from `manjaro-icons`); window icon, desktop file name and settings name |
 | `src/alpmdb.cpp` | Which repositories are shown as the distribution's own: all of them on Manjaro (upstream: those starting with `cachyos`, the rest show as "Arch") |
-| `src/helper/shared.hpp`, `src/helper/main.cpp` | The mirror ranking program: `pacman-mirrors --fasttrack` |
+| `src/helper/shared.hpp`, `src/helper/main.cpp` | The mirror ranking program: `pacman-mirrors --no-color --fasttrack 10` |
 | `src/transaction.cpp` | An uninstalled build finds its helper by the installed name (one line) |
 | `CMakeLists.txt` | The `PI_*` options; the program, scanner and helper names; the polkit file with its own ids; the desktop file; no CachyOS icon or AppStream entry |
 | `cmake/Manjaro.cmake`, `manjaro/` | The Manjaro settings, the app list (only packages in Manjaro's repositories), its check, the desktop file |
@@ -24,6 +24,11 @@ releases.
 No QML file and no upstream text is edited, so a merge only conflicts where
 upstream changes the few lines above. Without `cmake/Manjaro.cmake` the
 build is upstream's; the container test builds and tests both.
+
+Known: every sync repository is badged "Manjaro", third-party ones (such
+as chaotic-aur) too; the helper's own error messages still start with
+`cachyos-pi-helper:`; upstream's helper test checks upstream's mirror
+command, the container test checks ours.
 
 Not yet done for Manjaro (next step):
 - Upstream's update notice is CachyOS's and stays off here; Manjaro's
@@ -36,13 +41,15 @@ Not yet done for Manjaro (next step):
 ```bash
 sudo pacman -S --needed base-devel cmake ninja git qt6-tools appstream-qt archlinux-appstream-data \
     elfutils kimageformats libjxl manjaro-icons pacman-mirrors qt6-declarative qt6-svg
-cmake -C cmake/Manjaro.cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --fresh -C cmake/Manjaro.cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build && ctest --test-dir build
 ./build/packageinstaller-manjaro
 ```
 
 Run from the build directory, package operations use the helper next to
-it behind polkit's generic prompt. Or as a package: `cd packaging && makepkg -sif`
+it behind polkit's generic prompt, and the taskbar shows a generic icon
+(Wayland takes it from the installed desktop file). `--fresh` matters when
+`build/` holds an older configuration: `-C` does not override a cache. Or as a package: `cd packaging && makepkg -sif`
 (`-f` builds again after your edits). The first build downloads rapidyaml
 and backward-cpp (CPM).
 

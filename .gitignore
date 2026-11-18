@@ -20,3 +20,8 @@ compile_commands.json
 /packaging/*/*.tar.gz
 /packaging/*/*.log
 /packaging/*/PKGBUILD.local
+
+# makepkg in packaging/
+/packaging/src/
+/packaging/pkg/
+/packaging/*.pkg.tar.*
