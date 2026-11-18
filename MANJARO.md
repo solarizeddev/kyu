@@ -76,27 +76,27 @@ often ahead of Manjaro stable; the settings page says so.
 ## Merging an upstream release
 
 ```bash
-git remote add upstream https://github.com/CachyOS/packageinstaller.git   # once
-git fetch upstream --tags
-git merge v2.0.0                    # the new release's tag (until then: upstream/fresh)
-manjaro/check-pkglist.sh            # on Manjaro stable: every app still in the repositories
-tools/test-manjaro.sh               # build both ways, test, install and start it in a Manjaro container
+tools/update-upstream.sh
 ```
 
-After a merge, look for new texts that name CachyOS or its tools:
+It fetches upstream (and adds the `upstream` remote the first time), merges
+the newest v2 release tag (`upstream/fresh` until 2.0 is tagged; another ref
+can be given), lists new texts that name CachyOS and apps upstream added to
+its list (marking those Manjaro's repositories have), checks our app list,
+then builds, tests and installs the package with `makepkg -sif`. It does not
+push: try the app (install and remove a package, Update all, an AUR page),
+then `git push`. `--no-install` stops after the checks.
 
-```bash
-git grep -n -i 'cachy' -- qml src | grep -i 'qsTr\|tr("'
-```
+On conflicts it stops and lists the files; they can only be where our
+changes are (the table above, each marked `Manjaro fork` in the code). Keep
+upstream's new code, put our lines back, commit, and run it again: it goes on
+from that merge. A conflict in README.md's first lines is resolved by itself.
 
-Most only need the name changed, which happens by itself. A text that says
-more (CachyOS's repositories, mirrors, tools) gets a whole-text entry in
-`src/brand.cpp`. Upstream's `pkglist.yaml` is not used here; copy new
-entries that are in Manjaro's repositories into `manjaro/pkglist.yaml`.
+A new text that says more than the name (CachyOS's repositories, mirrors or
+tools) gets a whole-text entry in `src/brand.cpp`; the name alone is replaced
+by itself. `tools/test-manjaro.sh` also builds and tests both configurations
+in a clean Manjaro container (needs docker).
 
-Before releasing, on a real Manjaro machine: install and remove one small
-package (pkexec asks for the password), rank the mirrors, and run Update
-all once.
 
 ## Name and logo
 
