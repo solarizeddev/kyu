@@ -123,7 +123,8 @@ qt_add_executable(${PROJECT_NAME}
     src/transaction.hpp src/transaction.cpp
     src/updatenotice.hpp src/updatenotice.cpp
     src/backend.hpp src/backend.cpp
-    src/brand.hpp src/brand.cpp)
+    src/brand.hpp src/brand.cpp
+    src/instance.hpp src/instance.cpp)
 
 set(PI_QML_FILES
     qml/Main.qml

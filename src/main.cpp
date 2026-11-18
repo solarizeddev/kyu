@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.hpp"
 #include "brand.hpp"
+#include "instance.hpp"
 #include "iconprovider.hpp"
 
 #include <QApplication>
@@ -32,6 +33,10 @@ int main(int argc, char** argv) {
         QCoreApplication::installTranslator(&translator);
     }
     brand::apply(&translator);  // Manjaro fork: a distribution's name and logo
+    // Manjaro fork: one window; "--updates" from the update notifier
+    if (brand::active() && instance::forwardToRunning()) {
+        return 0;
+    }
 
     // The UI brings its own look; Basic is the style meant for customisation.
     QQuickStyle::setStyle(u"Basic"_s);
@@ -49,5 +54,8 @@ int main(int argc, char** argv) {
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);
     engine.loadFromModule("CachyOS.PackageInstaller", "Main");
+    if (brand::active()) {
+        instance::serve(engine);  // Manjaro fork
+    }
     return QApplication::exec();
 }

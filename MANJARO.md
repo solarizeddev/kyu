@@ -18,6 +18,7 @@ releases.
 | `src/helper/shared.hpp`, `src/helper/main.cpp` | The mirror ranking program: `pacman-mirrors --no-color --fasttrack 10` |
 | `src/transaction.cpp` | An uninstalled build finds its helper by the installed name (one line) |
 | `CMakeLists.txt` | The `PI_*` options; the program, scanner and helper names; the polkit file with its own ids; the desktop file; no CachyOS icon or AppStream entry |
+| `src/instance.{hpp,cpp}` (new), two lines in `src/main.cpp` | One window per user; `--updates` opens it (or brings it forward) on the Updates page, for the notifier |
 | `cmake/Manjaro.cmake`, `manjaro/` | The Manjaro settings, the app list (only packages in Manjaro's repositories), its check, the desktop file |
 | `MANJARO.md`, `packaging/PKGBUILD`, `tools/test-manjaro.sh` | This file, the package, the container test |
 
@@ -35,6 +36,42 @@ Not yet done for Manjaro (next step):
   stable-update announcement should be shown before Update all.
 - Installing a package does not check that the system is up to date, and
   pacman's lock is not waited for.
+
+## Update notifier
+
+`notifier/` is CachyOS's update notifier,
+[cachy-update](https://github.com/CachyOS/cachy-update) (GPL-3.0, a fork of
+arch-update), as upstream ships it (a git subtree). `packaging/notifier/PKGBUILD`
+builds it as `packageinstaller-manjaro-notifier-git`, renamed for Manjaro
+while packaging (`manjaro/notifier/rebrand.sh`), so `notifier/` stays upstream's:
+
+- At login, for every user and desktop (`/etc/xdg/autostart`), a tray icon:
+  the Manjaro logo, with a dot while updates are waiting. Its menu lists them
+  (packages, AUR with paru, Flatpak).
+- A systemd user timer, on for every user, checks a few minutes after login
+  and then daily, with `checkupdates` (no root, the system databases are not
+  touched), and sends a notification when the list changes.
+- A click on the icon, or "Open the Package Installer" in the notification,
+  opens the Package Installer on its Updates page; if it is already open, that
+  window comes forward (one window per user: `src/instance.cpp`).
+- The icons are drawn at build time from the logo `manjaro-icons` installs
+  (`manjaro/notifier/make-icons.sh`); it stops if that file changes, since
+  the logo's box is measured on it.
+
+A user who does not want it: the tray from Plasma's autostart settings, the
+timer with `systemctl --user mask arch-update.timer`. Settings:
+`~/.config/arch-update/arch-update.conf` (see `man arch-update.conf`).
+
+The `arch-update` command is kept as upstream's: run in a terminal, it
+updates interactively and shows the Arch Linux news, not Manjaro's
+announcements.
+
+Upstream releases: `git subtree pull --prefix=notifier cachy-update main --squash`
+(remote `cachy-update`: https://github.com/CachyOS/cachy-update.git), then
+`tools/test-packages.sh`, which builds both packages with makepkg in a
+Manjaro container and checks the autostart, timer, icons, the update check
+and the click opening the Updates page. The tray itself needs a panel:
+check it on Plasma.
 
 ## Build
 

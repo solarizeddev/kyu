@@ -25,3 +25,5 @@ compile_commands.json
 /packaging/src/
 /packaging/pkg/
 /packaging/*.pkg.tar.*
+/packaging/*/pkg/
+/packaging/*/*.pkg.tar.*
