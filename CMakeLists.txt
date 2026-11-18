@@ -114,6 +114,8 @@ qt_add_executable(${PROJECT_NAME}
     src/about.hpp src/about.cpp
     src/cmd.hpp src/cmd.cpp
     src/mainwindow.hpp src/mainwindow.cpp
+    src/branding.hpp
+    src/safety.hpp src/safety.cpp
     src/mainwindow.ui
     src/main.cpp)
 

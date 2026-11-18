@@ -40,6 +40,7 @@
 
 #include "mainwindow.hpp"
 #include "branding.hpp"
+#include "safety.hpp"
 #include "ui_mainwindow.h"
 
 #include "about.hpp"
@@ -225,11 +226,15 @@ bool MainWindow::uninstall(const QString& names) noexcept {
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Uninstalling packages..."));
     displayOutput();
 
+    if (!pi::safety::valid_package_names(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
     const auto& cmd_str = [&is_ok, names = names.toStdString()]() -> std::string {
         if (is_ok) {
-            return fmt::format("pkexec pacman -R --noconfirm {}", names);
+            return fmt::format("pkexec pacman -R --noconfirm -- {}", names);
         }
-        return fmt::format("pkexec pacman -R {}", names);
+        return fmt::format("pkexec pacman -R -- {}", names);
     }();
 
     return m_cmd.run(cmd_str.c_str());
@@ -1014,7 +1019,11 @@ bool MainWindow::install(const QString& names) noexcept {
 
     displayOutput();
 
-    const auto& cmd_str = QStringLiteral("pkexec pacman -S ") + names;
+    if (!pi::safety::valid_package_names(names)) {
+        QMessageBox::critical(this, tr("Error"), tr("Not a package name: %1").arg(names));
+        return false;
+    }
+    const auto& cmd_str = QStringLiteral("pkexec pacman -S -- ") + names;
     return m_cmd.run(cmd_str);
 }
 
@@ -1514,6 +1523,12 @@ void MainWindow::showOutput() {
 // Install button clicked
 void MainWindow::on_push_install() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
+    if (m_tree != m_ui->treeFlatpak) {
+        m_alpm_manager->refresh_alpm();
+        if (!pi::safety::ready_to_change(this, true, [this] { on_push_upgrade_all(); })) {
+            return;
+        }
+    }
     // qDebug() << "change list"  << .join(' ');
     showOutput();
 
@@ -1604,6 +1619,9 @@ void MainWindow::on_treePopularApps_itemCollapsed(QTreeWidgetItem* item) noexcep
 // Uninstall clicked
 void MainWindow::on_push_uninstall() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
+    if (m_tree != m_ui->treeFlatpak && !pi::safety::ready_to_change(this, false, {})) {
+        return;
+    }
 
     showOutput();
 
@@ -1937,7 +1955,15 @@ void MainWindow::buildChangeList(QTreeWidgetItem* item) noexcept {
 
     if (m_tree != m_ui->treeFlatpak) {
         m_ui->pushUninstall->setEnabled(checkInstalled(m_change_list));
-        m_ui->pushInstall->setText(checkUpgradable(m_change_list) ? tr("Upgrade") : tr("Install"));
+        // No upgrade of single packages (a partial upgrade): updates come
+        // with the whole system (Upgrade All).
+        const bool any_upgradable = std::ranges::any_of(m_change_list, [this](const QString& name) {
+            const auto items = m_tree->findItems(name, Qt::MatchExactly, TreeCol::Name);
+            return !items.isEmpty() && items.at(0)->text(TreeCol::Status) == QLatin1String("upgradable");
+        });
+        m_ui->pushInstall->setText(tr("Install"));
+        m_ui->pushInstall->setEnabled(!m_change_list.isEmpty() && !any_upgradable);
+        m_ui->pushInstall->setToolTip(any_upgradable ? tr("Updates are installed with the whole system: Upgrade All") : QString());
     } else {  // for Flatpaks allow selection only of installed or not installed items so one clicks on an installed item only installed items should be displayed and the other way round
         m_ui->pushInstall->setText(tr("Install"));
         if (item->text(FlatCol::Status) == QLatin1String("installed")) {
@@ -1986,6 +2012,9 @@ void MainWindow::on_checkHideLibs_toggled(bool checked) noexcept {
 // Upgrade all packages (from Stable repo only)
 void MainWindow::on_push_upgrade_all() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
+    if (!pi::safety::ready_to_upgrade_all(this)) {
+        return;
+    }
     showOutput();
 
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Upgrading system..."));
@@ -2184,6 +2213,9 @@ void MainWindow::on_push_remove_unused() noexcept {
 }
 
 void MainWindow::on_push_remove_orphan() noexcept {
+    if (!pi::safety::ready_to_change(this, false, {})) {
+        return;
+    }
     const auto names = m_cmd.getCmdOut("pacman -Qdtq | tr '\\n' ' '");
     QMessageBox::warning(this, tr("Warning"), tr("Potentially dangerous operation.\nPlease make sure you check carefully the list of packages to be removed."));
     showOutput();

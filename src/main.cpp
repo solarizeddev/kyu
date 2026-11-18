@@ -186,15 +186,8 @@ auto main(int argc, char** argv) -> std::int32_t {
         return EXIT_FAILURE;
     }
 
-    // Don't start app if pacman is running
-    static constexpr auto lock_path = "/var/lib/pacman/db.lck";
-    if (fs::exists(lock_path)) {
-        QApplication::beep();
-        QMessageBox::critical(nullptr, QObject::tr("Unable to get exclusive lock"),
-            QObject::tr("Another package management application (like pamac or pacman), "
-                        "is already running. Please close that application first"));
-        return EXIT_FAILURE;
-    }
+    // pacman's lock (pamac's background refresh holds it often) is waited
+    // for before each change (safety.hpp), not a reason to refuse to start.
 
     const auto& cache_path   = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     const auto& log_filepath = fmt::format("{}/" PI_APP_ID ".log", cache_path.toStdString());
