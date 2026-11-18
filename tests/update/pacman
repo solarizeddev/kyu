@@ -43,6 +43,47 @@ case "$*" in
     echo "[$(now)] [ALPM] transaction completed" >>"$log"
     touch "$KYU_FAKE_DIR/keyring-upgraded"
     exit 0 ;;
+-Q)
+    # Installed: KYU_FAKE_DIR/installed (name version per line), by default
+    # calligra and krita.
+    [ -f "$KYU_FAKE_DIR/installed" ] || printf 'calligra 25.08.3-1\nkrita 5.2.13-3\n' >"$KYU_FAKE_DIR/installed"
+    cat "$KYU_FAKE_DIR/installed"
+    exit 0 ;;
+-Qqe)
+    [ -f "$KYU_FAKE_DIR/installed" ] || printf 'calligra 25.08.3-1\nkrita 5.2.13-3\n' >"$KYU_FAKE_DIR/installed"
+    cut -d' ' -f1 "$KYU_FAKE_DIR/installed"
+    exit 0 ;;
+"-S --print --print-format %n %v "* | "--dbpath "*" -S --print --print-format %n %v "* | "-U --print --print-format %n %v "*)
+    # A dry run: each target at 1.0-1 (KYU_FAKE_FRESH=newer: 1.1-1 in the
+    # planner's fresh copy).
+    fresh=no; [ "$1" = --dbpath ] && { fresh=yes; shift 2; }
+    shift 3
+    for t in "$@"; do
+        v=1.0-1; [ "$fresh" = yes ] && [ "${KYU_FAKE_FRESH:-}" = newer ] && v=1.1-1
+        echo "${t##*/} $v"
+    done
+    exit 0 ;;
+"-S --needed "* | "-S "*)
+    echo "$*" >>"$KYU_FAKE_DIR/install-args"
+    [ "$2" = --needed ] && shift 2 || shift
+    echo "resolving dependencies..."
+    echo ""
+    echo "Packages ($#) $*"
+    echo ""
+    printf ':: Proceed with installation? [Y/n] '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+    for t in "$@"; do echo "installing $t..."; echo "$t 1.0-1" >>"$KYU_FAKE_DIR/installed"; done
+    exit 0 ;;
+"-U "*)
+    echo "$*" >>"$KYU_FAKE_DIR/install-args"
+    printf ':: Proceed with installation? [Y/n] '
+    read -r answer || exit 1
+    case "$answer" in n|N) exit 1 ;; esac
+    exit 0 ;;
+"-D --asdeps "* | "-D --asexplicit "*)
+    echo "$*" >>"$KYU_FAKE_DIR/reason-args"
+    exit 0 ;;
 -Qtdq)
     # Orphans: KYU_FAKE_ORPHANS, until removed (-Rs).
     [ -n "${KYU_FAKE_ORPHANS:-}" ] && [ ! -e "$KYU_FAKE_DIR/orphans-removed" ] || exit 1
@@ -52,11 +93,16 @@ case "$*" in
     # What -Rs would remove: the targets and KYU_FAKE_ORPHAN_DEPS (-R: the
     # targets). KYU_FAKE_DRYRUN=fail: pacman cannot work it out.
     [ "${KYU_FAKE_DRYRUN:-}" = fail ] && { echo "error: failed to prepare transaction" >&2; exit 1; }
+    if [ -n "${KYU_FAKE_BREAKS:-}" ]; then
+        echo "error: failed to prepare transaction (could not satisfy dependencies)" >&2
+        echo ":: removing $5 breaks dependency '$5' required by $KYU_FAKE_BREAKS" >&2
+        exit 1
+    fi
     mode=$1; shift 4
     for o in "$@"; do echo "$o"; done
     [ "$mode" = -Rs ] && for o in ${KYU_FAKE_ORPHAN_DEPS:-}; do echo "$o"; done
     exit 0 ;;
-"-Rs "* | "-R "*)
+"-Rs "* | "-R "* | "-Rns "*)
     echo "$*" >"$KYU_FAKE_DIR/remove-args"
     shift
     echo "checking dependencies..."
@@ -69,7 +115,7 @@ case "$*" in
     for o in "$@"; do echo "removing $o..."; done
     touch "$KYU_FAKE_DIR/orphans-removed"
     exit 0 ;;
--Syu | -Syyu | -Su) echo "$1" >"$KYU_FAKE_DIR/pacman-args" ;;
+-Syu | -Syyu | -Su | "-Syu "* | "-Syyu "* | "-Su "*) echo "$1" >"$KYU_FAKE_DIR/pacman-args"; echo "$*" >"$KYU_FAKE_DIR/pacman-all-args" ;;
 *) echo "fake pacman: unexpected arguments: $*" >&2; exit 2 ;;
 esac
 touch "$KYU_FAKE_DIR/pacman-ran"

@@ -11,6 +11,7 @@
 // as root but pacman itself (through sudo, doas or pkexec) and what a key
 // runs.
 
+#include "apply.h"
 #include "console.h"
 
 #include "aftercare.h"
@@ -215,6 +216,10 @@ int main(int argc, char **argv)
     QCommandLineOption modulesDir(QStringLiteral("modules-dir"), Kyu::I18n::tr("%1 (testing).").arg(QStringLiteral("/usr/lib/modules")), Kyu::I18n::tr("path"),
                                   QStringLiteral("/usr/lib/modules"));
     QCommandLineOption mergeOnly(QStringLiteral("merge"), Kyu::I18n::tr("Only merge the configuration files the last update left (pacdiff)."));
+    QCommandLineOption planOption(QStringLiteral("plan"), Kyu::I18n::tr("Print what installing and removing the queue in FILE would do, as JSON (no root)."),
+                                  QStringLiteral("file"));
+    QCommandLineOption applyOption(QStringLiteral("apply"), Kyu::I18n::tr("Install and remove what the queue in FILE asks for, step by step with pacman."),
+                                   QStringLiteral("file"));
     QCommandLineOption cleanOnly(QStringLiteral("clean"), Kyu::I18n::tr("Only offer to clean up: orphan packages, the package cache, unused Flatpak runtimes."));
     QCommandLineOption lockWait(QStringLiteral("lock-wait"), QStringLiteral("How long to wait for another package manager, in seconds."),
                                 QStringLiteral("seconds"), QStringLiteral("600"));
@@ -232,8 +237,13 @@ int main(int argc, char **argv)
                                  QStringLiteral("/usr/share/locale"));
     localeDir.setFlags(QCommandLineOption::HiddenFromHelp);
     QCommandLineOption hooksDir(QStringLiteral("hooks-dir"), Kyu::I18n::tr("pacman's hook directories (testing)."), Kyu::I18n::tr("path"));
-    parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
+    parser.addOptions({noWait, noCheck, refresh, mergeOnly, cleanOnly, planOption, applyOption, lockWait, idleAfter, newsRead, synced, aurHelperOption, localeDir, stateFile, pacmanLog, dbLock, procDir, modulesDir, hooksDir});
     parser.process(app);
+
+    // A plan, for the app's preview: JSON only, nothing else on stdout.
+    if (parser.isSet(planOption)) {
+        return printPlan(parser.value(planOption), {});
+    }
 
     Out out(utf8);
     out.windowTitle();
@@ -407,12 +417,60 @@ int main(int argc, char **argv)
     {
         QSaveFile activity(activityPath);
         if (activity.open(QIODevice::WriteOnly)) {
-            activity.write(parser.isSet(mergeOnly) ? "merge\n" : parser.isSet(cleanOnly) ? "clean\n" : "update\n");
+            activity.write(parser.isSet(mergeOnly) ? "merge\n" : parser.isSet(cleanOnly) ? "clean\n" : parser.isSet(applyOption) ? "apply\n" : "update\n");
             activity.commit();
         }
     }
     // Nor is any question waiting yet (a file left by a killed run).
     Kyu::setWaiting(QString());
+
+    // --- Installing and removing (kyu-update --apply QUEUE) -----------------------
+    // Planned again here; run step by step. When installing needs the pending
+    // updates first, the targets join the update's own transaction below and
+    // the rest of the queue runs right after pacman.
+    std::optional<Kyu::Queue> applyQueue;
+    QStringList alsoInstall;
+    ApplyContext applyContext;
+    applyContext.out = &out;
+    applyContext.elevate = elevate;
+    applyContext.procDir = parser.value(procDir);
+    applyContext.dbLock = parser.value(dbLock);
+    applyContext.resultFile = Kyu::Paths::stateDir() + QStringLiteral("/apply-result.json");
+    if (parser.isSet(applyOption)) {
+        out.header(Kyu::I18n::tr("Kyu · installing and removing"));
+        out.blank();
+        QString error;
+        applyQueue = readQueue(parser.value(applyOption), &error);
+        if (!applyQueue) {
+            out.bad(Kyu::I18n::tr("The list to install and remove cannot be read: %1").arg(error));
+            return finish(2);
+        }
+        if (elevate.isEmpty()) {
+            out.bad(Kyu::I18n::tr("Neither sudo, doas nor pkexec is installed: pacman cannot change the system."));
+            return finish(1);
+        }
+        Kyu::Plan plan;
+        switch (startApply(applyContext, *applyQueue, plan)) {
+        case ApplyStart::Run:
+            return finish(runSteps(applyContext, *applyQueue, plan));
+        case ApplyStart::Nothing:
+            return finish(0);
+        case ApplyStart::Blocked:
+            return finish(1);
+        case ApplyStart::NeedsUpdate:
+            out.warn(plan.pending > 0 ? Kyu::numbered("Installing needs the %n pending updates first.", "Installing needs the pending update first.", plan.pending)
+                                      : Kyu::I18n::tr("Installing needs newer libraries than the system has: the system is updated first."));
+            discardTypedAhead();
+            out.prompt(Kyu::I18n::tr("Update now, then install? [y/N] "));
+            if (readAnswer() != QLatin1String("y")) {
+                out.warn(Kyu::I18n::tr("Nothing was changed."));
+                return finish(4);
+            }
+            alsoInstall = installTargetsFor(*applyQueue, applyContext.pacman);
+            out.blank();
+            break;
+        }
+    }
 
     // --- Clean up only (kyu-update --clean) --------------------------------------
     if (parser.isSet(cleanOnly)) {
@@ -566,7 +624,7 @@ int main(int argc, char **argv)
     // Only Flatpaks or AUR packages pending (by the last check): no pacman.
     // Not with pamac: its AUR update upgrades the repo packages too, which
     // pacman does here first (news, keyrings, explained failures).
-    const bool skipPacman = state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty()
+    const bool skipPacman = alsoInstall.isEmpty() && !applyQueue && state && state->pacman.checked && state->pacman.ok && state->packages.isEmpty()
         && (!state->flatpaks.isEmpty() || !aurPending.isEmpty()) && !(aurWanted && aurHelper->name == QLatin1String("pamac"));
     const QString flatpak = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     const bool flatpakWanted = !flatpak.isEmpty() && (!state || !state->flatpak.checked || !state->flatpak.ok || !state->flatpaks.isEmpty());
@@ -907,18 +965,27 @@ int main(int argc, char **argv)
                                                   : Kyu::I18n::tr("%1 takes one before the keyrings and one before the rest").arg(hook));
         }
         const bool refreshAll = parser.isSet(refresh);
+        // The queue's installs in the update's own transaction (no partial upgrade).
+        const QStringList withTargets = alsoInstall.isEmpty() ? QStringList() : QStringList{QStringLiteral("--needed")} + alsoInstall;
         std::optional<int> end;
         if (!keyringsFirst.isEmpty()) {
             end = runPacman({{Kyu::I18n::tr("Keyrings"),
                               QStringList{elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syy") : QStringLiteral("-Sy"), QStringLiteral("--needed")}
                                   + keyringsFirst},
-                             {Kyu::I18n::tr("Packages"), {elevate, QStringLiteral("pacman"), QStringLiteral("-Su")}}});
+                             {Kyu::I18n::tr("Packages"), QStringList{elevate, QStringLiteral("pacman"), QStringLiteral("-Su")} + withTargets}});
         } else {
-            end = runPacman({{Kyu::I18n::tr("Packages"), {elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syyu") : QStringLiteral("-Syu")}}});
+            end = runPacman({{Kyu::I18n::tr("Packages"),
+                              QStringList{elevate, QStringLiteral("pacman"), refreshAll ? QStringLiteral("-Syyu") : QStringLiteral("-Syu")} + withTargets}});
         }
         if (end) {
             return *end;
         }
+    }
+
+    // --- The rest of the queue, right after pacman --------------------------------
+    int applyExit = -1;
+    if (applyQueue && pacmanExit == 0 && !hungUp) {
+        applyExit = applyRest(applyContext, *applyQueue);
     }
 
     // --- flatpak -------------------------------------------------------------
@@ -1317,7 +1384,7 @@ int main(int argc, char **argv)
                      .arg(programs.mid(0, 6).join(QStringLiteral(", ")) + (programs.size() > 6 ? QStringLiteral(", …") : QString())));
     }
 
-    const int code = pacmanExit > 0 ? pacmanExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
+    const int code = pacmanExit > 0 ? pacmanExit : applyExit > 0 ? applyExit : flatpakStopped ? 4 : flatpakExit > 0 ? 5 : aurExit > 0 ? 6 : 0;
     // After a whole update only: what can be cleaned up, as lines and a key
     // (never a question before the verdict; never on its own).
     if (code == 0 && !stoppedOnPurpose) {

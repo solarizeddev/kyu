@@ -27,7 +27,7 @@ run() {
     fake_system "$d"
     lc_all=${LC_ALL:-C.UTF-8}
     [ -z "${KYU_TEST_NO_LC_ALL:-}" ] || lc_all=
-    printf "$input" | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="$lc_all" \
+    printf "$input" | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" XDG_CACHE_HOME="$d/cache" NO_COLOR=1 LC_ALL="$lc_all" \
         timeout 30 "$bin/kyu-update" --no-wait $(fake_args "$d") "$@" >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -297,7 +297,7 @@ runtty() {
     fake_system "$d"
     # shellcheck disable=SC2046
     : >"$d/out"
-    (IFS='|'; for a in $input; do idle "$d/out"; printf '%b' "$a"; done; idle "$d/out"; sleep 1) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+    (IFS='|'; for a in $input; do idle "$d/out"; printf '%b' "$a"; done; idle "$d/out"; sleep 1) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" XDG_CACHE_HOME="$d/cache" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
         timeout 30 script -q -e -c "$bin/kyu-update $(fake_args "$d") $*" /dev/null >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -312,7 +312,7 @@ fake_system "$d"
     while [ ! -s "$d/state/kyu/waiting" ] && [ $n -lt 40 ]; do sleep 0.25; n=$((n + 1)); done
     cp "$d/state/kyu/waiting" "$d/seen" 2>/dev/null
     printf 'y\n'; idle "$d/out"; sleep 1
-) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+) | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" XDG_CACHE_HOME="$d/cache" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
     timeout 30 script -q -e -c "$bin/kyu-update --no-wait $(fake_args "$d")" /dev/null >"$d/out" 2>&1
 [ "$(cat "$d/seen" 2>/dev/null)" = 'Proceed with installation? [Y/n]' ] || fail "waiting: noted '$(cat "$d/seen" 2>/dev/null)'"
 [ ! -e "$d/state/kyu/waiting" ] || fail "waiting: still noted after the update"
@@ -675,6 +675,74 @@ KYU_TEST_NO_LC_ALL=1 LC_MESSAGES= LANG=de_DE.UTF-8 LANGUAGE=en_US:de run deen 'y
 has "$work/deen/out" 'Restart required: new kernel 6.18.22-1-MANJARO' deen
 LANGUAGE=de run cde 'y\n'
 has "$work/cde/out" 'Restart required: new kernel 6.18.22-1-MANJARO' cde
+
+# queue FILE ITEMS...: a queue for --plan/--apply; each item "kind:name[:dep]".
+queue() {
+    f=$1; shift; items=""; n=0
+    for it in "$@"; do
+        n=$((n + 1)); kind=${it%%:*}; rest=${it#*:}; name=${rest%%:*}; dep=false
+        [ "${rest#*:}" = dep ] && dep=true
+        items="$items${items:+,}{\"id\":\"$n\",\"kind\":\"$kind\",\"name\":\"$name\",\"asDependency\":$dep}"
+    done
+    printf '{"version":1,"items":[%s]}\n' "$items" >"$f"
+}
+
+echo "plan: the queue as steps, without root (JSON for the app)"
+prepare plan; queue "$work/plan/q.json" remove:calligra install:gimp install:ghostscript:dep
+env PATH="$here/update:$PATH" KYU_FAKE_DIR="$work/plan" XDG_CACHE_HOME="$work/plan/cache" "$bin/kyu-update" --plan "$work/plan/q.json" >"$work/plan/out" 2>&1
+has "$work/plan/out" '"-S",' plan
+has "$work/plan/out" '"--needed",' plan
+has "$work/plan/out" '"updateFirst": false' plan
+has "$work/plan/out" '"runnable": true' plan
+has "$work/plan/out" '"title": "Remove calligra"' plan
+
+echo "apply: install, remove, mark as a dependency, step by step; each step pacman's own question"
+prepare apply; queue "$work/apply/q.json" remove:calligra install:gimp install:ghostscript:dep
+runtty apply 'y\n|y\n|\n' --apply "$work/apply/q.json"
+d=$work/apply
+has "$d/out" 'Kyu · installing and removing' apply
+has "$d/out" 'Step 1 of 3: Install gimp, ghostscript' apply
+has "$d/out" 'Step 2 of 3: Remove calligra' apply
+has "$d/out" '✓ Done.' apply
+[ "$(cat "$d/install-args" 2>/dev/null)" = '-S --needed gimp ghostscript' ] || fail "apply: install ran with '$(cat "$d/install-args" 2>/dev/null)'"
+[ "$(cat "$d/remove-args" 2>/dev/null)" = '-Rs calligra' ] || fail "apply: remove ran with '$(cat "$d/remove-args" 2>/dev/null)'"
+[ "$(cat "$d/reason-args" 2>/dev/null)" = '-D --asdeps ghostscript' ] || fail "apply: reasons '$(cat "$d/reason-args" 2>/dev/null)'"
+[ ! -e "$d/pacman-args" ] || fail "apply: a system update ran"
+has "$d/state/kyu/apply-result.json" '"1": "done"' apply
+has "$d/state/kyu/apply-result.json" '"3": "done"' apply
+
+echo "apply: a step answered no stops there; the rest is not run and said so"
+prepare applyno; queue "$work/applyno/q.json" remove:calligra install:gimp
+runtty applyno 'n\n|\n' --apply "$work/applyno/q.json"
+d=$work/applyno
+has "$d/out" 'Stopped: Install gimp was not done.' applyno
+has "$d/out" 'Not done, still in Pending: Remove calligra' applyno
+[ ! -e "$d/remove-args" ] || fail "applyno: the removal ran after a no"
+has "$d/state/kyu/apply-result.json" '"1": "notRun"' applyno
+has "$d/state/kyu/apply-result.json" '"2": "stopped"' applyno
+
+echo "apply: a removal others need is blocked before anything runs"
+prepare applyblock; queue "$work/applyblock/q.json" remove:krita install:gimp
+KYU_FAKE_BREAKS=calligra runtty applyblock '\n' --apply "$work/applyblock/q.json"
+d=$work/applyblock
+has "$d/out" 'Remove krita: Other installed packages need it: calligra.' applyblock
+[ ! -e "$d/install-args" ] || fail "applyblock: something was installed"
+
+echo "apply: updates pending, so the install joins the update's own transaction; the rest after pacman"
+prepare applyfirst; queue "$work/applyfirst/q.json" install:gimp remove:calligra
+KYU_FAKE_PENDING=2 runtty applyfirst 'y\n|y\n|y\n|\n' --apply "$work/applyfirst/q.json"
+d=$work/applyfirst
+has "$d/out" 'Installing needs the 2 pending updates first.' applyfirst
+[ "$(cat "$d/pacman-all-args" 2>/dev/null)" = '-Syu --needed gimp' ] || fail "applyfirst: pacman ran with '$(cat "$d/pacman-all-args" 2>/dev/null)'"
+[ ! -e "$d/install-args" ] || fail "applyfirst: a separate install ran: $(cat "$d/install-args")"
+[ "$(cat "$d/remove-args" 2>/dev/null)" = '-Rs calligra' ] || fail "applyfirst: remove '$(cat "$d/remove-args" 2>/dev/null)'"
+
+echo "apply: update first declined: nothing changed"
+prepare applyfirstno; queue "$work/applyfirstno/q.json" install:gimp
+KYU_FAKE_FRESH=newer runtty applyfirstno 'n\n|\n' --apply "$work/applyfirstno/q.json"
+d=$work/applyfirstno
+has "$d/out" 'Nothing was changed.' applyfirstno
+[ ! -e "$d/pacman-args" ] && [ ! -e "$d/install-args" ] || fail "applyfirstno: pacman ran"
 
 [ $fails -eq 0 ] && echo "all kyu-update tests passed"
 [ $fails -eq 0 ]

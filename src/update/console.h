@@ -75,6 +75,13 @@ public:
             std::fputs("\x1b]0;Kyu\x07", stdout);
         }
     }
+    // "Install gimp — Kyu": the task, so the task switcher tells it apart.
+    void windowTitle(const QString &task)
+    {
+        if (m_color) {
+            std::fputs(QStringLiteral("\x1b]0;%1 \u2014 Kyu\x07").arg(task).toUtf8().constData(), stdout);
+        }
+    }
     // "Kyu · 8 updates: …", once at the top.
     void header(const QString &text)
     {
