@@ -38,6 +38,7 @@
 #endif
 
 #include "mainwindow.hpp"
+#include <QProcess>
 #include "ui_mainwindow.h"
 
 #include "about.hpp"
@@ -204,6 +205,75 @@ void MainWindow::setup() noexcept {
     connect(m_ui->pushUpgradeAll, &QPushButton::clicked, this, &MainWindow::on_push_upgrade_all);
     connect(m_ui->pushRemotes, &QPushButton::clicked, this, &MainWindow::on_push_remotes);
     connect(m_ui->pushUpgradeFP, &QPushButton::clicked, this, &MainWindow::on_push_upgrade_flatpak);
+}
+
+// Kyu: pamac (its background refresh) or pacman holds the lock: wait, as
+// the person decides, instead of failing halfway. false: cancelled.
+bool MainWindow::waitForPacmanLock() noexcept {
+    static constexpr auto lock_path = "/var/lib/pacman/db.lck";
+    while (fs::exists(lock_path)) {
+        QMessageBox box(QMessageBox::Information, tr("Another package manager is working"),
+            tr("pamac or pacman is changing the system or refreshing its lists. Try again when it is done."),
+            QMessageBox::Retry | QMessageBox::Cancel, this);
+        if (box.exec() != QMessageBox::Retry) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Kyu: updates waiting in the package lists (pacman -Qu, no root). Installing
+// now would bring new libraries for the new package while the installed
+// programs keep the old ones: a partial upgrade, which breaks programs on
+// Manjaro and Arch (pamac's background refresh leaves systems like this).
+int MainWindow::pendingUpdates() noexcept {
+    QProcess pacman;
+    pacman.start(QStringLiteral("pacman"), {QStringLiteral("-Qqu")});
+    if (!pacman.waitForFinished(30000)) {
+        return 0;
+    }
+    return static_cast<int>(QString::fromUtf8(pacman.readAllStandardOutput()).split('\n', Qt::SkipEmptyParts).size());
+}
+
+// Kyu: the system update runs in Kyu's window (news first, keyrings first,
+// failures explained); plain pacman -Syu only without Kyu.
+bool MainWindow::startKyuUpdate() noexcept {
+    for (const auto& window : {QStringLiteral("kyu-window")}) {
+        if (!QStandardPaths::findExecutable(window).isEmpty() && QProcess::startDetached(window, {})) {
+            return true;
+        }
+    }
+    if (!QStandardPaths::findExecutable(QStringLiteral("kyu-update")).isEmpty()) {
+        if (QProcess::startDetached(QStringLiteral("konsole"), {QStringLiteral("-e"), QStringLiteral("kyu-update")})
+            || QProcess::startDetached(QStringLiteral("xdg-terminal-exec"), {QStringLiteral("kyu-update")})) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Kyu: before installing (or removing), and before anything is shown as
+// running: another package manager waited for; installing refused while
+// updates wait (a partial upgrade), with the update offered. false: not now.
+bool MainWindow::readyToChange(bool installing) noexcept {
+    if (!waitForPacmanLock()) {
+        return false;
+    }
+    const int pending = installing ? pendingUpdates() : 0;
+    if (pending == 0) {
+        return true;
+    }
+    QMessageBox box(QMessageBox::Information, tr("Update first"),
+        (pending == 1 ? tr("An update is waiting.") : tr("%1 updates are waiting.").arg(pending)) + QLatin1Char(' ')
+            + tr("Installing now would mix new and old libraries, which can break programs. Update the system first, then install."),
+        QMessageBox::Cancel, this);
+    auto* update = box.addButton(tr("Update Now…"), QMessageBox::AcceptRole);
+    box.setDefaultButton(update);
+    box.exec();
+    if (box.clickedButton() == update) {
+        on_push_upgrade_all();
+    }
+    return false;
 }
 
 // Uninstall listed packages
@@ -972,6 +1042,7 @@ bool MainWindow::install(const QString& names) noexcept {
     using namespace std::string_view_literals;
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
 
+
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Installing packages..."));
 
     // simulate install of selections and present for confirmation
@@ -1483,7 +1554,9 @@ void MainWindow::showOutput() {
 // Install button clicked
 void MainWindow::on_push_install() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
-    // qDebug() << "change list"  << .join(' ');
+    if (m_tree != m_ui->treeFlatpak && !readyToChange(true)) {
+        return;
+    }
     showOutput();
 
     if (m_tree == m_ui->treePopularApps) {
@@ -1571,7 +1644,9 @@ void MainWindow::on_treePopularApps_itemCollapsed(QTreeWidgetItem* item) noexcep
 // Uninstall clicked
 void MainWindow::on_push_uninstall() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
-
+    if (m_tree != m_ui->treeFlatpak && !readyToChange(false)) {
+        return;
+    }
     showOutput();
 
     QString names;
@@ -1904,7 +1979,19 @@ void MainWindow::buildChangeList(QTreeWidgetItem* item) noexcept {
 
     if (m_tree != m_ui->treeFlatpak) {
         m_ui->pushUninstall->setEnabled(checkInstalled(m_change_list));
-        m_ui->pushInstall->setText(checkUpgradable(m_change_list) ? tr("Upgrade") : tr("Install"));
+        // Kyu: no upgrade of single packages (a partial upgrade); updates
+        // come with the whole system (Upgrade All).
+        const bool anyUpgradable = std::ranges::any_of(m_change_list, [this](const QString& name) {
+            const auto items = m_tree->findItems(name, Qt::MatchExactly, TreeCol::Name);
+            return !items.isEmpty() && items.at(0)->text(TreeCol::Status) == QLatin1String("upgradable");
+        });
+        m_ui->pushInstall->setText(tr("Install"));
+        if (anyUpgradable) {
+            m_ui->pushInstall->setEnabled(false);
+            m_ui->pushInstall->setToolTip(tr("Updates are installed with the whole system: Upgrade All"));
+        } else {
+            m_ui->pushInstall->setToolTip(QString());
+        }
     } else {  // for Flatpaks allow selection only of installed or not installed items so one clicks on an installed item only installed items should be displayed and the other way round
         m_ui->pushInstall->setText(tr("Install"));
         if (item->text(FlatCol::Status) == QLatin1String("installed")) {
@@ -1953,6 +2040,15 @@ void MainWindow::on_checkHideLibs_toggled(bool checked) noexcept {
 // Upgrade all packages (from Stable repo only)
 void MainWindow::on_push_upgrade_all() noexcept {
     spdlog::debug("+++ {} +++", __PRETTY_FUNCTION__);
+    // Kyu: its update, in its own window.
+    if (startKyuUpdate()) {
+        QMessageBox::information(this, tr("Updating"),
+            tr("The update runs in Kyu's window. When it is done, press Refresh list here."));
+        return;
+    }
+    if (!waitForPacmanLock()) {
+        return;
+    }
     showOutput();
 
     m_ui->tabWidget->setTabText(m_ui->tabWidget->indexOf(m_ui->tabOutput), tr("Upgrading system..."));

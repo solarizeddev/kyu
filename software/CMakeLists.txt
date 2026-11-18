@@ -57,7 +57,6 @@ CPMAddPackage(
   EXCLUDE_FROM_ALL YES
 )
 
-find_package(PolkitQt6-1 REQUIRED)
 
 ##
 ## CONFIGURATION

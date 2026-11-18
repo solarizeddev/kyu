@@ -122,6 +122,12 @@ class MainWindow : public QDialog {
     auto installSelected() noexcept -> bool;
     [[nodiscard]] static auto isFilteredName(const QString& name) noexcept -> bool;
     bool uninstall(const QString& names) noexcept;
+    // Kyu's safety: wait for another package manager, no partial upgrades,
+    // the system update through Kyu.
+    bool waitForPacmanLock() noexcept;
+    bool readyToChange(bool installing) noexcept;
+    int pendingUpdates() noexcept;
+    bool startKyuUpdate() noexcept;
 
     void blockInterfaceFP(bool block) noexcept;
     void buildChangeList(QTreeWidgetItem* item) noexcept;
