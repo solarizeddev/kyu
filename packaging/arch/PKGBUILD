@@ -11,7 +11,7 @@
 pkgname=kyu-git
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='Plasma update notifier for Manjaro and Arch: the real pacman in a terminal, with the news first and what is left to do after'
+pkgdesc='Plasma update notifier and software installer for Manjaro and Arch: the real pacman, with the news first and what is left to do after'
 arch=(x86_64 aarch64)
 url='https://github.com/solarizeddev/kyu'
 license=(GPL-3.0-or-later)
@@ -30,12 +30,13 @@ depends=(
     kwindowsystem
     pacman
     pacman-contrib
+    polkit
     qt6-base
     sudo
     systemd
     util-linux
 )
-makedepends=(cmake ninja qt6-tools)
+makedepends=(cmake ninja qt6-tools rust git)
 optdepends=("qt6-translations: Qt's own words (buttons, --help) in your language")
 provides=(kyu)
 conflicts=(kyu)
@@ -50,6 +51,12 @@ build() {
         -DKYU_REQUIRE_WINDOW=ON \
         -DKYU_REQUIRE_NOTIFICATIONS=ON
     cmake --build build
+    # Kyu Software (software/): the installer, built on its own (Rust, and
+    # CPM downloads fmt, spdlog and rapidyaml).
+    cmake -S "$_root/software" -B build-software -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build-software
 }
 
 check() {
@@ -58,4 +65,5 @@ check() {
 
 package() {
     DESTDIR="$pkgdir" cmake --install build
+    DESTDIR="$pkgdir" cmake --install build-software
 }

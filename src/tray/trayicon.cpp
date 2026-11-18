@@ -10,6 +10,8 @@
 #include "statustext.h"
 #include "traystate.h"
 
+#include <QFileInfo>
+#include <QProcess>
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
@@ -61,6 +63,14 @@ TrayIcon::TrayIcon(StateWatcher *watcher, QObject *parent)
     });
     m_checkAction = m_menu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), Kyu::I18n::tr("Check for updates now"));
     connect(m_checkAction, &QAction::triggered, this, &TrayIcon::checkRequested);
+    // Kyu Software (software/), when installed: installing and removing.
+    if (const QString software = Kyu::siblingProgram(QStringLiteral("kyu-software"));
+        QFileInfo(software).isExecutable() || !QStandardPaths::findExecutable(software).isEmpty()) {
+        auto *open = m_menu->addAction(QIcon::fromTheme(QStringLiteral("system-software-install")), Kyu::I18n::tr("Install and remove software…"));
+        connect(open, &QAction::triggered, this, [software]() {
+            QProcess::startDetached(software, {});
+        });
+    }
 
 #ifdef KYU_HAVE_KSNI
     m_item = new KStatusNotifierItem(QStringLiteral("kyu"), this);
