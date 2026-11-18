@@ -581,7 +581,7 @@ KYU_FAKE_ORPHANS="gtk2 libfoo base" KYU_FAKE_ORPHAN_DEPS="libbar" KYU_FAKE_CACHE
 d=$work/clean
 has "$d/out" 'Can be cleaned up, if you like:' clean
 # base is never offered, whatever its install reason.
-has "$d/out" '2 orphan packages: gtk2, libfoo (3 packages with what only they need)' clean
+has "$d/out" '2 orphan packages: gtk2, libfoo (3 packages in all, with what only they need)' clean
 has "$d/out" 'of older and removed packages in the package cache' clean
 has "$d/out" '1 Flatpak runtime no app uses' clean
 has "$d/out" '[c] clean up' clean
@@ -592,12 +592,28 @@ has "$d/out" 'sudo pacman -D --asexplicit NAME' clean
 # The fake runtime stays listed (the test's answer does not change): the rest is gone.
 hasnt "$d/out" 'Orphans not removed' clean
 
-echo "housekeeping: the cache answered n is kept; orphans answered n are kept, said plainly"
+echo "housekeeping: orphans and the cache answered n are kept, said plainly, and not offered again in this run"
 KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_CACHE=big runtty cleanno 'y\n|c\n|n\n|n\n|\n'
 d=$work/cleanno
-has "$d/out" 'Orphans not removed (status 1), see above.' cleanno
+has "$d/out" 'Orphans kept.' cleanno
+hasnt "$d/out" 'not removed' cleanno
 [ ! -e "$d/paccache-args" ] || fail "cleanno: paccache ran"
-has "$d/out" '[c] clean up' cleanno
+[ "$(grep -c '\[c\] clean up' "$d/out")" = 1 ] || fail "cleanno: [c] offered again after both were declined"
+
+echo "housekeeping: Ctrl+C at the cache question stops the rest of the clean-up"
+KYU_FAKE_CACHE=big KYU_TEST_UNUSED_FLATPAKS="org.kde.Platform//6.8" runtty cleanctrlc 'y\n|c\n|\003|\n'
+d=$work/cleanctrlc
+[ ! -e "$d/paccache-args" ] || fail "cleanctrlc: paccache ran"
+[ ! -e "$d/flatpak-unused-args" ] || fail "cleanctrlc: flatpak ran after Ctrl+C"
+
+echo "housekeeping: no orphans offered when pacman's dry run fails; -R alone when -Rs would take a protected package"
+KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_DRYRUN=fail runtty cleandry 'y\n|\n'
+hasnt "$work/cleandry/out" 'orphan package' cleandry
+KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_ORPHAN_DEPS="linux-firmware-whence" runtty cleanprot 'y\n|c\n|y\n|\n'
+d=$work/cleanprot
+has "$d/out" '1 orphan package: gtk2' cleanprot
+hasnt "$d/out" 'in all, with what only they need' cleanprot
+[ "$(cat "$d/remove-args" 2>/dev/null)" = '-R gtk2' ] || fail "cleanprot: pacman got '$(cat "$d/remove-args" 2>/dev/null)'"
 
 echo "housekeeping: nothing shown after a failed update, nor when there is nothing"
 KYU_FAKE_ORPHANS="gtk2" KYU_FAKE_MODE=midfail runtty cleanfail 'y\n|\n'

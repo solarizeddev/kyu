@@ -819,7 +819,7 @@ void printHousekeeping(Out &out, const Kyu::Housekeeping &h)
                                                     h.orphans.join(QStringLiteral(", ")));
         // pacman -Rs also takes what only they need: said here, not first at its question.
         if (h.orphanRemovals.size() > h.orphans.size()) {
-            line += QStringLiteral(" (%1 packages with what only they need)").arg(h.orphanRemovals.size());
+            line += QStringLiteral(" (%1 packages in all, with what only they need)").arg(h.orphanRemovals.size());
         }
         out.note(line);
     }
@@ -836,46 +836,79 @@ void printHousekeeping(Out &out, const Kyu::Housekeeping &h)
 // verdict stays what it was. What is left afterwards.
 Kyu::Housekeeping cleanUp(Out &out, const QString &elevate, const Kyu::Housekeeping &h)
 {
+    // A part answered no (or that failed) is not offered again in this run:
+    // pacman's own question defaults to yes.
+    bool orphansKept = false, cacheKept = false, flatpaksKept = false;
+    bool stopped = false;
     if (!h.orphans.isEmpty()) {
         out.blank();
-        out.step(QStringLiteral("Orphans"), elevate + QStringLiteral(" pacman -Rs ") + h.orphans.join(QLatin1Char(' ')));
+        const QString mode = h.orphansRecursive ? QStringLiteral("-Rs") : QStringLiteral("-R");
+        out.step(QStringLiteral("Orphans"), elevate + QStringLiteral(" pacman ") + mode + QLatin1Char(' ') + h.orphans.join(QLatin1Char(' ')));
         out.note(QStringLiteral("Installed as dependencies and needed by nothing now. pacman asks first; to keep one, answer n and run:"), Tone::Dim);
-        out.note(QStringLiteral("sudo pacman -D --asexplicit NAME"), Tone::Dim);
-        const int rc = runWatched(QStringList{elevate, QStringLiteral("pacman"), QStringLiteral("-Rs")} + h.orphans);
+        out.note(elevate + QStringLiteral(" pacman -D --asexplicit NAME"), Tone::Dim);
+        QStringList shown;
+        const int rc = runWatched(QStringList{elevate, QStringLiteral("pacman"), mode} + h.orphans, QProcessEnvironment::systemEnvironment(), &shown);
         if (rc != 0) {
-            // Answered n, or failed: pacman said which.
-            out.warn(QStringLiteral("Orphans not removed (status %1), see above.").arg(rc));
+            orphansKept = true;
+            // Answered no ("[Y/n] n", in any language) or Ctrl+C: kept, not failed.
+            static const QRegularExpression answered(QStringLiteral("\\[[^\\[\\]/\\s]{1,4}/[^\\[\\]/\\s]{1,4}\\]\\s*\\S*\\s*$"));
+            const bool no = rc == 130 || (!shown.isEmpty() && shown.last().startsWith(QLatin1String("::")) && answered.match(shown.last()).hasMatch());
+            if (no) {
+                out.note(QStringLiteral("Orphans kept."), Tone::Dim);
+                stopped = rc == 130;
+            } else {
+                out.warn(QStringLiteral("The orphans were not removed (status %1), see above.").arg(rc));
+            }
         }
     }
-    if (h.cacheWorthCleaning()) {
+    if (!stopped && h.cacheWorthCleaning()) {
         out.blank();
         out.step(QStringLiteral("Cache"), QStringLiteral("%1 paccache -rk%2, then -ruk0").arg(elevate).arg(Kyu::CacheVersionsKept));
         discardTypedAhead();
         out.prompt(QStringLiteral("Remove %1 from the package cache: older versions (the newest %2 of each stay) and packages no longer installed? [y/N] ")
                        .arg(QLocale().formattedDataSize(h.cacheBytes, 1))
                        .arg(Kyu::CacheVersionsKept));
-        if (readAnswer() == QLatin1String("y")) {
+        const QString answer = readAnswer();
+        // Ctrl+C: no, and the rest of the clean-up stops too.
+        stopped = answerInterrupted || hungUp;
+        if (answer == QLatin1String("y")) {
             int rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-rk%1").arg(Kyu::CacheVersionsKept)});
             if (rc == 0) {
                 rc = runWatched({elevate, QStringLiteral("paccache"), QStringLiteral("-ruk0")});
             }
             if (rc != 0) {
+                cacheKept = true;
                 out.warn(QStringLiteral("The package cache was not cleaned (status %1), see above.").arg(rc));
             }
+        } else {
+            cacheKept = true;
         }
     }
-    if (!h.unusedFlatpaks.isEmpty()) {
+    if (!stopped && !h.unusedFlatpaks.isEmpty()) {
         out.blank();
         out.step(QStringLiteral("Flatpak"), QStringLiteral("flatpak uninstall --unused"));
         const int rc = runWatched({QStringLiteral("flatpak"), QStringLiteral("uninstall"), QStringLiteral("--unused")});
         if (rc != 0) {
+            flatpaksKept = true;
             out.warn(QStringLiteral("The unused runtimes were not removed (status %1), see above.").arg(rc));
         }
     }
-    const Kyu::Housekeeping left = Kyu::readHousekeeping();
+    Kyu::Housekeeping left = Kyu::readHousekeeping();
+    if (orphansKept) {
+        left.orphans.clear();
+    }
+    if (cacheKept) {
+        left.cacheFiles.clear();
+        left.cacheBytes = 0;
+    }
+    if (flatpaksKept) {
+        left.unusedFlatpaks.clear();
+    }
     if (!left.any()) {
-        out.blank();
-        out.good(QStringLiteral("Cleaned up."));
+        if (!orphansKept && !cacheKept && !flatpaksKept && !stopped) {
+            out.blank();
+            out.good(QStringLiteral("Cleaned up."));
+        }
     } else {
         printHousekeeping(out, left);
     }

@@ -152,12 +152,15 @@ QStringList unusedFlatpakRefs()
     for (FlatpakInstallation *installation : flatpakInstallations(errors)) {
         GError *error = nullptr;
         // With options: the same rules as the command line (pinned runtimes
-        // and end-of-life rebases are kept), from libflatpak 1.13.
+        // and end-of-life rebases are kept).
         GPtrArray *unused = flatpak_installation_list_unused_refs_with_options(installation, nullptr, nullptr, nullptr, nullptr, &error);
         if (unused) {
             for (guint i = 0; i < unused->len; ++i) {
                 auto *ref = FLATPAK_REF(g_ptr_array_index(unused, i));
-                refs.append(QString::fromUtf8(flatpak_ref_get_name(ref)) + QStringLiteral("//") + QString::fromUtf8(flatpak_ref_get_branch(ref)));
+                // One per installation and architecture, as the command line lists them.
+                gchar *full = flatpak_ref_format_ref(ref);
+                refs.append(QString::fromUtf8(full) + QStringLiteral(" (") + installationLabel(installation) + QLatin1Char(')'));
+                g_free(full);
             }
             g_ptr_array_unref(unused);
         }

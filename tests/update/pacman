@@ -48,12 +48,15 @@ case "$*" in
     [ -n "${KYU_FAKE_ORPHANS:-}" ] && [ ! -e "$KYU_FAKE_DIR/orphans-removed" ] || exit 1
     for o in $KYU_FAKE_ORPHANS; do echo "$o"; done
     exit 0 ;;
-"-Rs --print --print-format %n "*)
-    # What -Rs would remove: the targets and KYU_FAKE_ORPHAN_DEPS.
-    shift 4
-    for o in "$@" ${KYU_FAKE_ORPHAN_DEPS:-}; do echo "$o"; done
+"-Rs --print --print-format %n "* | "-R --print --print-format %n "*)
+    # What -Rs would remove: the targets and KYU_FAKE_ORPHAN_DEPS (-R: the
+    # targets). KYU_FAKE_DRYRUN=fail: pacman cannot work it out.
+    [ "${KYU_FAKE_DRYRUN:-}" = fail ] && { echo "error: failed to prepare transaction" >&2; exit 1; }
+    mode=$1; shift 4
+    for o in "$@"; do echo "$o"; done
+    [ "$mode" = -Rs ] && for o in ${KYU_FAKE_ORPHAN_DEPS:-}; do echo "$o"; done
     exit 0 ;;
-"-Rs "*)
+"-Rs "* | "-R "*)
     echo "$*" >"$KYU_FAKE_DIR/remove-args"
     shift
     echo "checking dependencies..."

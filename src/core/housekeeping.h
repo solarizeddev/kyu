@@ -11,7 +11,8 @@ namespace Kyu
 // "[c] clean up", each part then confirmed on its own.
 struct Housekeeping {
     QStringList orphans; // pacman -Qtdq: installed as dependencies, needed by nothing (protected ones left out)
-    QStringList orphanRemovals; // what pacman -Rs removes for them: they and what only they need
+    QStringList orphanRemovals; // what pacman removes for them: with -Rs, they and what only they need
+    bool orphansRecursive = true; // -Rs; false: -R, the orphans alone (what only they need would take too much)
     QStringList cacheFiles; // what paccache -rk3 and -ruk0 would remove
     qint64 cacheBytes = 0;
     qint64 cacheFree = -1; // free space where the cache is, -1 unknown
@@ -28,11 +29,15 @@ struct Housekeeping {
 };
 
 constexpr int CacheVersionsKept = 3;
+// -Rs takes at most this many packages, and at most 3 for each orphan;
+// beyond that only the orphans themselves are offered (-R).
+constexpr int MaxOrphanRemovals = 30;
 
 // Never offered as an orphan, whatever its install reason says (a container
 // image or an installer may have marked it a dependency): base and
-// base-devel, pacman's HoldPkg, kernels, firmware, keyrings, the boot loader,
-// init and the distribution's own system packages. Removing "base" with -Rs
+// base-devel, pacman's HoldPkg, kernels, microcode, firmware, keyrings, boot
+// loaders and Secure Boot tools, init, disk and network essentials, the
+// distribution's own system packages, and Kyu. Removing "base" with -Rs
 // takes iproute2, procps-ng and 40 more with it (seen in a Manjaro container).
 bool protectedFromCleanup(const QString &name, const QStringList &holdPkg);
 
