@@ -136,8 +136,10 @@ helper=yay
 
 Kyu speaks the desktop's language where it has a translation (German so
 far), from `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` or `LANG`; English under the
-C locale. pacman's, sudo's and flatpak's lines stay as those programs print
-them. The translations are Qt Linguist files in `translations/`, built with
+C locale, and where the language's locale is not generated (as pacman and
+other gettext programs). pacman's, sudo's and flatpak's lines stay as those
+programs print them; Qt's own words (buttons, `--help`) come with
+`qt6-translations`. The translations are Qt Linguist files in `translations/`, built with
 the program when `qt6-tools` (lrelease) is installed.
 
 To add a language, say French: a file named like `kyu_de.ts` (an empty one
@@ -153,6 +155,10 @@ cmake --build build --target kyu-lupdate      # Kyu's words into every .ts file
 Translate each message in Qt Linguist (or any .ts editor) and mark it done.
 Keep `%1`, `%n` and the keys in brackets (`[c]`, `[y/N]`): Kyu reads those
 letters. After Kyu's words change, `kyu-lupdate` refreshes every `.ts` file.
+
+Known gaps: the errors of Kyu's own checks (pacman, Flatpak, AUR, news)
+are stored in the state file in English and shown that way on the card and
+in the tray.
 
 ## Install
 
