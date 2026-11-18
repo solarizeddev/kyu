@@ -38,7 +38,7 @@ what is left to do — and nothing else.
 
 Why not just patch Arch-Update with a Manjaro news feed? That would cover
 roughly 70% of this list. Kyu differs in three places: a Plasma-native tray
-(Arch-Update's is PyQt6), one verdict with one key per thing instead of a
+(Arch-Update's, now Rust with the same tray protocol, has two states and no card), one verdict with one key per thing instead of a
 chain of prompts, and failure explanations. If those three don't matter to
 you, patching Arch-Update is the cheaper road.
 
@@ -178,6 +178,20 @@ needed"), it writes the question to `~/.local/state/kyu/waiting`, and
 removes it once output moves on; its own "Continue?" too. The Kyu window
 looks at that file every second and notifies only when it is not in front.
 
+## cachy-update (CachyOS)
+
+Read 2026-11-18 with Fable, at commit 22c569d: Arch-Update 4.4.7 rebranded
+for CachyOS (installed by default on its KDE and GNOME editions), with a
+daily check and its .pacnew handling switched off. Same core loop as Kyu
+(tray, check, the real pacman in a terminal, AUR, Flatpak) and better on
+maturity, translations, housekeeping (orphans, cache, unused runtimes,
+service restarts) and an "N updates available" notification. Missing what
+Kyu is for on Manjaro: Manjaro's news (it scrapes Arch's), keyrings first,
+waiting for pamac's lock and pamac as the AUR helper, failure
+explanations, .pacnew merging, restarts beyond the kernel. Upstream
+Arch-Update does not take large AI-assisted contributions, so Kyu stays a
+separate app: the Manjaro Plasma updater.
+
 ## Compared with what exists
 
 Kyu's column is what it does today, tested only against a fake pacman.
@@ -194,7 +208,7 @@ Kyu's column is what it does today, tested only against a fake pacman.
 | Restart needed | kernel, systemd, glibc, NVIDIA; remembered | kernel reboot prompt + services | yes (prompt) | optional list | — |
 | Housekeeping | no | orphans, cache | yes | no | — |
 | Failure explained | yes, in any language pacman is translated to (Kyu's words English) | no | raw error | ? | — |
-| Tray on Plasma | theme icons, hidden when idle | PyQt6; some Plasma/Wayland issues | GTK tray | a real Plasma widget | yes |
+| Tray on Plasma | theme icons, hidden when idle | StatusNotifierItem (Rust, ksni), two states; "show when relevant" | GTK tray | a real Plasma widget | yes |
 | Settings | none yet | config file | many | about 110 | few |
 | Tested on | stand-ins; screenshots on one Manjaro | many systems | many | many | ? |
 
