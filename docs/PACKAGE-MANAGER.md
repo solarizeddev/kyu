@@ -303,6 +303,103 @@ using Kyu's builder).
 screenshots), Flatpak install and remove (step 8; Discover also does it, but
 pamac users expect it), mirrors, pamac compatibility (step 9).
 
+## Step 1 in detail: planning and `kyu-update --apply` (reviewed with Fable)
+
+Measured with the real pacman as an ordinary user (Manjaro stable,
+2026-11-18): `-S/-R/-U --print` need no root and no lock; a virtual target
+(java-runtime) silently takes the default provider; `--needed` does not
+filter `--print`; an IgnorePkg target prints normally; a removal others need
+fails with ":: removing X breaks dependency 'X' required by Y" lines;
+`-S --asdeps --needed` of a package installed explicitly leaves its reason.
+
+**The queue** (what the person asked for; the app writes it, JSON, each item
+with an id): `install` (name, asDependency), `reinstall` (name), `remove`
+(name, withSettings), `files` (absolute paths), `reasons` (name, explicit or
+dependency). A provider is named by choosing the real package; a virtual
+name in the queue is refused ("choose which package provides java-runtime").
+
+**The planner** (`src/core/plan`, no root; `kyu-update --plan QUEUE` prints
+the plan as JSON for the preview; `--apply` plans again with the same code
+and never runs commands from a file):
+
+1. Refresh its own planning copy (checkupdates with `CHECKUPDATES_DB` set to
+   a directory of its own, not kyu-check's, so the two never meet). Offline:
+   said; removals and reason changes still plan, installs do not.
+2. Every dry run with `LC_ALL=C`; a failing one is the step's **blocked**
+   reason, by kind (breaks dependency, with the dependants: board R1b; not
+   found; file unreadable; conflict), and a blocked step makes the plan not
+   runnable. Nothing parsed from a dry run is matched against the real run,
+   which speaks the person's language.
+3. Each printed package is classified against `pacman -Q`: new, same
+   version, upgrade, downgrade. Install targets already installed at the same
+   version are dropped (and the step, if none is left); the real command
+   keeps `--needed` as a backstop.
+4. **Update first, or not.** A plain install only when (a) the fresh copy
+   lists no pending update (checkupdates is empty: a system synced by pamac
+   but not upgraded is not current), (b) every `-S` and `-U` dry run gives the
+   same names and versions on the system's databases and on the fresh copy,
+   (c) no printed package is installed at a different version (an upgrade
+   inside an install is a partial upgrade; a `-U` file's own package may
+   differ), and (d) each target appears by name in its own dry run (refuses
+   groups and unresolved virtual names). Otherwise `updateFirst`. An
+   IgnorePkg/IgnoreGroup target (read with `pacman-conf`) is said ahead:
+   pacman will ask "Install anyway?". A `-U` file's unversioned library needs
+   cannot be checked, and the summary says so.
+5. **Reinstall** is its own kind: `pacman -S name` without `--needed`, only
+   when the local, system and fresh versions are equal (even with updates
+   pending); otherwise the update does it and the item is dropped with a
+   sentence. Not offered for foreign (AUR, local) packages. **Install** of a
+   package that is installed but outdated is not offered: Overview's Update is.
+6. **Steps, in this order**: one `pacman -S --needed` with every install
+   target (a chosen optional dependency included), then `pacman -U` files,
+   then removals (`-Rs`, `-Rns` with settings), then `pacman -D --asdeps` for
+   what was meant as a dependency and is now newly installed, and the queued
+   reason changes (planned from the local database: no-ops dropped). An
+   install that conflicts with an installed package is that one `pacman -S`:
+   pacman's own conflict question removes the old one, and a queued removal of
+   it is folded in, so the system is never left without it. A queue whose
+   removals intersect what its installs pull in is refused.
+7. A dependency with several providers is pacman's own question until
+   kyu-alpm lists candidates; when pacman's list then differs from the plan
+   only by that choice, Kyu says so and it is not a stop.
+
+**The run** (`kyu-update --apply QUEUE`, in Kyu's window, titled with its
+task: "Installing GIMP — Kyu"):
+
+- One at a time (`update.lock`; "already running" is exit 3, as for the
+  update), pamac's lock waited for.
+- Planned again right before; each `-U` file checked by size and SHA-256
+  against the queue; a plan that is no longer runnable stops with its reason.
+- `updateFirst`: the targets join the update's own transaction
+  (`pacman -Syu --needed <targets>`, after the keyrings), then files,
+  removals and reasons right after pacman, before Flatpak, the AUR and the
+  clean-up offer. Only pacman's part must succeed; stopped at the news or a
+  failed update runs no step, and the queue stays.
+- Before each step, its dry run again on the system's databases: when the
+  package names differ from the plan, Kyu says what differs and asks before
+  running pacman (board P6e).
+- A step answered no stops there; a failed step is explained (Kyu's failure
+  kinds) and stops there; later steps do not run.
+- `~/.local/state/kyu/apply-result.json` (QSaveFile) at the start and after
+  every step: the queue's ids and per item done, stopped, failed or not run.
+  The app derives Pending from the local database (an item satisfied or not)
+  and uses the file only to say why, so a kill, a power cut or pamac in
+  between cannot make it lie.
+- Exit 0 all done, 1 failed, 3 already running, 4 stopped.
+
+**Tests** (fakes, then containers with the real pacman): a synced-not-upgraded
+system (update first); reinstall with equal and with differing versions; a
+provider chosen in the queue; a virtual target refused; an optional
+dependency already installed explicitly (reason untouched); a conflict
+(pacman's own question, the old package removed in the same transaction) and
+that conflict declined (the old one still there); IgnorePkg target; group
+refused; HoldPkg removal blocked; removal that breaks dependants (blocked,
+with the names); `-U` needing a library upgrade (update first); a `-U` file
+swapped after planning; offline with a removal and an install; update first
+stopped at the news and failing after the sync; killed between steps (the
+result file truthful); kyu-check running during a plan; a second `--apply`;
+German locale for the decline and the "Packages (N)" comparison.
+
 ## Decided against
 
 - libpamac (what pamac-tray-plasma links): the fastest route, but it is the
