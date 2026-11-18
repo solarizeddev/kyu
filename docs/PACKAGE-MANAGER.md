@@ -1,11 +1,14 @@
-# Kyu Software: the package manager (design, reviewed with Fable)
+# Kyu, the app: updates and packages (design, reviewed with Fable)
 
 A Qt 6 Widgets package manager for Manjaro and Arch on Plasma, in the spirit
 of CachyOS's Qt package installer: a replacement for pamac's "Add/Remove
 Software" (pamac-manager), with the useful parts of CachyOS's tools and
-checks for bad AUR packages. Its own package, `kyu-software`, next to Kyu's
-updater: it shares Kyu's window (the real pacman, watched, its failures
-explained), kyu-check's state and the tray.
+checks for bad AUR packages. It is Kyu's own window: the tray's click opens
+it on **Overview** (the owner, 2026-11-18: the card "is no longer useful as
+a pamac / CachyOS package installer replacement; clicking the tray should
+bring the full dashboard"). The card retires once Overview covers all its
+states. Every change still runs in Kyu's terminal window (the real pacman,
+watched, its failures explained).
 
 Status: design, nothing built. Research read 2026-11-18 from the sources at
 the end. Reviewed by Fable (2026-11-18); the changes from that review are in
@@ -70,22 +73,28 @@ announcements warn about) or one of our own (Kyu deleted its old one).
    until turned on in Kyu (not carried over from pamac). On Manjaro stable it
    says AUR packages are built against Arch's current libraries and may break
    until stable catches up.
-6. **The updater must survive.** libalpm changes its library version with
-   pacman's major releases; only `kyu-software` links it, never kyu-check,
-   kyu-update or the tray, and it ships as its own package. While any pacman
-   holds `db.lck`, the views freeze ("pacman is running"), and the database
-   is reopened once it is gone.
+6. **The updater must survive.** The tray opens the app, so the app is part
+   of the updater: it ships in the main kyu package and links nothing the
+   tray does not (Qt, KF). libalpm changes its library version with pacman's
+   major releases, and an AUR-built Kyu is not rebuilt at once, so libalpm
+   lives in a helper process, `kyu-alpm` (read-only, never root, long-lived,
+   line-delimited JSON, a version handshake first), in its own package; so
+   later do AppStream, libflatpak and KSyntaxHighlighting, each a library
+   whose version can change. Helper missing, crashed or mismatched: the
+   package views say why (board O11); Overview and Update still work from
+   kyu-check's state. While any pacman holds `db.lck`, the views freeze
+   ("pacman is running"), and the helper reopens the database once it is gone.
 7. **Arch too**, without pacman-mirrors or Manjaro's news.
 
 ## Screens
 
-One window, `kyu-software` ("Software"), refusing to run as root. Sketched
+One window, `kyu` ("Kyu"), refusing to run as root. Sketched
 in three rounds with Fable: the "P" row of the design canvas (30 boards,
 light and dark). Layout, as decided there:
 
 - **No toolbar.** The sidebar's header holds the search field and the menu
   (System Settings' layout); Back sits in a Details page's header.
-- **Sidebar** (release 1): Installed, Updates, Pending (always there, a count
+- **Sidebar** (release 1): Overview (with the update count), Installed, Pending (always there, a count
   when something is queued), History, Maintenance. Release 3 adds Featured
   and the categories above them.
 - **Each list**: one row of filters with the selection's own action on the
@@ -95,7 +104,7 @@ light and dark). Layout, as decided there:
 - **The bar at the bottom is the queue only**: "Pending: remove 1, install 2",
   Clear, Review…; it never changes.
 - **The menu**: Check for Updates (F5), Install a Package File… (Ctrl+O),
-  Configure Kyu Software…, Keyboard Shortcuts…, About. Release 2 adds "Use the
+  Configure Kyu…, Keyboard Shortcuts…, About. Release 2 adds "Use the
   AUR", release 3 "Software Mode"; no switch appears before it works.
 - **Banners** (KMessageWidget) above any view: another package manager is
   running (the views frozen, Review… disabled), offline (removals still run;
@@ -116,11 +125,22 @@ light and dark). Layout, as decided there:
 2. **Installed**: All, Explicitly installed, Orphans, Foreign (AUR and local),
    Flatpak; sort by name, size, install date; "Hide library and developer
    packages".
-3. **Updates**: kyu-check's list as one tree grouped as the card's Details
-   (Packages, AUR, Flatpak), per-package **Ignore ▾** (This Time, or Always…:
-   a dialog with the risk in plain words and the IgnorePkg line it writes,
-   through the window; not for Flatpaks), and one **Update** that runs
-   kyu-update. No other update path.
+3. **Overview** (the first page; the tray opens it): Overview and Updates are
+   one page. Its header is the card's state, from the same `cardView()`
+   (heading, detail, muted line, read-first link, the one or two buttons),
+   in every state the card had: not checked, checking, up to date, check
+   failed (with the older list), updates, updating, a Pending run ("Installing
+   GIMP…", not "Updating…"), merging, a file to merge, restart, failed (the
+   explanation and pacman's own lines), and another package manager holding
+   the lock. Then at most three rows of what else applies (clean-up above
+   kyu-update's threshold, a file to merge, programs on old libraries, the
+   last update), then kyu-check's list as one tree grouped as the card's
+   Details (Packages, AUR, Flatpak) with per-package **Ignore ▾** (This
+   Time, or Always…: a dialog with the risk in plain words and the IgnorePkg
+   line it writes, through the window; not for Flatpaks), and one **Update**
+   that runs kyu-update. No other update path. Overview is drawn at once
+   from kyu-check's state file; the package lists load after, so the click
+   feels as quick as the card did. Boards O1–O11.
 4. **Search**: packages (name and description), AUR (when on); filter
    Installed / Not installed; sort by relevance, name, repository, size, date,
    votes; "Hide library and developer packages".
@@ -151,7 +171,7 @@ light and dark). Layout, as decided there:
     → System Settings). pacman's settings are not edited (Kyu does not edit
     other programs' settings) except IgnorePkg from the Updates view.
 
-`kyu-software FILE.pkg.tar.zst` opens the summary for a local package (Kyu's
+`kyu FILE.pkg.tar.zst` opens the summary for a local package (Kyu's
 desktop file and its own MIME description for `application/x-alpm-package`);
 `appstream://ID` opens its details.
 
@@ -213,7 +233,7 @@ is the real protection and is always on. Network in stages: `makepkg
 --noextract` without; packages that need the network to build (many
 npm/electron/go ones) get "Allow network for this package" with the reason
 stated. Never `makepkg -s`: dependencies come from the repositories through
-the same pacman plan. bubblewrap is a dependency of kyu-software (it needs
+the same pacman plan. bubblewrap is a dependency of kyu-aur (it needs
 unprivileged user namespaces; linux-hardened users are told). AUR
 dependencies of AUR packages are reviewed one by one.
 
@@ -223,11 +243,21 @@ AUR is off, as today.
 
 ## Architecture
 
-- `kyu-software`: Qt 6 Widgets, C++20, single instance (D-Bus
-  `io.github.solarizeddev.kyu.Software`), Wayland activation tokens as the
-  card; its own package depending on kyu, libalpm, bubblewrap,
-  appstream-qt, ksyntaxhighlighting.
-- **Reading**: libalpm read-only: the system's local database and sync
+- `kyu` (the card's binary name, now the app): Qt 6 Widgets, C++20, single
+  instance (the card's D-Bus name), Wayland activation tokens as the card. A
+  tray click raises a running window on the page it is on; closing it ends
+  the process (nothing stays in memory but the tray), so a fresh click lands
+  on Overview. A notification's "Show updates" opens Overview (pushed onto
+  Back's history); "Update" still starts kyu-update directly; "The update is
+  waiting for you" raises Kyu's terminal window itself. The terminal window's
+  title names its task ("Updating — Kyu", "Installing GIMP — Kyu"). A
+  desktop file is its door while the tray icon hides itself. The tray's right
+  click: the state as a section title, Open Kyu, Update (greyed out with
+  nothing to update), Check for Updates, Quit.
+- Packages: `kyu` (tray, checker, update, the app), `kyu-alpm` (the package
+  reader; depends on libalpm), later `kyu-aur` (bubblewrap,
+  ksyntaxhighlighting), `kyu-appstream`, each a helper process.
+- **Reading** (in `kyu-alpm`): libalpm read-only: the system's local database and sync
   databases, and a private planning copy (its own dbpath with a `local`
   symlink to the system's, sync databases refreshed with `pacman -Sy
   --dbpath` as checkupdates does, `.files` too); pacman.conf through
@@ -245,9 +275,9 @@ AUR is off, as today.
 
 ## Releases and steps (each step reviewed with Fable, each with container tests)
 
-**Release 1, the minimum lovable one**: Search, Installed, Details,
-queue/summary/continue, local package files, Updates handing to kyu-update,
-orphans.
+**Release 1, the minimum lovable one**: Overview (replacing the card),
+Search, Installed, Details, queue/summary/continue, local package files,
+History, Maintenance.
 
 0. **Translations**: Kyu's strings through Qt's translation system (owner's
    request; German first), so the app is translated from its first line.
@@ -255,19 +285,23 @@ orphans.
    on a fresh copy, the two-test rule, the comparison with pacman's list,
    partial failure. Container tests: a provider, a conflict, a removal that
    takes dependencies, a stale database, a mixed queue, a local file.
-2. **The alpm reader and the read-only app**: Installed, Search, Details
-   (Dependencies, Files, History), the db.lck freeze.
-3. **Queue, Pending, summary, Continue** through step 1; optional
+2. **The app with Overview**, no libalpm yet: the window, sidebar, Overview
+   from kyu-check's state in every card state, Ignore, the tray opening it,
+   notifications pointing at it. The card retires here.
+3. **`kyu-alpm` and the read-only package views**: the helper with its
+   handshake and degraded views, Installed, Search, Details (Dependencies,
+   Files, History), the db.lck freeze.
+4. **Queue, Pending, summary, Continue** through step 1; optional
    dependencies, providers, removal options, install reasons, local files.
-4. **Updates, History, Maintenance** (orphans, cache, stale lock, .pacnew).
+5. **History, Maintenance** (orphans, cache, stale lock, .pacnew).
 
-**Release 2**: the AUR (step 5: search, details, the review, findings with the
+**Release 2**: the AUR (step 6: search, details, the review, findings with the
 calibration gate, the sandboxed build, the built-package check, kyu-update
 using Kyu's builder).
 
-**Release 3**: AppStream (step 6: Featured, categories, Software mode,
-screenshots), Flatpak install and remove (step 7; Discover also does it, but
-pamac users expect it), mirrors, pamac compatibility (step 8).
+**Release 3**: AppStream (step 7: Featured, categories, Software mode,
+screenshots), Flatpak install and remove (step 8; Discover also does it, but
+pamac users expect it), mirrors, pamac compatibility (step 9).
 
 ## Decided against
 

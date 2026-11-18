@@ -44,11 +44,12 @@ you, patching Arch-Update is the cheaper road.
 
 ## What it should not be
 
-- A package manager inside the updater: the updater (tray, card, kyu-update)
-  has no search and no install/remove. Since 2026-11-18 the owner wants a
-  package manager too: a separate app and package, `kyu-software`
-  (docs/PACKAGE-MANAGER.md), that hands every change to the real pacman in
-  Kyu's window; the updater does not depend on it.
+- A package manager that hides pacman. Since 2026-11-18 the owner wants a
+  package manager too, and the tray to open it: Kyu's own window, with
+  Overview (the card's state and the updates) first (docs/PACKAGE-MANAGER.md).
+  It hands every change to the real pacman in Kyu's terminal window, and
+  reads packages through a helper process so a pacman update cannot stop it
+  from starting.
 - An updater that hides pacman: no GUI transaction, no auto-answered
   "Proceed?", no PackageKit.
 - A partial-upgrade risk: never offer or run `pacman -Sy <package>` on its own.
