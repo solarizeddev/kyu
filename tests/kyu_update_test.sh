@@ -18,12 +18,16 @@ hasnt() { if grep -qF -- "$2" "$1"; then fail "$3: did not expect '$2'"; sed 's/
 . "$here/update/fake-system.sh"
 state() { fake_state "$@"; }
 
-# run NAME INPUT [kyu-update args...]: a fresh fake system per run.
+# run NAME INPUT [kyu-update args...]: a fresh fake system per run. In the
+# C.UTF-8 locale, or LC_ALL's; with KYU_TEST_NO_LC_ALL=1, LC_ALL empty (LANG
+# and LANGUAGE decide).
 run() {
     name=$1; input=$2; shift 2
     d="$work/$name"
     fake_system "$d"
-    printf "$input" | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="${LC_ALL:-C.UTF-8}" \
+    lc_all=${LC_ALL:-C.UTF-8}
+    [ -z "${KYU_TEST_NO_LC_ALL:-}" ] || lc_all=
+    printf "$input" | env PATH="$here/update:$PATH" KYU_TEST_UNUSED_FLATPAKS="${KYU_TEST_UNUSED_FLATPAKS:-}" KYU_FAKE_DIR="$d" XDG_STATE_HOME="$d/state" NO_COLOR=1 LC_ALL="$lc_all" \
         timeout 30 "$bin/kyu-update" --no-wait $(fake_args "$d") "$@" >"$d/out" 2>&1
     echo $? >"$d/code"
 }
@@ -239,17 +243,28 @@ has "$work/german/out" "pacman's last lines (status 1):" german
 has "$work/german/out" 'Fehler: Konnte nicht alle Datenbanken aktualisieren' german
 hasnt "$work/decline/out" "pacman's last lines" decline
 
+# Kyu's German (translations/kyu_de.ts), when lrelease built it: Kyu speaks
+# German under de_DE too (Qt reads LANG, LC_ALL and LANGUAGE itself, even
+# where the de_DE locale is not generated, as here).
+qm="$bin/../translations"
+if [ -e "$qm/kyu_de.qm" ]; then
+    de_signatures='Paketsignaturen konnten nicht überprüft werden.'; de_fix='Abhilfe: sudo pacman'; de_last='Die letzten Zeilen von pacman (Status 1):'
+else
+    echo "(no kyu_de.qm: the German runs check English)"
+    de_signatures='Package signatures could not be checked.'; de_fix='Fix: sudo pacman'; de_last="pacman's last lines (status 1):"
+fi
+
 echo "another language: recognised with pacman's own translations, shown as printed"
 LC_ALL=de_DE.UTF-8 KYU_FAKE_MODE=germankeyring run germankey 'y\n' --locale-dir "$here/update/locale"
 d=$work/germankey
 has "$d/out" 'Fehler: Der Vorgang konnte nicht durchgef' germankey
-has "$d/out" 'Package signatures could not be checked.' germankey
-has "$d/out" 'Fix: sudo pacman -Sy --needed archlinux-keyring manjaro-keyring' germankey
+has "$d/out" "$de_signatures" germankey
+has "$d/out" "$de_fix -Sy --needed archlinux-keyring manjaro-keyring" germankey
 grep -q '"failure": "keyring"' "$d/state/kyu/last-run.json" || fail "germankey: last-run.json without the failure"
 # Without pacman's catalogs for it: pacman's own last lines, nothing invented.
 LC_ALL=de_DE.UTF-8 KYU_FAKE_MODE=germankeyring run germannone 'y\n' --locale-dir "$work/none"
-has "$work/germannone/out" "pacman's last lines (status 1):" germannone
-hasnt "$work/germannone/out" 'Package signatures' germannone
+has "$work/germannone/out" "$de_last" germannone
+hasnt "$work/germannone/out" "$de_signatures" germannone
 
 echo "a restart from systemd is not forgotten by a later run (same boot)"
 RUNNING=6.18.22-1-MANJARO KYU_FAKE_MODE=systemd run carry 'y\n'
@@ -631,6 +646,35 @@ has "$d/out" 'Cleaned up.' cleanonly
 [ ! -e "$d/pacman-ran" ] || fail "cleanonly: the update ran"
 runtty cleanonlynone '\n' --clean
 has "$work/cleanonlynone/out" 'Nothing to clean up.' cleanonlynone
+
+if [ -e "$qm/kyu_de.qm" ]; then
+    echo "Kyu's own words in German; last-run.json stays English (the card reads it)"
+    KYU_TEST_NO_LC_ALL=1 LC_MESSAGES= LANG=de_DE.UTF-8 LANGUAGE=de KYU_TRANSLATIONS_DIR="$qm" run deok 'y\n'
+    d=$work/deok
+    [ "$(cat "$d/code")" = 0 ] || fail "deok: exit $(cat "$d/code")"
+    has "$d/out" '3 Aktualisierungen: 2 Pakete, 1 Flatpak' deok
+    has "$d/out" 'Dieses Fenster geöffnet lassen, bis Kyu meldet, dass alles erledigt ist.' deok
+    has "$d/out" 'Pakete     sudo pacman -Syu' deok
+    has "$d/out" ' 2 Pakete ' deok
+    has "$d/out" 'Fertig' deok
+    has "$d/out" 'Neustart erforderlich: neuer Kernel 6.18.22-1-MANJARO' deok
+    has "$d/out" '1 Konfigurationsdatei zusammenzuführen: /etc/sddm.conf' deok
+    hasnt "$d/out" 'Restart required' deok
+    grep -q '"restartReason": "new kernel 6.18.22-1-MANJARO"' "$d/state/kyu/last-run.json" || fail "deok: last-run.json's reason not in English"
+    echo "German: the keys and y/N stay as they are, and work"
+    LC_ALL=de_DE.UTF-8 KYU_TRANSLATIONS_DIR="$qm" KYU_FAKE_CACHE=big runtty declean 'c\n|y\n|\n' --clean
+    d=$work/declean
+    has "$d/out" ' Aufräumen' declean
+    has "$d/out" '[c] aufräumen   [Enter] schließen' declean
+    has "$d/out" 'nicht mehr installierte Pakete? [y/N]' declean
+    [ "$(cat "$d/paccache-args" 2>/dev/null | tr '\n' ' ')" = '-rk3 -ruk0 ' ] || fail "declean: paccache got '$(cat "$d/paccache-args" 2>/dev/null)'"
+    has "$d/out" 'Aufgeräumt.' declean
+fi
+echo "English first in LANGUAGE, or the C locale whatever LANGUAGE says: English"
+KYU_TEST_NO_LC_ALL=1 LC_MESSAGES= LANG=de_DE.UTF-8 LANGUAGE=en_US:de run deen 'y\n'
+has "$work/deen/out" 'Restart required: new kernel 6.18.22-1-MANJARO' deen
+LANGUAGE=de run cde 'y\n'
+has "$work/cde/out" 'Restart required: new kernel 6.18.22-1-MANJARO' cde
 
 [ $fails -eq 0 ] && echo "all kyu-update tests passed"
 [ $fails -eq 0 ]
