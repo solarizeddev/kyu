@@ -58,7 +58,7 @@ QString Transaction::helperPath() {
     }
     // an uninstalled build runs its own helper, behind polkit's generic prompt
     const auto installed = u"" PI_HELPER_PATH ""_s;
-    return QFileInfo::exists(installed) ? installed : QCoreApplication::applicationDirPath() + u"/cachyos-pi-helper"_s;
+    return QFileInfo::exists(installed) ? installed : QCoreApplication::applicationDirPath() + u'/' + QFileInfo(installed).fileName();
 }
 
 Transaction::Transaction(QObject* parent) : QObject(parent) {}

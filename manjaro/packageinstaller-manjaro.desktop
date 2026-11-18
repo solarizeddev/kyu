@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Package Installer for Manjaro
+GenericName=Package Installer
+Comment=Install, remove and update software
+Exec=/usr/bin/packageinstaller-manjaro
+Icon=manjarolinux
+StartupWMClass=packageinstaller-manjaro
+Terminal=false
+Categories=System;PackageManager;
+Keywords=software;package;install;update;aur;flatpak;

@@ -54,7 +54,37 @@ enable_sanitizers(project_options)
 add_library(project_warnings INTERFACE)
 set_project_warnings(project_warnings)
 
-set(PI_HELPER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/cachyos-pi")
+##
+## Manjaro fork: a distribution build sets these, see cmake/Manjaro.cmake. Left empty,
+## the build is upstream's.
+##
+set(PI_DISTRO_NAME "" CACHE STRING "Distribution name shown in place of CachyOS")
+set(PI_APP_ID "" CACHE STRING "Program, desktop file and polkit name")
+set(PI_LOGO_ICON "" CACHE STRING "Icon theme name of the distribution's logo")
+set(PI_OWN_REPO_PREFIX "cachyos" CACHE STRING "Repositories shown as the distribution's own (empty: all)")
+set(PI_RATE_MIRRORS "" CACHE STRING "Mirror ranking program run by the helper")
+set(PI_RATE_MIRRORS_ARGV "" CACHE STRING "Its argv, a CMake list starting with argv[0]")
+set(PI_PKGLIST "${CMAKE_CURRENT_SOURCE_DIR}/pkglist.yaml" CACHE FILEPATH "The start page's app list")
+set(PI_DESKTOP_FILE "" CACHE FILEPATH "Desktop file installed in place of cachyos-pi.desktop")
+
+if(PI_APP_ID)
+    set(PI_HELPER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/${PI_APP_ID}")
+    set(PI_HELPER_NAME "${PI_APP_ID}-helper")
+else()
+    set(PI_HELPER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/cachyos-pi")
+    set(PI_HELPER_NAME cachyos-pi-helper)
+endif()
+set(PI_BRAND_DEFINITIONS PI_OWN_REPO_PREFIX="${PI_OWN_REPO_PREFIX}")
+if(PI_DISTRO_NAME)
+    list(APPEND PI_BRAND_DEFINITIONS PI_DISTRO_NAME="${PI_DISTRO_NAME}" PI_APP_ID="${PI_APP_ID}"
+        PI_LOGO_ICON="${PI_LOGO_ICON}")
+endif()
+if(PI_RATE_MIRRORS)
+    list(TRANSFORM PI_RATE_MIRRORS_ARGV PREPEND "\"" OUTPUT_VARIABLE argv)
+    list(TRANSFORM argv APPEND "\"")
+    list(JOIN argv "," argv)
+    list(APPEND PI_BRAND_DEFINITIONS PI_RATE_MIRRORS="${PI_RATE_MIRRORS}" "PI_RATE_MIRRORS_ARGV=${argv}")
+endif()
 
 ##
 ## PKGBUILD scanner: text analysis only, shared by the GUI, the CLI and the tests.
@@ -92,7 +122,8 @@ qt_add_executable(${PROJECT_NAME}
     src/iconprovider.hpp src/iconprovider.cpp
     src/transaction.hpp src/transaction.cpp
     src/updatenotice.hpp src/updatenotice.cpp
-    src/backend.hpp src/backend.cpp)
+    src/backend.hpp src/backend.cpp
+    src/brand.hpp src/brand.cpp)
 
 set(PI_QML_FILES
     qml/Main.qml
@@ -153,13 +184,15 @@ foreach(file IN LISTS PI_QML_FILES)
 endforeach()
 # must precede qt_add_qml_module
 set_source_files_properties(qml/Look.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+# Manjaro fork: another app list keeps the resource name the code loads
+set_source_files_properties("${PI_PKGLIST}" PROPERTIES QT_RESOURCE_ALIAS pkglist.yaml)
 
 qt_add_qml_module(${PROJECT_NAME}
     URI CachyOS.PackageInstaller
     VERSION 1.0
     QML_FILES ${PI_QML_FILES}
     RESOURCES
-        pkglist.yaml
+        ${PI_PKGLIST}
         icons/cachyos-pi.png
         icons/cachyos-kernel.png
         icons/cachyos-logo.png)
@@ -169,8 +202,9 @@ qt_add_qml_module(${PROJECT_NAME}
 qt_add_translations(TARGETS ${PROJECT_NAME} SOURCE_TARGETS ${PROJECT_NAME} pi-scan TS_FILE_DIR i18n)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
+    ${PI_BRAND_DEFINITIONS}
     PI_VERSION="${PROJECT_VERSION}"
-    PI_HELPER_PATH="${PI_HELPER_DIR}/cachyos-pi-helper")
+    PI_HELPER_PATH="${PI_HELPER_DIR}/${PI_HELPER_NAME}")
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     project_options project_warnings pi-scan pi-appimage
@@ -187,6 +221,13 @@ set_source_files_properties(${pi_sources} TARGET_DIRECTORY ${PROJECT_NAME} PROPE
 ##
 add_executable(cachyos-pi-helper src/helper/main.cpp src/helper/shared.hpp)
 target_link_libraries(cachyos-pi-helper PRIVATE project_options project_warnings)
+target_compile_definitions(cachyos-pi-helper PRIVATE ${PI_BRAND_DEFINITIONS})
+
+if(PI_APP_ID)
+    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PI_APP_ID}")
+    set_target_properties(cachyos-pi-scan PROPERTIES OUTPUT_NAME "${PI_APP_ID}-scan")
+    set_target_properties(cachyos-pi-helper PROPERTIES OUTPUT_NAME "${PI_HELPER_NAME}")
+endif()
 
 ##
 ## Install
@@ -196,11 +237,26 @@ configure_file(org.cachyos.cachyos-pi.policy.in org.cachyos.cachyos-pi.policy @O
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS cachyos-pi-scan RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS cachyos-pi-helper RUNTIME DESTINATION ${PI_HELPER_DIR})
+if(PI_DISTRO_NAME)
+    # Manjaro fork: own polkit ids, vendor and icon, the distribution's desktop file,
+    # no CachyOS icon or AppStream entry.
+    file(READ "${CMAKE_CURRENT_BINARY_DIR}/org.cachyos.cachyos-pi.policy" policy)
+    string(REPLACE "org.cachyos.cachyos-pi." "org.${PI_APP_ID}." policy "${policy}")
+    string(REPLACE "/cachyos-pi-helper<" "/${PI_HELPER_NAME}<" policy "${policy}")
+    string(REPLACE "<vendor>CachyOS</vendor>" "<vendor>${PI_DISTRO_NAME}</vendor>" policy "${policy}")
+    string(REPLACE "<icon_name>cachyos-pi</icon_name>" "<icon_name>${PI_LOGO_ICON}</icon_name>" policy "${policy}")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/org.${PI_APP_ID}.policy" "${policy}")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.${PI_APP_ID}.policy"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
+    install(FILES "${PI_DESKTOP_FILE}" DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+            RENAME "${PI_APP_ID}.desktop")
+else()
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.cachyos.cachyos-pi.policy"
         DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
 install(FILES cachyos-pi.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES org.cachyos.cachyos-pi.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 install(FILES icons/cachyos-pi.png DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps)
+endif()
 
 ##
 ## Tests
@@ -220,7 +276,7 @@ if(BUILD_TESTING)
     qt_add_executable(test-pkglist tests/test_pkglist.cpp
         src/alpmdb.hpp src/alpmdb.cpp
         src/catalog.hpp src/catalog.cpp)
-    target_compile_definitions(test-pkglist PRIVATE PKGLIST_FILE="${CMAKE_CURRENT_SOURCE_DIR}/pkglist.yaml")
+    target_compile_definitions(test-pkglist PRIVATE PKGLIST_FILE="${PI_PKGLIST}")
     target_include_directories(test-pkglist PRIVATE src)
     target_link_libraries(test-pkglist PRIVATE project_options project_warnings
         Qt6::Test Qt6::Qml AppStreamQt PkgConfig::LIBALPM ryml::ryml)

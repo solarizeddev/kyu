@@ -198,7 +198,7 @@ auto pacman_args(Arguments arguments) noexcept -> std::optional<Args> {
 
 auto command_for(Arguments arguments) noexcept -> std::optional<Command> {
     if (arguments.size() == 1 && arguments.front() == "rate-mirrors"sv) {
-        return Command{helper::kRateMirrors, {"cachyos-rate-mirrors"}};
+        return Command{helper::kRateMirrors, {PI_RATE_MIRRORS_ARGV}};
     }
     auto args = pacman_args(arguments);
     if (!args) {

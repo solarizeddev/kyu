@@ -3,32 +3,41 @@
 #   cd packaging && makepkg -sif
 #   sudo pacman -R packageinstaller-manjaro-git
 pkgname=packageinstaller-manjaro-git
-pkgver=1.6.2
+pkgver=2.0.0
 pkgrel=1
-pkgdesc="CachyOS's Qt package installer, for Manjaro: install and remove software, safely"
+pkgdesc="CachyOS's package installer, for Manjaro: install, remove and update software, with AUR, Flatpak and AppImage"
 arch=(x86_64)
 url='https://github.com/CachyOS/packageinstaller'
 license=(GPL-3.0-or-later)
-depends=(gcc-libs glibc pacman polkit qt6-base)
-makedepends=(cmake ninja rust git qt6-tools polkit-qt6)
-optdepends=('flatpak: the Flatpak tab'
-            'socat: the Flatpak tab'
-            'qt6-translations: Qt'"'"'s own words in your language')
+# upstream's list, with the Manjaro logo (manjaro-icons, an SVG: qt6-svg) and
+# pacman-mirrors in place of cachyos-rate-mirrors
+depends=(appstream-qt archlinux-appstream-data elfutils glibc hicolor-icon-theme kimageformats
+         libgcc libjxl libstdc++ manjaro-icons pacman pacman-mirrors polkit qt6-base qt6-declarative qt6-svg)
+makedepends=(cmake git ninja qt6-tools)
+optdepends=('paru: build packages from the AUR (paru is itself in the AUR)'
+            'git: review and build packages from the AUR'
+            'flatpak: install Flatpak apps'
+            'fuse2: start most AppImages'
+            'pacman-contrib: see updates without refreshing the system databases')
 provides=(packageinstaller-manjaro)
 conflicts=(packageinstaller-manjaro)
-# makepkg's LTO flags on top of upstream's own (-flto -fwhole-program) break
-# linking the Rust bridge (undefined rust::cxxbridge1::Error): upstream's flags only.
-options=(!lto)
 
 _root=$(realpath "$startdir/..")
 
 build() {
+    # keep CPM's downloads of rapidyaml and backward-cpp in $srcdir
+    export CPM_SOURCE_CACHE="$srcdir/cpm"
     cmake -C "$_root/cmake/Manjaro.cmake" -S "$_root" -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr
     cmake --build build
 }
 
+check() {
+    ctest --test-dir build --output-on-failure
+}
+
 package() {
     DESTDIR="$pkgdir" cmake --install build
+    install -Dm644 "$_root/THIRD-PARTY.md" "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY.md"
 }

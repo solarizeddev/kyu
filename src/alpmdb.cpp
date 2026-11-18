@@ -13,11 +13,17 @@
 
 using namespace Qt::StringLiterals;
 
+// Manjaro fork: the repositories shown as the distribution's own ("cachyos" to the QML).
+// An empty prefix counts every sync repository.
+#ifndef PI_OWN_REPO_PREFIX
+#define PI_OWN_REPO_PREFIX "cachyos"
+#endif
+
 QString Package::source() const {
     if (foreign()) {
         return u"local"_s;
     }
-    return repo.startsWith("cachyos"_L1) ? u"cachyos"_s : u"arch"_s;
+    return repo.startsWith(QLatin1StringView(PI_OWN_REPO_PREFIX)) ? u"cachyos"_s : u"arch"_s;
 }
 
 namespace {
