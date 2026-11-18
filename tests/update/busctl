@@ -1,3 +1,0 @@
-#!/bin/sh
-# Stands in for busctl in tests/kyu_update_test.sh: no Plasma here.
-exit 1

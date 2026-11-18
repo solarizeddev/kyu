@@ -1,5 +1,0 @@
-#!/bin/sh
-# Stands in for systemd-inhibit in tests/kyu_update_test.sh: runs the command.
-while [ "${1#--}" != "$1" ]; do shift; done
-[ "$1" = true ] || touch "$KYU_FAKE_DIR/inhibited"
-exec "$@"

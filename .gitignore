@@ -1,11 +1,45 @@
-build/
-packaging/arch/src/
-packaging/arch/pkg/
-packaging/arch/*.pkg.tar.*
+*.DS_Store
+*.dump
+*.ctu-info
+.cache
+.idea
+build
+build.sh
+cmake-build-release
+cmake-build-debug
+CMakeLists.txt.user
+subprojects/fmt
+subprojects/packagecache
+backend-rustlib/target
+compile_commands.json
 
-# Build output of any kind, and downloads, never belong here
-target/
-*.whl
+# Prerequisites
+*.d
 
-# Working copies of agents (git worktrees), never part of the repository
-.claude/worktrees/
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Executables
+*.exe
+*.out
+*.app

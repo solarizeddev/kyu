@@ -1,93 +1,170 @@
-cmake_minimum_required(VERSION 3.22)
-project(kyu VERSION 0.1.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+##
+## PROJECT
+## name and version
+##
+project(cachyos-pi
+        VERSION 1.6.2
+        LANGUAGES CXX)
+
+
+##
+## INCLUDE
+##
 include(GNUInstallDirs)
-include(CTest)
+include(StandardProjectSettings)
+include(CompilerWarnings)
+include(EnableCcache)
+include(Linker)
+include(StaticAnalyzers)
+include(Sanitizers)
+include(CPM)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets DBus Network)
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+find_package(Qt6 COMPONENTS Widgets LinguistTools REQUIRED)
 
-# Flatpak updates are counted through libflatpak. Packagers can switch it off
-# to drop the dependency; the checker then reports Flatpak as not checked.
-option(KYU_FLATPAK "Count Flatpak updates through libflatpak" ON)
-if(KYU_FLATPAK)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(FLATPAK REQUIRED IMPORTED_TARGET flatpak)
+pkg_check_modules(
+  LIBALPM
+  REQUIRED
+  IMPORTED_TARGET
+  libalpm>=13.0.0)
+CPMAddPackage(
+  NAME fmt
+  GITHUB_REPOSITORY fmtlib/fmt
+  GIT_TAG 12.1.0
+  EXCLUDE_FROM_ALL YES
+)
+CPMAddPackage(
+  NAME spdlog
+  GITHUB_REPOSITORY gabime/spdlog
+  GIT_TAG v1.17.0
+  EXCLUDE_FROM_ALL YES
+)
+CPMAddPackage(
+  NAME cpr
+  GITHUB_REPOSITORY libcpr/cpr
+  GIT_TAG 1.12.0
+  EXCLUDE_FROM_ALL YES
+)
+CPMAddPackage(
+  NAME rapidyaml
+  GITHUB_REPOSITORY biojppm/rapidyaml
+  GIT_TAG v0.9.0
+  EXCLUDE_FROM_ALL YES
+)
+CPMAddPackage(
+  NAME Corrosion
+  GITHUB_REPOSITORY corrosion-rs/corrosion
+  GIT_TAG v0.5.2
+  EXCLUDE_FROM_ALL YES
+)
+
+find_package(PolkitQt6-1 REQUIRED)
+
+##
+## CONFIGURATION
+##
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=thin -fwhole-program-vtables")
+   set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto=thin -fwhole-program-vtables")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto -fwhole-program -fuse-linker-plugin")
 endif()
 
-# KStatusNotifierItem is the real tray backend. QSystemTrayIcon is only a
-# fallback so the code builds where KF6 is not available.
-find_package(KF6StatusNotifierItem QUIET)
-option(KYU_REQUIRE_KSNI "Fail the build if KStatusNotifierItem is missing" OFF)
-if(KF6StatusNotifierItem_FOUND)
-    message(STATUS "Tray backend: KStatusNotifierItem")
-elseif(KYU_REQUIRE_KSNI)
-    message(FATAL_ERROR "KF6StatusNotifierItem not found")
-else()
-    message(WARNING "KF6StatusNotifierItem not found, falling back to QSystemTrayIcon")
+# Link this 'library' to set the c++ standard / compile-time options requested
+add_library(project_options INTERFACE)
+target_compile_features(project_options INTERFACE cxx_std_23)
+
+# Files with translation sources. You should run lupdate manually when needed to regenerate them
+file(GLOB TS_FILES "${PROJECT_SOURCE_DIR}/lang/*.ts")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lang")
+
+set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/lang") # set qm files output directory
+qt_add_translation(QM_FILES ${TS_FILES})   # generate qm files
+
+add_custom_command(
+    DEPENDS "${QM_FILES}"
+    OUTPUT "${CMAKE_BINARY_DIR}/cachyospi_locale.qrc"
+    COMMAND cp "${CMAKE_SOURCE_DIR}/cachyospi_locale.qrc" "${CMAKE_CURRENT_BINARY_DIR}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+##
+## Target
+##
+qt_add_executable(${PROJECT_NAME}
+    ${RESOURCES}
+    images.qrc "${CMAKE_BINARY_DIR}/cachyospi_locale.qrc"
+    src/ini.hpp
+    src/utils.hpp src/utils.cpp
+    src/logging_utils.hpp src/logging_utils.cpp
+    src/versionnumber.hpp
+    src/alpm_manager.hpp src/alpm_manager.cpp
+    src/pacmancache.hpp src/pacmancache.cpp
+    src/remotes.hpp src/remotes.cpp
+    src/about.hpp src/about.cpp
+    src/cmd.hpp src/cmd.cpp
+    src/mainwindow.hpp src/mainwindow.cpp
+    src/mainwindow.ui
+    src/main.cpp)
+
+# Link this 'library' to use the warnings specified in CompilerWarnings.cmake
+add_library(project_warnings INTERFACE)
+set_project_warnings(project_warnings)
+
+# Add linker configuration
+configure_linker(project_options)
+
+# sanitizer options if supported by compiler
+enable_sanitizers(project_options)
+
+corrosion_import_crate(MANIFEST_PATH "backend-rustlib/Cargo.toml" FLAGS "${CARGO_FLAGS}")
+corrosion_add_cxxbridge(backend-rustlib-cxxbridge CRATE backend_rustlib FILES lib.rs)
+
+include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE project_warnings project_options Qt6::Widgets Threads::Threads spdlog::spdlog fmt::fmt ryml::ryml cpr::cpr backend-rustlib-cxxbridge PkgConfig::LIBALPM)
+
+option(ENABLE_UNITY "Enable Unity builds of projects" OFF)
+if(ENABLE_UNITY)
+   # Add for any project you want to apply unity builds for
+   set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ON)
 endif()
 
-# Notifications ("News", "The update is waiting for you"), each switchable
-# in System Settings → Notifications through kyu.notifyrc.
-find_package(KF6Notifications QUIET)
-option(KYU_REQUIRE_NOTIFICATIONS "Fail the build if KF6 Notifications is missing" OFF)
-if(KF6Notifications_FOUND)
-    message(STATUS "Notifications: KNotification")
-elseif(KYU_REQUIRE_NOTIFICATIONS)
-    message(FATAL_ERROR "KF6Notifications not found")
-else()
-    message(WARNING "KF6Notifications not found: no notifications (the tray and the taskbar still show the state)")
-endif()
+install(
+   TARGETS ${PROJECT_NAME}
+   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
-# kyu-window embeds Konsole's terminal part (KF6 Parts; Konsole at run time).
-find_package(KF6Parts QUIET)
-find_package(KF6CoreAddons QUIET)
-option(KYU_REQUIRE_WINDOW "Fail the build if KF6 Parts (for kyu-window) is missing" OFF)
-if(KF6Parts_FOUND AND KF6CoreAddons_FOUND)
-    set(KYU_WINDOW ON)
-    message(STATUS "kyu-window: with Konsole's terminal part")
-elseif(KYU_REQUIRE_WINDOW)
-    message(FATAL_ERROR "KF6 Parts not found (needed for kyu-window)")
-else()
-    message(WARNING "KF6 Parts not found: kyu-window is not built (kyu-update opens in Konsole instead)")
-endif()
+install(
+   FILES org.cachyos.cachyos-pi.pkexec.policy
+   DESTINATION "${POLKITQT-1_POLICY_FILES_INSTALL_DIR}"
+)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-add_compile_definitions(QT_NO_KEYWORDS QT_NO_CAST_FROM_ASCII QT_NO_URL_CAST_FROM_STRING)
+install(
+   FILES "${PROJECT_SOURCE_DIR}/pkglist.yaml"
+   DESTINATION lib/cachyos-pi
+)
+file(GLOB HELP_FILES "${PROJECT_SOURCE_DIR}/help/*")
+install(
+   FILES ${HELP_FILES}
+   DESTINATION share/doc/cachyos-packageinstaller
+)
 
-set(KYU_APP_ID "io.github.solarizeddev.kyu")
-set(KYU_SYSTEMD_USER_UNIT_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user"
-    CACHE PATH "Where the systemd user units are installed")
-
-# Translations (translations/kyu_*.ts): Kyu's own words. lrelease builds the
-# .qm files when Qt's Linguist tools are there; "kyu-lupdate" refreshes the
-# .ts files from the sources.
-find_package(Qt6 QUIET COMPONENTS LinguistTools)
-file(GLOB KYU_TS_FILES ${CMAKE_SOURCE_DIR}/translations/kyu_*.ts)
-set(KYU_QM_DIR ${CMAKE_BINARY_DIR}/translations)
-set(KYU_TRANSLATIONS_DIR ${CMAKE_INSTALL_FULL_DATADIR}/kyu/translations)
-
-add_subdirectory(src)
-add_subdirectory(data)
-if(Qt6LinguistTools_FOUND AND KYU_TS_FILES)
-    # Before qt_add_lrelease, which reads it: the .qm files in build/translations.
-    set_source_files_properties(${KYU_TS_FILES} PROPERTIES OUTPUT_LOCATION ${KYU_QM_DIR})
-    qt_add_lrelease(kyucore TS_FILES ${KYU_TS_FILES} QM_FILES_OUTPUT_VARIABLE KYU_QM_FILES OPTIONS -silent)
-    install(FILES ${KYU_QM_FILES} DESTINATION ${CMAKE_INSTALL_DATADIR}/kyu/translations)
-    add_custom_target(kyu-lupdate
-        COMMAND Qt6::lupdate -tr-function-alias tr+=numbered -locations relative -no-obsolete
-                ${CMAKE_SOURCE_DIR}/src -ts ${KYU_TS_FILES}
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Refreshing translations/kyu_*.ts from the sources")
-elseif(KYU_TS_FILES)
-    message(WARNING "Qt6 LinguistTools not found: translations are not built (Kyu stays English)")
-endif()
-if(BUILD_TESTING)
-    add_subdirectory(tests)
-endif()
+install(
+   FILES cachyos-pi.desktop
+   DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+install(
+   FILES icons/cachyos-pi.png
+   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+)

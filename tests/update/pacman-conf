@@ -1,6 +1,0 @@
-#!/bin/sh
-# Stands in for pacman-conf in tests/kyu_update_test.sh.
-case "$1" in
-HoldPkg) echo pacman; echo glibc ;;
-esac
-exit 0

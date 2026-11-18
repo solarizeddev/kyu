@@ -1,4 +1,0 @@
-#!/bin/sh
-# Stands in for systemctl in tests/kyu_update_test.sh: never reboots.
-touch "$KYU_FAKE_DIR/systemctl-$1"
-echo "fake systemctl $*"
