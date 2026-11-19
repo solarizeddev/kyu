@@ -14,8 +14,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 upstream_url=https://github.com/CachyOS/packageinstaller.git
-pointer="> **This repository is the Manjaro build of CachyOS's package installer.** See [MANJARO.md](MANJARO.md) for what differs and how to build it."
-screenshot="![Package Installer for Manjaro](manjaro/screenshots/discover.png)"
 install=1
 ref=
 for arg in "$@"; do
@@ -26,17 +24,24 @@ for arg in "$@"; do
     esac
 done
 
+# README.md is manjaro/README-header.md followed by upstream's README without
+# its title: on a conflict take upstream's and put the header back.
+readme_with_header() {
+    { cat manjaro/README-header.md; sed '1{/^# /d}' README.md | sed '/./,$!d'; } > README.md.new
+    mv README.md.new README.md
+}
+
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-# Conflicts that resolve themselves: README.md only differs by our pointer line
-# and screenshot (take upstream's, put them back); screenshots/ holds our
+# Conflicts that resolve themselves: README.md (upstream's, with our header put
+# back); screenshots/ holds our
 # pictures under upstream's names (keep ours, see the check after the merge).
 resolve_known() {
     local conflicted
     conflicted=$(git diff --name-only --diff-filter=U)
     if grep -qx README.md <<<"$conflicted"; then
         git checkout --theirs -- README.md
-        grep -qF "$pointer" README.md || printf '%s\n\n%s\n\n%s\n' "$pointer" "$screenshot" "$(cat README.md)" > README.md
+        readme_with_header
         git add README.md
     fi
     grep '^screenshots/' <<<"$conflicted" | while read -r file; do

@@ -100,7 +100,7 @@ then `git push`. `--no-install` stops after the checks.
 On conflicts it stops and lists the files; they can only be where our
 changes are (the table above, each marked `Manjaro fork` in the code). Keep
 upstream's new code, put our lines back, commit, and run it again: it goes on
-from that merge. A conflict in README.md's first lines is resolved by itself.
+from that merge. A conflict in README.md is resolved by itself: it is upstream's README under our header (`manjaro/README-header.md`).
 
 A new text that says more than the name (CachyOS's repositories, mirrors or
 tools) gets a whole-text entry in `src/brand.cpp`; the name alone is replaced
