@@ -23,6 +23,8 @@ provides=(packageinstaller-manjaro)
 conflicts=(packageinstaller-manjaro)
 
 _root=$(realpath "$startdir/..")
+# NO_MANJARO_LOGO=1 makepkg -sif: a generic icon in place of the Manjaro logo
+# (window, menu, sidebar, banner, password prompt); read by cmake/Manjaro.cmake
 
 build() {
     # keep CPM's downloads of rapidyaml and backward-cpp in $srcdir

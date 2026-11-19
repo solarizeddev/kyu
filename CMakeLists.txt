@@ -249,8 +249,8 @@ if(PI_DISTRO_NAME)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/org.${PI_APP_ID}.policy" "${policy}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.${PI_APP_ID}.policy"
             DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)
-    install(FILES "${PI_DESKTOP_FILE}" DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
-            RENAME "${PI_APP_ID}.desktop")
+    configure_file("${PI_DESKTOP_FILE}" "${CMAKE_CURRENT_BINARY_DIR}/${PI_APP_ID}.desktop" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PI_APP_ID}.desktop" DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 else()
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.cachyos.cachyos-pi.policy"
         DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions)

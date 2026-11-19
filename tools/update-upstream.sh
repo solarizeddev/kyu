@@ -3,15 +3,18 @@
 # checks what the Manjaro build needs after a merge, then builds, tests and
 # installs the package (makepkg -sif). Nothing is pushed.
 #
-# Usage: tools/update-upstream.sh [--no-install] [REF]
+# Usage: tools/update-upstream.sh [--no-install] [--no-logo] [REF]
 #   REF          what to merge; by default upstream's newest v2.* release tag,
 #                or upstream/fresh while 2.0 has no tag yet
 #   --no-install merge and check only
+#   --no-logo    build with a generic icon in place of the Manjaro logo
+#                (same as NO_MANJARO_LOGO=1 makepkg -sif)
 #
 # On conflicts it stops; fix them, commit, and run it again to go on.
 # After it: try the app, then git push.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+self=$(readlink -f "$0")
+cd "$(dirname "$self")/.."
 
 upstream_url=https://github.com/CachyOS/packageinstaller.git
 install=1
@@ -19,7 +22,8 @@ ref=
 for arg in "$@"; do
     case $arg in
     --no-install) install=0 ;;
-    -h | --help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-logo) export NO_MANJARO_LOGO=1 ;;
+    -h | --help) sed -n '2,15p' "$self" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) ref=$arg ;;
     esac
 done

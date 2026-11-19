@@ -108,6 +108,17 @@ by itself. `tools/test-manjaro.sh` also builds and tests both configurations
 in a clean Manjaro container (needs docker).
 
 
+## Without the Manjaro logo
+
+```bash
+NO_MANJARO_LOGO=1 makepkg -sif        # or: tools/update-upstream.sh --no-logo
+```
+
+builds it with a generic icon (`system-software-install` from the icon theme)
+in place of the Manjaro logo: window, menu entry, sidebar, banner and password
+prompt. The texts keep the Manjaro name. For when Manjaro asks us not to use
+the logo; the notifier has the same switch.
+
 ## Name and logo
 
 Shown as "Manjaro / Package Installer", window title "Package Installer for
