@@ -11,6 +11,9 @@ Flatpak and AppImages in one window. It is a port of
 
 Install: clone, then `cd packaging && makepkg -sif`.
 
+Update from CachyOS: `tools/update-upstream.sh` merges their latest release,
+runs the Manjaro checks, then builds and installs.
+
 - [MANJARO.md](MANJARO.md): what differs from CachyOS's version, building, merging upstream.
 - [update-notifier-manjaro](https://github.com/solarizeddev/update-notifier-manjaro): the tray icon and update notifications.
 
