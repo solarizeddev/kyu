@@ -1,5 +1,8 @@
 # packageinstaller-manjaro
 
+> **Community project.** Not affiliated with or endorsed by Manjaro GmbH & Co. KG
+> or CachyOS. Manjaro and the Manjaro logo are trademarks of Manjaro GmbH & Co. KG.
+
 The package installer for [Manjaro](https://manjaro.org): a port of
 [CachyOS's package installer](https://github.com/CachyOS/packageinstaller)
 2.0. Browse, install, remove and update packages from the Manjaro
@@ -11,9 +14,6 @@ from [update-notifier-manjaro](https://github.com/solarizeddev/update-notifier-m
 
 What differs from CachyOS's version, how to build it and how upstream
 releases are merged: [MANJARO.md](MANJARO.md).
-
-> A community project, not affiliated with or endorsed by Manjaro GmbH & Co. KG
-> or CachyOS. Manjaro and the Manjaro logo are trademarks of Manjaro GmbH & Co. KG.
 
 ![Package Installer for Manjaro](manjaro/screenshots/discover.png)
 
