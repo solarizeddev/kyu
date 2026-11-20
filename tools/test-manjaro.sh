@@ -28,14 +28,14 @@ useradd -m tester
 # a copy: the build must not depend on anything left in the checkout
 mkdir /tmp/src && tar -C /src --exclude=./build --exclude=./.git -cf - . | tar -C /tmp/src -xf -
 cmake -C /tmp/src/cmake/Manjaro.cmake -S /tmp/src -B /tmp/pi-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr >/out/cmake.log 2>&1
+    -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=ON >/out/cmake.log 2>&1
 ninja -C /tmp/pi-build >/out/build.log 2>&1
-ctest --test-dir /tmp/pi-build --output-on-failure >/out/ctest.log 2>&1
+ctest --test-dir /tmp/pi-build --output-on-failure --no-tests=error >/out/ctest.log 2>&1
 ninja -C /tmp/pi-build install >/out/install.log 2>&1
 # The upstream configuration still builds and passes its tests.
-cmake -S /tmp/src -B /tmp/pi-default -G Ninja -DCMAKE_BUILD_TYPE=Release >/out/cmake-default.log 2>&1
+cmake -S /tmp/src -B /tmp/pi-default -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON >/out/cmake-default.log 2>&1
 ninja -C /tmp/pi-default >/out/build-default.log 2>&1
-ctest --test-dir /tmp/pi-default --output-on-failure >/out/ctest-default.log 2>&1
+ctest --test-dir /tmp/pi-default --output-on-failure --no-tests=error >/out/ctest-default.log 2>&1
 for f in /usr/bin/packageinstaller-manjaro /usr/bin/packageinstaller-manjaro-scan \
          /usr/lib/packageinstaller-manjaro/packageinstaller-manjaro-helper \
          /usr/share/applications/packageinstaller-manjaro.desktop \
